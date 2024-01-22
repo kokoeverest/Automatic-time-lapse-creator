@@ -11,7 +11,7 @@ def create_timelapse(path, output_video, fps=24, width=640, height=360):
     image_files = sorted(glob(f'{path}/*.jpg'))
 
     try:
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v') # type: ignore
         video_writer = cv2.VideoWriter(output_video, fourcc, fps, (width, height))
 
         for image_file in image_files:
