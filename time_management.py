@@ -1,12 +1,14 @@
 from astral.geocoder import database, lookup
 from astral.sun import sunrise, sunset
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta as td
 
 def s_rise():
-    return sunrise(city.observer).hour + 1, sunrise(city.observer).minute
+    sun_rise = sunrise(city.observer) + td(hours=1, minutes=20)
+    return sun_rise.hour, sun_rise.minute
 
 def s_set():
-    return sunset(city.observer).hour + 2, sunset(city.observer).minute
+    sun_set = sunset(city.observer) + td(hours=2, minutes=40)
+    return sun_set.hour, sun_set.minute
 
 def is_daylight():
     return start_of_daylight < dt.now() < end_of_daylight

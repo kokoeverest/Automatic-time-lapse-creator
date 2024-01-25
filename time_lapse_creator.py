@@ -7,7 +7,7 @@ def video_exists(path):
     return os.path.exists(path)
 
 
-def create_timelapse(path, output_video, fps=24, width=640, height=360):
+def create_timelapse(path, output_video, fps=30, width=640, height=360):
     image_files = sorted(glob(f'{path}/*.jpg'))
 
     try:
@@ -22,6 +22,7 @@ def create_timelapse(path, output_video, fps=24, width=640, height=360):
             video_writer.write(img)
         
         video_writer.release()
+        print(f'Video {output_video} created!')
         return True
     
     except:
@@ -31,6 +32,7 @@ def create_timelapse(path, output_video, fps=24, width=640, height=360):
 def delete_source_images(path):
     image_files = glob(f'{path}/*.jpg')
     try:
+        print(f'Deleting {len(image_files)} files from {path}')
         [os.remove(file) for file in image_files]
         return True
     except:
