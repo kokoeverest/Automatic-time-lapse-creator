@@ -59,8 +59,8 @@ while True:
     images_collected = collect_images_from_webcams()
 
     if dt.now() > end_of_daylight and images_collected:
-        for src in sources_list:
-            input_folder = f'{base_path}/{src.location}/{folder_name}'
+        for source in sources_list:
+            input_folder = f'{base_path}/{source.location}/{folder_name}'
             output_video = f'{input_folder}/{folder_name}.mp4'
 
             if not video_exists(output_video):

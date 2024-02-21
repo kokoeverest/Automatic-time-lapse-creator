@@ -25,7 +25,7 @@ def create_timelapse(path, output_video, fps=30, width=640, height=360):
         print(f'Video {output_video} created!')
         return True
     
-    except:
+    except Exception:
         return False
     
 
@@ -35,6 +35,6 @@ def delete_source_images(path):
         print(f'Deleting {len(image_files)} files from {path}')
         [os.remove(file) for file in image_files]
         return True
-    except:
+    except Exception:
         return False
     
