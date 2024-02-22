@@ -16,8 +16,6 @@ read/resize the jpeg files and build a time lapse mp4 video
 + Namedtuple, imported from the builtin module Collections - just to
 practice the useful syntax and capabilities of this data structure
 + Requests - another builtin module used to retrieve the image from the url
-+ Beautiful Soup (https://pypi.org/project/beautifulsoup4/) - imported but
-not used at this stage
 
 #### Main flow and automatisation of the app:
 ```
