@@ -27,7 +27,7 @@ class TimeLapseCreator:
         sources: list[Source],
         city: str = "Sofia",
         seconds_between_frames: int = 60,
-        nighttime_retry_seconds: int = 300,
+        night_time_retry_seconds: int = 300,
     ) -> None:
         
         self.base_path = os.getcwd()
@@ -35,7 +35,7 @@ class TimeLapseCreator:
         self.location = LocationAndTimeManager(city)
         self.sources = set(sources)
         self.wait_before_next_frame = seconds_between_frames
-        self.wait_before_next_retry = nighttime_retry_seconds
+        self.wait_before_next_retry = night_time_retry_seconds
 
     def execute(self):
         self.verify_sources_not_empty()
@@ -65,11 +65,11 @@ class TimeLapseCreator:
             print(f"Start collecting images: {dt.now()}")
 
             while self.location.is_daylight():
-                for site in self.sources:
+                for source in self.sources:
                     try:
-                        img = self.verify_request(site)
+                        img = self.verify_request(source)
 
-                        location = site.location_name
+                        location = source.location_name
                         file_name = dt.now().strftime("%H:%M:%S")
                         current_path = f"{self.base_path}/{location}/{self.folder_name}"
 
@@ -91,21 +91,21 @@ class TimeLapseCreator:
         if not self.sources:
             raise ValueError("You should add at least one source for this location!")
 
-    def verify_request(self, site):
-        try:
-            response = requests.get(site.url)
-            if response.status_code != 200:
-                raise Exception(f"Status code {response.status_code} is not 200")
+    def verify_request(self, source: Source):
+        response = requests.get(source.url)
+        if response.status_code != 200:
+            raise Exception(f"Status code {response.status_code} is not 200 for url {source}")
 
-            return response.content
-        except Exception as e:
-            raise Exception(str(e))
-
+        return response.content
+        
     def add_sources(self, sources: Source):
-        if isinstance(sources, Source) and len(sources) == 1:
+        if isinstance(sources, Source):
             self.sources.add(sources)
         else:
             self.sources.update(set(sources))
 
     def remove_source(self, source: Source):
-        self.sources.remove(source)
+        if isinstance(source, Source):
+            self.sources.remove(source)
+        else:
+            (self.sources.remove(src) for src in source)
