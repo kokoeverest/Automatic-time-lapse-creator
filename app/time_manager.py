@@ -4,6 +4,8 @@ from datetime import datetime as dt, timedelta as td
 
 
 class LocationAndTimeManager:
+    """"""
+
     YEAR, MONTH, TODAY = dt.today().year, dt.today().month, dt.today().day
 
     def __init__(self, city) -> None:
@@ -30,14 +32,19 @@ class LocationAndTimeManager:
         )
 
     def s_rise(self):
+        """"""
+
         sun_rise = sunrise(self.city.observer) + td(hours=1, minutes=20)
         return sun_rise.hour, sun_rise.minute
 
     def s_set(self):
+        """"""
+
         sun_set = sunset(self.city.observer) + td(hours=2, minutes=40)
         return sun_set.hour, sun_set.minute
 
     def is_daylight(self):
+        """"""
+
         return self.start_of_daylight < dt.now() < self.end_of_daylight
 
-# year, month, today = dt.today().year, dt.today().month, dt.today().day

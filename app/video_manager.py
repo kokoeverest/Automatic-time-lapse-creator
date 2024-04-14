@@ -4,12 +4,18 @@ import os
 
 
 class VideoManager:
+    """"""
+
     @classmethod
     def video_exists(path):
+        """"""
+
         return os.path.exists(path)
 
     @classmethod
     def create_timelapse(path, output_video, fps=30, width=640, height=360):
+        """"""
+        
         image_files = sorted(glob(f"{path}/*.jpg"))
 
         try:
@@ -32,6 +38,8 @@ class VideoManager:
 
     @classmethod
     def delete_source_images(path):
+        """"""
+        
         image_files = glob(f"{path}/*.jpg")
         try:
             print(f"Deleting {len(image_files)} files from {path}")

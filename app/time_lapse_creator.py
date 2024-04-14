@@ -22,6 +22,8 @@ class Source(namedtuple("Source", ["location_name", "url"])):
 
 
 class TimeLapseCreator:
+    """"""
+
     def __init__(
         self,
         sources: list[Source],
@@ -38,6 +40,8 @@ class TimeLapseCreator:
         self.wait_before_next_retry = night_time_retry_seconds
 
     def execute(self):
+        """"""
+
         self.verify_sources_not_empty()
         while True:
             images_collected = self.collect_images_from_webcams()
@@ -61,6 +65,8 @@ class TimeLapseCreator:
                 sleep(self.wait_before_next_retry)
 
     def collect_images_from_webcams(self):
+        """"""
+
         if self.location.is_daylight():
             print(f"Start collecting images: {dt.now()}")
 
@@ -88,10 +94,19 @@ class TimeLapseCreator:
         return False
 
     def verify_sources_not_empty(self):
+        """Verifies that TimeLapseCreator has at least one Source to take images for.
+        
+        Raises ValueError if there are no sources added."""
+        
         if not self.sources:
             raise ValueError("You should add at least one source for this location!")
 
     def verify_request(self, source: Source):
+        """Verifies the request status code is 200.
+        
+        Raises Exception if the code is different, 
+        beacause request.content would not be accessible and the program will crash."""
+
         response = requests.get(source.url)
         if response.status_code != 200:
             raise Exception(f"Status code {response.status_code} is not 200 for url {source}")
@@ -99,12 +114,16 @@ class TimeLapseCreator:
         return response.content
         
     def add_sources(self, sources: Source):
+        """Accepts a single Source or a collection[Source]."""
+
         if isinstance(sources, Source):
             self.sources.add(sources)
         else:
             self.sources.update(set(sources))
 
     def remove_source(self, source: Source):
+        """Accepts a single Source or a collection[Source]."""
+
         if isinstance(source, Source):
             self.sources.remove(source)
         else:
