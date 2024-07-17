@@ -47,4 +47,3 @@ class LocationAndTimeManager:
         """"""
 
         return self.start_of_daylight < dt.now() < self.end_of_daylight
-

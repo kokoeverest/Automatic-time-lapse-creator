@@ -15,7 +15,7 @@ class VideoManager:
     @classmethod
     def create_timelapse(path, output_video, fps=30, width=640, height=360):
         """"""
-        
+
         image_files = sorted(glob(f"{path}/*.jpg"))
 
         try:
@@ -26,7 +26,7 @@ class VideoManager:
                 img_path = os.path.join(path, image_file)
 
                 img = cv2.imread(img_path)
-                img = cv2.resize(img, (width, height))
+                img = cv2.resize(src=img, dsize=(width, height))
                 video_writer.write(img)
 
             video_writer.release()
@@ -39,7 +39,7 @@ class VideoManager:
     @classmethod
     def delete_source_images(path):
         """"""
-        
+
         image_files = glob(f"{path}/*.jpg")
         try:
             print(f"Deleting {len(image_files)} files from {path}")

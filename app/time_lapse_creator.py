@@ -105,7 +105,9 @@ class TimeLapseCreator:
         """Verifies the request status code is 200.
         
         Raises Exception if the code is different, 
-        beacause request.content would not be accessible and the program will crash."""
+        because request.content would not be accessible and the program will crash.
+        
+        Returns the content of the response if Exception is not raised."""
 
         response = requests.get(source.url)
         if response.status_code != 200:
