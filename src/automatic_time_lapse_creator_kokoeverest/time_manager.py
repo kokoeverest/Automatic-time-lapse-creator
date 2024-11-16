@@ -1,6 +1,11 @@
 from astral.geocoder import database, lookup
 from astral.sun import sunrise, sunset
+from astral import LocationInfo
 from datetime import datetime as dt, timedelta as td
+
+from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
+    UnknownLocationException,
+)
 
 
 class LocationAndTimeManager:
@@ -8,12 +13,23 @@ class LocationAndTimeManager:
 
     YEAR, MONTH, TODAY = dt.today().year, dt.today().month, dt.today().day
 
-    def __init__(self, city) -> None:
+    def __init__(self, city_name: str) -> None:
         self.db = database()
-        self.city = lookup(city, self.db)
 
-        self.start_hour, self.start_minutes = self.s_rise()
-        self.end_hour, self.end_minutes = self.s_set()
+        try:
+            self.city = lookup(city_name, self.db)
+        except KeyError:
+            UNKNOWN_LOCATION_MESSAGE = (
+                f"Location could not be found."
+                f"Try to use a major city name in your area"
+            )
+            raise UnknownLocationException(UNKNOWN_LOCATION_MESSAGE)
+
+        if self.city_is_location_info_object:
+            self.start_hour, self.start_minutes = self.s_rise()
+            self.end_hour, self.end_minutes = self.s_set()
+        else:
+            raise NotImplementedError("Sunset and sunrise for GroupInfo not implemented yet")
 
         self.start_of_daylight = dt(
             year=LocationAndTimeManager.YEAR,
@@ -31,15 +47,19 @@ class LocationAndTimeManager:
             minute=self.end_minutes,
         )
 
+    @property
+    def city_is_location_info_object(self):
+        return isinstance(self.city, LocationInfo)
+    
     def s_rise(self):
         """"""
-
+        assert isinstance(self.city, LocationInfo)
         sun_rise = sunrise(self.city.observer) + td(hours=1, minutes=20)
         return sun_rise.hour, sun_rise.minute
 
     def s_set(self):
         """"""
-
+        assert isinstance(self.city, LocationInfo)
         sun_set = sunset(self.city.observer) + td(hours=2, minutes=40)
         return sun_set.hour, sun_set.minute
 
@@ -47,3 +67,4 @@ class LocationAndTimeManager:
         """"""
 
         return self.start_of_daylight < dt.now() < self.end_of_daylight
+    

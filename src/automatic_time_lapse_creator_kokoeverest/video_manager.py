@@ -1,25 +1,27 @@
 from glob import glob
+from pathlib import Path
 import cv2
 import os
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import JPG_FILE
 
 
 class VideoManager:
     """"""
 
     @classmethod
-    def video_exists(path):
+    def video_exists(cls, path: str | Path):
         """"""
 
         return os.path.exists(path)
 
     @classmethod
-    def create_timelapse(path, output_video, fps=30, width=640, height=360):
+    def create_timelapse(cls, path: str, output_video: str, fps: int=30, width: int=640, height: int=360):
         """"""
 
-        image_files = sorted(glob(f"{path}/*.jpg"))
+        image_files = sorted(glob(f"{path}/*{JPG_FILE}"))
 
         try:
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore
+            fourcc = cv2.VideoWriter.fourcc(*"mp4v")
             video_writer = cv2.VideoWriter(output_video, fourcc, fps, (width, height))
 
             for image_file in image_files:
@@ -37,10 +39,10 @@ class VideoManager:
             return False
 
     @classmethod
-    def delete_source_images(path):
+    def delete_source_images(cls, path: str | Path):
         """"""
 
-        image_files = glob(f"{path}/*.jpg")
+        image_files = glob(f"{path}/*{JPG_FILE}")
         try:
             print(f"Deleting {len(image_files)} files from {path}")
             [os.remove(file) for file in image_files]

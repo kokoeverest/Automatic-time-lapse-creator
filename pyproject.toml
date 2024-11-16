@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "automatic_time_lapse_creator_kokoeverest"
+version = "0.0.1"
+authors = [
+  { name="Kaloyan Peychev", email="kokoeverest@gmail.com" },
+]
+description = "A Python script for extracting images from a web cam url and converting these images into a timelapse"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/pypa/sampleproject"
+Issues = "https://github.com/pypa/sampleproject/issues"
