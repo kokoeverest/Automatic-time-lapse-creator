@@ -1,6 +1,7 @@
 from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import Source, TimeLapseCreator
+import os
 
-
+# Valid sources
 aleko_source = Source(
     "aleko", "https://home-solutions.bg/cams/aleko2.jpg?1705293967111"
 )
@@ -11,18 +12,20 @@ pleven_hut_source = Source(
     "plevenhut", "https://meter.ac/gs/nodes/N160/snap.jpg?1705436803718"
 )
 
-sample_source_with_empty_url = Source("fake", "https://empty.url")
-
 sources_list: list[Source] = [aleko_source, borovets_source, pleven_hut_source]
-invalid_source_list = [sample_source_with_empty_url]
-
+# or
 # bulgaria_webcams = TimeLapseCreator(sources_list)
 
-bulgaria_webcams = TimeLapseCreator(invalid_source_list)
-# print(f"Sources before: {len(bulgaria_webcams.sources)}")
+bulgaria_webcams = TimeLapseCreator()
+bulgaria_webcams.add_sources(sources_list)
 
-# bulgaria_webcams.remove_sources({aleko_source})
-# print(f"Sources after: {len(bulgaria_webcams.sources)}")
+# Invalid source 
+sample_source_with_empty_url = Source("fake", "https://empty.url")
+invalid_source_list = [sample_source_with_empty_url]
+
+invalid_url_creator = TimeLapseCreator(invalid_source_list)
+
 
 if __name__ == "__main__":
+    # invalid_url_creator.execute()
     bulgaria_webcams.execute()
