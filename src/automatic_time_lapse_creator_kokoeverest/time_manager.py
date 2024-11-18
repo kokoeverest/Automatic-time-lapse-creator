@@ -2,11 +2,13 @@ from astral.geocoder import database, lookup
 from astral.sun import sunrise, sunset
 from astral import LocationInfo
 from datetime import datetime as dt, timedelta as td
+import logging
 
 from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
     UnknownLocationException,
 )
 
+logger = logging.getLogger(__name__)
 
 class LocationAndTimeManager:
     """"""
@@ -23,13 +25,16 @@ class LocationAndTimeManager:
                 f"Location could not be found."
                 f"Try to use a major city name in your area"
             )
+            logger.error(UNKNOWN_LOCATION_MESSAGE, UnknownLocationException)
             raise UnknownLocationException(UNKNOWN_LOCATION_MESSAGE)
 
         if self.city_is_location_info_object:
             self.start_hour, self.start_minutes = self.s_rise()
             self.end_hour, self.end_minutes = self.s_set()
         else:
-            raise NotImplementedError("Sunset and sunrise for GroupInfo not implemented yet")
+            NOT_IMPLEMENTED_MESSAGE = "Sunset and sunrise for GroupInfo not implemented yet"
+            logger.warning(NOT_IMPLEMENTED_MESSAGE, NotImplementedError)
+            raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
         self.start_of_daylight = dt(
             year=LocationAndTimeManager.YEAR,

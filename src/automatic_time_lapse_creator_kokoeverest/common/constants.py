@@ -1,4 +1,6 @@
 JPG_FILE = ".jpg"
 MP4_FILE = ".mp4"
+LOG_FILE = ".log"
 YYMMDD_FORMAT = "%Y-%m-%d"
-HHMMSS_FORMAT = "%H_%M_%S"
+HHMMSS_UNDERSCORE_FORMAT = "%H_%M_%S"
+HHMMSS_COLON_FORMAT = "%H:%M:%S %p"

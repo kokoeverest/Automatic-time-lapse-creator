@@ -2,8 +2,10 @@ from glob import glob
 from pathlib import Path
 import cv2
 import os
+import logging
 from src.automatic_time_lapse_creator_kokoeverest.common.constants import JPG_FILE
 
+logger = logging.getLogger(__name__)
 
 class VideoManager:
     """A class for managing the time lapse from the collected images during the day.
@@ -13,11 +15,14 @@ class VideoManager:
     @classmethod
     def video_exists(cls, path: str | Path) -> bool:
         """Checks if a file exists at the specified path.
-        
-        Parameters: 
+
+        Parameters::
+
             path: str | Path - the file path to be checked.
         
-        Returns: bool - if the checked file exists or not."""
+        Returns::
+         
+           bool - if the checked file exists or not."""
 
         return os.path.exists(path)
 
@@ -26,14 +31,17 @@ class VideoManager:
         """Gets the image files from the specified folder and sorts them chronologically.
         Then a VideoWriter object creates the video and writes it to the specified folder.
         
-        Parameters:
+        Parameters::
+
             path: str - the folder, containing the images
             output_video: str - the name of the video file to be created
             fps: int - frames per second of the video
             width: int - width of the video in pixels
             height: int - height of the video in pixels
 
-        Returns: True - if the video was created successfully;
+        Returns::
+         
+            True - if the video was created successfully;
             False - in case of Exception during the creation of the video
         
         Note: the source image files are not modified or deleted in any case."""
@@ -52,27 +60,32 @@ class VideoManager:
                 video_writer.write(img)
 
             video_writer.release()
-            print(f"Video {output_video} created!")
+            logger.info(f"Video {output_video} created!")
             return True
 
-        except Exception:
+        except Exception as exc:
+            logger.error(exc)
             return False
 
     @classmethod
     def delete_source_images(cls, path: str | Path) -> bool:
         """Deletes the image files from the specified folder.
 
-        Parameters:
+        Parameters::
+
             path: str | Path - the folder path
 
-        Returns: True - if the images were deleted successfully;
+        Returns::
+            
+            True - if the images were deleted successfully;
             False - in case of Exception during files deletion
         """
 
         image_files = glob(f"{path}/*{JPG_FILE}")
         try:
-            print(f"Deleting {len(image_files)} files from {path}")
+            logger.info(f"Deleting {len(image_files)} files from {path}")
             [os.remove(file) for file in image_files]
             return True
-        except Exception:
+        except Exception as exc:
+            logger.error(exc)
             return False

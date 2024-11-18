@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from src.automatic_time_lapse_creator_kokoeverest.video_manager import VideoManager as vm
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import JPG_FILE, MP4_FILE, YYMMDD_FORMAT, HHMMSS_FORMAT # type: ignore
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import JPG_FILE, MP4_FILE, YYMMDD_FORMAT, HHMMSS_UNDERSCORE_FORMAT # type: ignore
 from datetime import datetime
 
 cwd = os.getcwd()

@@ -5,6 +5,7 @@ from time import sleep
 from typing import NamedTuple
 from pathlib import Path
 from typing import Iterable
+import logging
 from src.automatic_time_lapse_creator_kokoeverest.video_manager import (
     VideoManager as vm,
 )
@@ -14,26 +15,52 @@ from src.automatic_time_lapse_creator_kokoeverest.time_manager import (
 from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
     JPG_FILE,
     MP4_FILE,
+    LOG_FILE,
     YYMMDD_FORMAT,
-    HHMMSS_FORMAT,
+    HHMMSS_UNDERSCORE_FORMAT,
+    HHMMSS_COLON_FORMAT,
 )
 from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
     InvalidStatusCodeException,
     InvalidCollectionException,
 )
 
+cwd = os.getcwd()
+logs_folder = Path(f"{cwd}/logs").mkdir(exist_ok=True)
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    filename=Path(
+        f"{logs_folder}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}"
+    ).mkdir(),
+    level=logging.DEBUG,
+    format="%(name)s: %(asctime)s - %(levelname)s - %(message)s",
+    datefmt=f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}",
+)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter("%(name)s: %(asctime)s - %(levelname)s - %(message)s")
+
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
 
 class Source(NamedTuple):
+    """The Source class contains two attributes:
+
+    Attributes::
+
+        location_name: str - a folder with that name will be created on your pc. The videos
+            for every day of the execution of the TimeLapseCreator will be created and put into
+            subfolders into the "location_name" folder
+
+        url: str - a valid web address where a webcam frame (image) should be located.
+    Be sure that the url does not point to a video resource."""
+
     location_name: str
     url: str
-    """The Source class contains two parameters:
-
-    :location_name : str - a folder with that name will be created on your pc. The videos
-    for every day of the execution of the TimeLapseCreator will be created and put into
-    subfolders into the "location_name" folder.
-
-    :url : str - a valid web address where a webcam frame (image) should be located.
-    Be sure that the url does not point to a video resource."""
 
 
 class TimeLapseCreator:
@@ -77,21 +104,27 @@ class TimeLapseCreator:
                     )
 
                     if not vm.video_exists(output_video):
-                        created = vm.create_timelapse(input_folder, output_video, self.video_fps, self.video_width, self.video_height)
+                        created = vm.create_timelapse(
+                            input_folder,
+                            output_video,
+                            self.video_fps,
+                            self.video_width,
+                            self.video_height,
+                        )
                     else:
                         created = False
 
                     if created:
                         _ = vm.delete_source_images(input_folder)
             else:
-                print(f"Not daylight yet: {dt.now()}")
+                logger.info("Not daylight yet")
                 sleep(self.wait_before_next_retry)
 
     def collect_images_from_webcams(self) -> bool:
         """"""
 
         if self.location.is_daylight():
-            print(f"Start collecting images: {dt.now()}")
+            logger.info("Start collecting images")
 
             while self.location.is_daylight():
                 for source in self.sources:
@@ -99,7 +132,7 @@ class TimeLapseCreator:
                         img = self.verify_request(source)
 
                         location = source.location_name
-                        file_name = dt.now().strftime(HHMMSS_FORMAT)
+                        file_name = dt.now().strftime(HHMMSS_UNDERSCORE_FORMAT)
                         current_path = f"{self.base_path}/{location}/{self.folder_name}"
 
                         Path(current_path).mkdir(parents=True, exist_ok=True)
@@ -109,11 +142,11 @@ class TimeLapseCreator:
                             with open(full_path, "wb") as file:
                                 file.write(img)
                     except Exception as e:
-                        print(str(e))
+                        logger.error(e)
                         continue
                 sleep(self.wait_before_next_frame)
 
-            print(f"Finished collecting for today: {dt.now()}")
+            logger.info(f"Finished collecting for today")
             return True
 
         return False
@@ -121,7 +154,9 @@ class TimeLapseCreator:
     def verify_sources_not_empty(self):
         """Verifies that TimeLapseCreator has at least one Source to take images for.
 
-        Raises ValueError if there are no sources added."""
+        Raises::
+
+            ValueError if there are no sources added."""
 
         if len(self.sources) == 0:
             raise ValueError("You should add at least one source for this location!")
@@ -129,14 +164,16 @@ class TimeLapseCreator:
     def verify_request(self, source: Source):
         """Verifies the request status code is 200.
 
-        Raises InvalidStatusCodeException if the code is different,
-        because request.content would not be accessible and the program will crash.
+        Raises::
 
-        Returns the content of the response if Exception is not raised."""
+            InvalidStatusCodeException if the code is different,
+            because request.content would not be accessible and the program will crash.
+
+        Returns::
+            bytes | Any - the content of the response if Exception is not raised."""
 
         try:
             response = requests.get(source.url)
-            print(f"Status code is: {response.status_code}")
             if response.status_code != 200:
                 raise InvalidStatusCodeException(
                     f"Status code {response.status_code} is not 200 for url {source}"
@@ -149,7 +186,10 @@ class TimeLapseCreator:
     def add_sources(self, sources: Source | Iterable[Source]):
         """Adds a single Source or a collection[Source] to the TimeLapseCreator sources.
 
-        Raises: InvalidCollectionException if the passed collection is a dictionary."""
+        Raises::
+
+            InvalidCollectionException if the passed collection is a dictionary."""
+        
         try:
             sources = self._check_sources(sources)
         except InvalidCollectionException as exc:
@@ -163,7 +203,10 @@ class TimeLapseCreator:
     def remove_sources(self, sources: Source | Iterable[Source]):
         """Removes a single Source or a collection[Source] from the TimeLapseCreator sources.
 
-        Raises: InvalidCollectionException if the passed collection is a dictionary."""
+        Raises::
+         
+            InvalidCollectionException if the passed collection is a dictionary."""
+        
         try:
             sources = self._check_sources(sources)
         except InvalidCollectionException as exc:
@@ -177,17 +220,23 @@ class TimeLapseCreator:
 
     def _check_sources(self, sources: Source | Iterable[Source]):
         """Checks if the sources are in a valid container.
-        Parameters:
+        Parameters::
+
             sources: Source | Iterable[Source]
 
-        Returns: Source | set[Source] if the containing collection is of type set, list or tuple.
+        Returns::
+         
+            Source | set[Source] if the containing collection is of type set, list or tuple.
 
-        Raises: InvalidCollectionException if the collection is passed as dictionary."""
+        Raises::
+         
+            InvalidCollectionException if the collection is passed as dictionary."""
+        
         allowed_collections = (set, list, tuple)
 
         if isinstance(sources, Source):
             return sources
-        
+
         if any(isinstance(sources, col) for col in allowed_collections):
             return set(sources)
         else:
