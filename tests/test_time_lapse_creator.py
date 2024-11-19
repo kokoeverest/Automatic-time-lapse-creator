@@ -3,10 +3,8 @@ import os
 
 import requests
 from src.automatic_time_lapse_creator_kokoeverest.common.constants import YYMMDD_FORMAT
-from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import (
-    Source,
-    TimeLapseCreator,
-)
+from src.automatic_time_lapse_creator_kokoeverest.source import Source
+from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import TimeLapseCreator
 from src.automatic_time_lapse_creator_kokoeverest.time_manager import (
     LocationAndTimeManager,
 )

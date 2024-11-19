@@ -1,4 +1,4 @@
-from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import Source
+from src.automatic_time_lapse_creator_kokoeverest.source import Source
 
 
 sample_source1 = Source(
