@@ -26,13 +26,11 @@ from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
 )
 
 cwd = os.getcwd()
-logs_folder = Path(f"{cwd}/logs").mkdir(exist_ok=True)
+Path(f"{cwd}/logs").mkdir(exist_ok=True)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
-    filename=Path(
-        f"{logs_folder}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}"
-    ).mkdir(),
+    filename=Path(f"{cwd}/logs/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}"),
     level=logging.DEBUG,
     format="%(name)s: %(asctime)s - %(levelname)s - %(message)s",
     datefmt=f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}",
@@ -189,7 +187,7 @@ class TimeLapseCreator:
         Raises::
 
             InvalidCollectionException if the passed collection is a dictionary."""
-        
+
         try:
             sources = self._check_sources(sources)
         except InvalidCollectionException as exc:
@@ -204,9 +202,9 @@ class TimeLapseCreator:
         """Removes a single Source or a collection[Source] from the TimeLapseCreator sources.
 
         Raises::
-         
+
             InvalidCollectionException if the passed collection is a dictionary."""
-        
+
         try:
             sources = self._check_sources(sources)
         except InvalidCollectionException as exc:
@@ -225,13 +223,13 @@ class TimeLapseCreator:
             sources: Source | Iterable[Source]
 
         Returns::
-         
+
             Source | set[Source] if the containing collection is of type set, list or tuple.
 
         Raises::
-         
+
             InvalidCollectionException if the collection is passed as dictionary."""
-        
+
         allowed_collections = (set, list, tuple)
 
         if isinstance(sources, Source):
