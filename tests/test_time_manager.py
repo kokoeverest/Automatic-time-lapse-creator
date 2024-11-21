@@ -1,14 +1,15 @@
-import os
-from pathlib import Path
-from src.automatic_time_lapse_creator_kokoeverest.video_manager import VideoManager as vm
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import JPG_FILE, MP4_FILE, YYMMDD_FORMAT, HHMMSS_UNDERSCORE_FORMAT # type: ignore
-from datetime import datetime
-
-cwd = os.getcwd()
-# mock a video file to pass to the function
-def test_video_manager_video_exists_returns_true_with_existing_video_file():
-    assert vm.video_exists(cwd)
+import pytest
+from src.automatic_time_lapse_creator_kokoeverest.time_manager import LocationAndTimeManager
+from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import UnknownLocationException
+import tests.test_data as td
 
 
-def test_video_manager_video_exists_returns_false_with_non_existing_path():
-    assert not vm.video_exists(Path(f"{cwd}\\{datetime.now().strftime(YYMMDD_FORMAT)}{MP4_FILE}"))
+
+@pytest.fixture
+def sample_LocationAndTimeManager():
+    return LocationAndTimeManager(td.default_city_name)
+
+
+def test_LocationAndTimeManager_raises_UnknownLocationException_if_city_is_not_found():
+    with pytest.raises(UnknownLocationException):
+        LocationAndTimeManager(td.invalid_city_name)

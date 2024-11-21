@@ -65,7 +65,7 @@ class VideoManager:
                 return True
 
             except Exception as exc:
-                logger.error(exc)
+                logger.error(exc, exc_info=True)
                 return False
         else:
             logger.info(f"Folder {path} contained no images")
@@ -91,5 +91,5 @@ class VideoManager:
             [os.remove(file) for file in image_files]
             return True
         except Exception as exc:
-            logger.error(exc)
+            logger.error(exc, exc_info=True)
             return False

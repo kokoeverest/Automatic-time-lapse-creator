@@ -22,10 +22,10 @@ class LocationAndTimeManager:
             self.city = lookup(city_name, self.db)
         except KeyError:
             UNKNOWN_LOCATION_MESSAGE = (
-                f"Location could not be found."
-                f"Try to use a major city name in your area"
+                f"Location could not be found. "
+                f"Try to use a major city name in your area."
             )
-            logger.error(UNKNOWN_LOCATION_MESSAGE, UnknownLocationException)
+            logger.error(UNKNOWN_LOCATION_MESSAGE, exc_info=True)
             raise UnknownLocationException(UNKNOWN_LOCATION_MESSAGE)
 
         if self.city_is_location_info_object:
@@ -33,7 +33,7 @@ class LocationAndTimeManager:
             self.end_hour, self.end_minutes = self.s_set()
         else:
             NOT_IMPLEMENTED_MESSAGE = "Sunset and sunrise for GroupInfo not implemented yet"
-            logger.warning(NOT_IMPLEMENTED_MESSAGE, NotImplementedError)
+            logger.warning(NOT_IMPLEMENTED_MESSAGE, exc_info=True)
             raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
         self.start_of_daylight = dt(

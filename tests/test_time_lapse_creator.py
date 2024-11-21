@@ -2,7 +2,7 @@ import pytest
 import os
 
 import requests
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import YYMMDD_FORMAT
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import *
 from src.automatic_time_lapse_creator_kokoeverest.source import Source
 from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import TimeLapseCreator
 from src.automatic_time_lapse_creator_kokoeverest.time_manager import (
@@ -15,12 +15,7 @@ from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
 import tests.test_data as td
 from datetime import datetime as dt
 from astral import LocationInfo
-
-no_content_status_code = 204
-
-
-class MockResponse:
-    status_code = no_content_status_code
+from tests.test_mocks import MockResponse
 
 
 @pytest.fixture
@@ -40,14 +35,14 @@ def test_initializes_correctly_for_default_location(
     assert isinstance(sample_empty_time_lapse_creator.location, LocationAndTimeManager)
     assert isinstance(sample_empty_time_lapse_creator.sources, set)
     assert isinstance(sample_empty_time_lapse_creator.location.city, LocationInfo)
-    assert sample_empty_time_lapse_creator.location.city.name == "Sofia"
+    assert sample_empty_time_lapse_creator.location.city.name == td.default_city_name
     assert sample_empty_time_lapse_creator.folder_name == dt.today().strftime(
         YYMMDD_FORMAT
     )
     assert sample_empty_time_lapse_creator.base_path == os.getcwd()
     assert len(sample_empty_time_lapse_creator.sources) == 0
     assert sample_empty_time_lapse_creator.wait_before_next_frame == 60
-    assert sample_empty_time_lapse_creator.wait_before_next_retry == 300
+    assert sample_empty_time_lapse_creator.nighttime_wait_before_next_retry == 300
     assert sample_empty_time_lapse_creator.video_fps == 30
     assert sample_empty_time_lapse_creator.video_width == 640
     assert sample_empty_time_lapse_creator.video_height == 360

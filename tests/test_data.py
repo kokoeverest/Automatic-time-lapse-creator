@@ -1,6 +1,10 @@
 from src.automatic_time_lapse_creator_kokoeverest.source import Source
 
 
+default_city_name = "Sofia"
+
+invalid_city_name = "Logator"
+
 sample_source1 = Source(
     "aleko", "https://home-solutions.bg/cams/aleko2.jpg?1705293967111"
 )
