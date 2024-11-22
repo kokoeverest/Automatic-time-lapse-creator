@@ -31,7 +31,7 @@ classifiers = [
 ]
 description = "A Python script for extracting images from a web cam url and converting these images into a timelapse" 
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 
 [project.urls]
 Homepage = "https://github.com/kokoeverest/Automatic-time-lapse-creator"
