@@ -71,8 +71,6 @@ def test_create_timelapse_success():
 
     # Assert
     assert result
-    mock_glob.assert_called_once_with(
-        f"{tm.mock_path_to_images_folder}/*.jpg"
-    )
+    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*.jpg")
     assert mock_writer.write.call_count == 10
     mock_writer.release.assert_called_once()

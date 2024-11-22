@@ -16,6 +16,4 @@ sample_source3 = Source(
     "plevenhut", "https://meter.ac/gs/nodes/N160/snap.jpg?1705436803718"
 )
 
-sample_source_with_empty_url = Source(
-    "fake", "empty url"
-)
+sample_source_with_empty_url = Source("fake", "empty url")

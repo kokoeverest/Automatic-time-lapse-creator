@@ -5,7 +5,8 @@ from cv2.typing import MatLike
 
 today = datetime.today()
 
-def mock_jpg_file(number: int=1):
+
+def mock_jpg_file(number: int = 1):
     mock_file = Mock()
     mock_file.name = f"test_image_{number}.jpg"
     mock_file.read.return_value = b"fake image data"
@@ -16,6 +17,7 @@ def mock_mat_like():
     mat_like = Mock(spec=MatLike)
 
     return mat_like
+
 
 mock_image = mock_jpg_file()
 mock_images_list = [mock_jpg_file(x) for x in range(1, 11)]
