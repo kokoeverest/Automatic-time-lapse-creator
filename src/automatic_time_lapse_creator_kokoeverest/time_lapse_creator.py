@@ -12,7 +12,15 @@ from src.automatic_time_lapse_creator_kokoeverest.video_manager import (
 from src.automatic_time_lapse_creator_kokoeverest.time_manager import (
     LocationAndTimeManager,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import *
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+    YYMMDD_FORMAT,
+    HHMMSS_COLON_FORMAT,
+    HHMMSS_UNDERSCORE_FORMAT,
+    LOG_FILE,
+    JPG_FILE,
+    OK_STATUS_CODE,
+    MP4_FILE,
+)
 from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
     InvalidStatusCodeException,
     InvalidCollectionException,
@@ -24,7 +32,7 @@ Path(f"{cwd}/logs").mkdir(exist_ok=True)
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     filename=Path(f"{cwd}/logs/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}"),
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(name)s: %(asctime)s - %(levelname)s - %(message)s",
     datefmt=f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}",
 )
@@ -99,7 +107,7 @@ class TimeLapseCreator:
         # images_collected, images_partially_collected = False, False
 
         if self.location.is_daylight():
-            self.reset_sources_image_counters_and_video_created()
+            self.reset_all_sources_counters_to_default_values()
             logger.info("Start collecting images")
 
             while self.location.is_daylight():
@@ -125,7 +133,7 @@ class TimeLapseCreator:
                 sleep(self.wait_before_next_frame)
 
             self.set_sources_all_images_collected()
-            self.reset_images_partially_collected()
+            # self.reset_images_partially_collected()
             # images_collected, images_partially_collected = True, False
             logger.info(f"Finished collecting for today")
 
@@ -197,17 +205,27 @@ class TimeLapseCreator:
         return response.content
 
     def reset_images_partially_collected(self):
-        """Resets the _images_partially_collected = False for all self.sources"""
-        (source.reset_images_pertially_collected() for source in self.sources)
+        """Resets the images_partially_collected = False for all self.sources"""
+        for source in self.sources:
+            source.reset_images_pertially_collected()
 
-    def reset_sources_image_counters_and_video_created(self):
-        """Resets the images_count and resets video_created = False for all self.sources"""
-        (source.reset_images_counter() for source in self.sources)
-        (source.reset_video_created() for source in self.sources)
+    def reset_all_sources_counters_to_default_values(self):
+        """Resets the images_count = 0, resets video_created = False and
+        resets images_collected = False for all self.sources
+        """
+        for source in self.sources:
+            source.reset_images_counter()
+            source.reset_video_created()
+            source.reset_all_images_collected()
+            source.reset_images_pertially_collected()
 
     def set_sources_all_images_collected(self):
-        """Sets -> _all_images_collected = True for all self.sources"""
-        (source.set_all_images_collected() for source in self.sources)
+        """Sets -> images_collected = True for all self.sources
+        and calls self.reset_images_partially_collected(), because all images are collected
+        """
+        for source in self.sources:
+            source.set_all_images_collected()
+        self.reset_images_partially_collected()
 
     def add_sources(self, sources: Source | Iterable[Source]):
         """Adds a single Source or a collection[Source] to the TimeLapseCreator sources.
