@@ -1,16 +1,9 @@
 import pytest
+from unittest.mock import mock_open, patch
 import os
 
 import requests
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
-    YYMMDD_FORMAT,
-    HHMMSS_COLON_FORMAT,
-    HHMMSS_UNDERSCORE_FORMAT,
-    LOG_FILE,
-    JPG_FILE,
-    OK_STATUS_CODE,
-    MP4_FILE,
-)
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import YYMMDD_FORMAT
 from src.automatic_time_lapse_creator_kokoeverest.source import Source
 from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import (
     TimeLapseCreator,
@@ -35,7 +28,14 @@ def sample_empty_time_lapse_creator():
 
 @pytest.fixture
 def sample_non_empty_time_lapse_creator():
-    return TimeLapseCreator([td.sample_source1, td.sample_source1, td.sample_source3])
+    return TimeLapseCreator(
+        [td.sample_source1, td.sample_source2, td.sample_source3], path=os.getcwd()
+    )
+
+
+fake_non_empty_time_lapse_creator = TimeLapseCreator(
+    [td.sample_source1], path=os.getcwd()
+)
 
 
 def test_initializes_correctly_for_default_location(
@@ -211,6 +211,7 @@ def test_reset_images_partially_collected(
     for source in sample_non_empty_time_lapse_creator.sources:
         assert not source.images_partially_collected
 
+
 def test_set_sources_all_images_collected_sets_images_collected_to_True_for_all_sources(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
@@ -241,3 +242,231 @@ def test_reset_all_sources_counters_to_default_values(
         assert source.images_count == 0
         assert not source.images_collected
         assert not source.images_partially_collected
+
+
+def test_create_video_returns_False_if_video_is_not_created(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange, Act & Assert
+    with patch(
+        "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.video_exists",
+        return_value=True,
+    ):
+        for source in sample_non_empty_time_lapse_creator.sources:
+            assert not sample_non_empty_time_lapse_creator.create_video(source)
+            assert not source.video_created
+
+
+def test_create_video_returns_True_if_video_is_created(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange, Act & Assert
+    with (
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.video_exists",
+            return_value=False,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.create_timelapse",
+            return_value=True,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.delete_source_images",
+            return_value=True,
+        ) as mock_delete,
+    ):
+        for source in sample_non_empty_time_lapse_creator.sources:
+            assert len(sample_non_empty_time_lapse_creator.sources) == 3
+            assert sample_non_empty_time_lapse_creator.create_video(source)
+            assert not source.video_created
+
+        assert mock_delete.call_count == 3
+
+
+def test_create_video_returns_True_if_video_is_created_and_source_images_are_not_deleted(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange, Act & Assert
+    with (
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.video_exists",
+            return_value=False,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.create_timelapse",
+            return_value=True,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.delete_source_images",
+            return_value=True,
+        ) as mock_delete,
+    ):
+        for source in sample_non_empty_time_lapse_creator.sources:
+            assert len(sample_non_empty_time_lapse_creator.sources) == 3
+            assert sample_non_empty_time_lapse_creator.create_video(
+                source, delete_source_images=False
+            )
+            assert not source.video_created
+
+        assert mock_delete.call_count == 0
+
+
+def test_collect_images_from_webcams_returns_False_if_not_daylight(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Arrange
+    mock_bool = lambda: False
+    monkeypatch.setattr(
+        sample_non_empty_time_lapse_creator.location, "is_daylight", mock_bool
+    )
+
+    # Act & Assert
+    assert not sample_non_empty_time_lapse_creator.collect_images_from_webcams()
+
+
+def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_collected(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Arrange
+    mock_file = mock_open()
+    mock_bytes = lambda: b"some_content"
+    bools = [True, True]
+
+    def mock_bool():
+        if len(bools) > 0:
+            return bools.pop(0)
+        else:
+            return False
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.Path.mkdir",
+            return_value=None,
+        ),
+        patch("builtins.open", mock_file),
+    ):
+        monkeypatch.setattr(
+            sample_non_empty_time_lapse_creator.location, "is_daylight", mock_bool
+        )
+        monkeypatch.setattr(
+            sample_non_empty_time_lapse_creator, "verify_request", mock_bytes
+        )
+        sample_non_empty_time_lapse_creator.wait_before_next_frame = 1
+
+        # Act & Assert
+        assert sample_non_empty_time_lapse_creator.collect_images_from_webcams()
+
+
+def test_execute_sleeps_if_images_are_not_collected(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Arrange
+    mock_true = lambda: True
+    mock_false = lambda: False
+    monkeypatch.setattr(
+        sample_non_empty_time_lapse_creator, "verify_sources_not_empty", mock_true
+    )
+    monkeypatch.setattr(
+        sample_non_empty_time_lapse_creator, "collect_images_from_webcams", mock_false
+    )
+
+    # Act
+    with (
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.sleep",
+            return_value=None,
+        ) as mock_sleep,
+    ):
+        sample_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
+        sample_non_empty_time_lapse_creator.execute()
+
+        # Assert
+        mock_sleep.assert_called_once_with(
+            sample_non_empty_time_lapse_creator.nighttime_wait_before_next_retry
+        )
+
+
+def test_execute_creates_video_for_every_source_when_all_images_are_collected():
+    # Arrange, Act & Assert
+    with (
+        patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.verify_sources_not_empty",
+            return_value=True,
+        ),
+        patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.collect_images_from_webcams",
+            return_value=True,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.dt"
+        ) as mock_datetime,
+        patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.create_video",
+            return_value=True,
+        ) as mock_create_video,
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.sleep",
+            return_value=None,
+        ) as mock_sleep,
+    ):
+        mock_datetime.now.return_value = tm.MockDatetime.fake_nighttime
+
+        fake_non_empty_time_lapse_creator.set_sources_all_images_collected()
+        fake_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
+
+        fake_non_empty_time_lapse_creator.execute()
+        assert mock_sleep.call_count == 0
+        assert mock_create_video.call_count == len(
+            fake_non_empty_time_lapse_creator.sources
+        )
+        for source in fake_non_empty_time_lapse_creator.sources:
+            mock_create_video.assert_called_once_with(source)
+            assert source.video_created
+
+        fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
+
+
+def test_execute_creates_video_for_every_source_when_images_partially_collected():
+    # Arrange, Act & Assert
+
+    with (
+        patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.verify_sources_not_empty",
+            return_value=True,
+        ),
+        patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.collect_images_from_webcams",
+            return_value=True,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.dt"
+        ) as mock_datetime,
+        patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.create_video",
+            return_value=True,
+        ) as mock_create_video,
+        patch(
+            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.sleep",
+            return_value=None,
+        ) as mock_sleep,
+    ):
+        mock_datetime.now.return_value = tm.MockDatetime.fake_nighttime
+
+        for source in fake_non_empty_time_lapse_creator.sources:
+            source.set_images_partially_collected()
+
+        fake_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
+
+        fake_non_empty_time_lapse_creator.execute()
+        assert mock_sleep.call_count == 0
+        assert mock_create_video.call_count == len(
+            fake_non_empty_time_lapse_creator.sources
+        )
+        for source in fake_non_empty_time_lapse_creator.sources:
+            mock_create_video.assert_called_once_with(
+                source, delete_source_images=False
+            )
+            assert source.video_created

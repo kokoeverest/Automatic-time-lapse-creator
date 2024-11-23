@@ -69,43 +69,60 @@ class TimeLapseCreator:
         self.video_fps = video_fps
         self.video_width = video_width
         self.video_height = video_height
+        self._test_counter = night_time_retry_seconds
 
     def execute(self):
-        """If the source.all_images_collected is True
-        Don't delete the source images if there's a
-        problem with the output video"""
+        """Verifies that self.sources has at least one Source and starts a while loop. Then, according to the return
+        of collect_images_from_webcams():
+          ##### - creates the video for every source 
+          ##### - waits the nighttime retry time interval.
+        If the source.all_images_collected is True the sources' images are deleted after the video is created.
+        If the source.images_partially_collected, the sources' images won't be deleted.
+
+        Returns::
+            None
+        """
 
         self.verify_sources_not_empty()
-        while True:
-            # images_collected, images_partially_collected = (
-            self.collect_images_from_webcams()
-            # )
-
-            for source in self.sources:
-                # the normal flow of images collection, when all images are collected during the day
-                if (
-                    dt.now() > self.location.end_of_daylight
-                    and source.images_collected
-                    and not source.images_partially_collected
-                    and not source.video_created
-                ):
-                    self.create_video(source)
-                # if there was an interruption in program's execution but some images were collected
-                # create a video anyway, but don't delete the source images
-                elif (
-                    dt.now() > self.location.end_of_daylight
-                    and source.images_partially_collected
-                    and not source.images_collected
-                    and not source.video_created
-                ):
-                    self.create_video(source, delete_source_images=False)
+        while self._test_counter > 0: # condition for testing purposes
+            self._test_counter = self.nighttime_wait_before_next_retry
+            if self.collect_images_from_webcams():
+                for source in self.sources:
+                    # the normal flow of images collection, when all images are collected during the day
+                    if (
+                        dt.now() > self.location.end_of_daylight
+                        and source.images_collected
+                        and not source.images_partially_collected
+                        and not source.video_created
+                    ):
+                        if self.create_video(source):
+                            source.set_video_created()
+                    # if there was an interruption in program's execution but some images were collected
+                    # create a video anyway, but don't delete the source images
+                    elif (
+                        dt.now() > self.location.end_of_daylight
+                        and source.images_partially_collected
+                        and not source.images_collected
+                        and not source.video_created
+                    ):
+                        if self.create_video(source, delete_source_images=False):
+                            source.set_video_created()
+                self._test_counter -= 1
             else:
+                self._test_counter -= 1
                 sleep(self.nighttime_wait_before_next_retry)
 
-    def collect_images_from_webcams(self) -> None:
-        """"""
-        # images_collected, images_partially_collected = False, False
+    def collect_images_from_webcams(self) -> bool:
+        """While self.location.is_daylight() returns True, the images for every source
+        will be extracted from the url. If self.location.is_daylight() returns False
+        the logger will log 'Not daylight yet' and the return will be False.
 
+        Returns::
+
+            True - when images are collected during the daylight interval
+
+            False - if it's not daylight yet.
+        """
         if self.location.is_daylight():
             self.reset_all_sources_counters_to_default_values()
             logger.info("Start collecting images")
@@ -133,17 +150,13 @@ class TimeLapseCreator:
                 sleep(self.wait_before_next_frame)
 
             self.set_sources_all_images_collected()
-            # self.reset_images_partially_collected()
-            # images_collected, images_partially_collected = True, False
-            logger.info(f"Finished collecting for today")
-
-            # return images_collected, images_partially_collected
+            logger.info(f"Finished collecting for {self.folder_name}")
+            return True
         else:
             logger.info("Not daylight yet")
+            return False
 
-        # return images_collected, images_partially_collected
-
-    def create_video(self, source: Source, delete_source_images: bool = True):
+    def create_video(self, source: Source, delete_source_images: bool = True) -> bool:
         """Creates a video from the source collected images. If delete_source_images is True
         the source image files will be deleted after the video is created
 
@@ -153,8 +166,7 @@ class TimeLapseCreator:
 
             delete_source_images: bool - if the source images should be deleted as well"""
 
-        # for source in self.sources:
-        input_folder = f"{self.base_path}/{source.location_name}/{self.folder_name}"
+        input_folder = str(Path(f"{self.base_path}/{source.location_name}/{self.folder_name}"))
         output_video = str(Path(f"{input_folder}/{self.folder_name}{MP4_FILE}"))
 
         created = False
@@ -166,11 +178,13 @@ class TimeLapseCreator:
                 self.video_width,
                 self.video_height,
             )
-        if created:
-            source.set_video_created()
+        # if created:
+        #     source.set_video_created()
 
-        if source.video_created and delete_source_images:
+        if created and delete_source_images:
             _ = vm.delete_source_images(input_folder)
+
+        return created
 
     def verify_sources_not_empty(self):
         """Verifies that TimeLapseCreator has at least one Source to take images for.
@@ -206,8 +220,7 @@ class TimeLapseCreator:
 
     def reset_images_partially_collected(self):
         """Resets the images_partially_collected = False for all self.sources"""
-        for source in self.sources:
-            source.reset_images_pertially_collected()
+        [source.reset_images_pertially_collected() for source in self.sources]
 
     def reset_all_sources_counters_to_default_values(self):
         """Resets the images_count = 0, resets video_created = False and
@@ -223,8 +236,7 @@ class TimeLapseCreator:
         """Sets -> images_collected = True for all self.sources
         and calls self.reset_images_partially_collected(), because all images are collected
         """
-        for source in self.sources:
-            source.set_all_images_collected()
+        [source.set_all_images_collected() for source in self.sources] 
         self.reset_images_partially_collected()
 
     def add_sources(self, sources: Source | Iterable[Source]):

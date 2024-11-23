@@ -34,20 +34,9 @@ mock_video_height = 360
 class MockResponse:
     status_code = NO_CONTENT_STATUS_CODE
 
-
-class MockIsDaylight:
-    @classmethod
-    def false_return(cls):
-        return False
-
-    @classmethod
-    def true_return(cls):
-        return True
-
-
 class MockDatetime:
     fake_daylight = datetime(today.year, today.month, today.day, 12, 00, 00)
-    fake_nighttime = datetime(today.year, today.month, today.day, 00, 00, 00)
+    fake_nighttime = datetime(today.year, today.month, today.day, 23, 59, 00)
 
 
 class MockTimeAndLocationManager:
