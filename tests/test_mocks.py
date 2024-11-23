@@ -1,4 +1,6 @@
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import *
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+    NO_CONTENT_STATUS_CODE
+)
 from datetime import datetime
 from unittest.mock import Mock
 from cv2.typing import MatLike

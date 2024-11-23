@@ -2,7 +2,15 @@ import pytest
 import os
 
 import requests
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import *
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+    YYMMDD_FORMAT,
+    HHMMSS_COLON_FORMAT,
+    HHMMSS_UNDERSCORE_FORMAT,
+    LOG_FILE,
+    JPG_FILE,
+    OK_STATUS_CODE,
+    MP4_FILE,
+)
 from src.automatic_time_lapse_creator_kokoeverest.source import Source
 from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import (
     TimeLapseCreator,
@@ -17,7 +25,7 @@ from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
 import tests.test_data as td
 from datetime import datetime as dt
 from astral import LocationInfo
-from tests.test_mocks import MockResponse
+import tests.test_mocks as tm
 
 
 @pytest.fixture
@@ -177,7 +185,7 @@ def test_verify_request_reraises_exception_if_response_status_code_is_not_200(
 ):
     # Arrange
     def mock_get(*args, **kwargs):  # type: ignore
-        return MockResponse()
+        return tm.MockResponse()
 
     # Act
     monkeypatch.setattr(requests, "get", mock_get)  # type: ignore
@@ -187,3 +195,49 @@ def test_verify_request_reraises_exception_if_response_status_code_is_not_200(
         sample_non_empty_time_lapse_creator.verify_request(
             td.sample_source_with_empty_url
         )
+
+
+def test_reset_images_partially_collected(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    for source in sample_non_empty_time_lapse_creator.sources:
+        source.set_images_partially_collected()
+
+    # Act
+    sample_non_empty_time_lapse_creator.reset_images_partially_collected()
+
+    # Assert
+    for source in sample_non_empty_time_lapse_creator.sources:
+        assert not source.images_partially_collected
+
+def test_set_sources_all_images_collected_sets_images_collected_to_True_for_all_sources(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    sample_non_empty_time_lapse_creator.set_sources_all_images_collected()
+
+    # Assert
+    for source in sample_non_empty_time_lapse_creator.sources:
+        assert source.images_collected
+        assert not source.images_partially_collected
+
+
+def test_reset_all_sources_counters_to_default_values(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    sample_non_empty_time_lapse_creator.set_sources_all_images_collected()
+    for source in sample_non_empty_time_lapse_creator.sources:
+        source.set_video_created()
+        source.increase_images()
+
+    # Act
+    sample_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
+
+    # Assert
+    for source in sample_non_empty_time_lapse_creator.sources:
+        assert not source.video_created
+        assert source.images_count == 0
+        assert not source.images_collected
+        assert not source.images_partially_collected

@@ -4,7 +4,10 @@ from unittest.mock import patch, MagicMock
 from src.automatic_time_lapse_creator_kokoeverest.video_manager import (
     VideoManager as vm,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import *
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+    YYMMDD_FORMAT,
+    MP4_FILE,
+)
 from datetime import datetime
 import tests.test_mocks as tm
 from cv2 import VideoWriter
