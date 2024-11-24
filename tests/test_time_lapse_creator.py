@@ -36,6 +36,7 @@ def sample_non_empty_time_lapse_creator():
 fake_non_empty_time_lapse_creator = TimeLapseCreator(
     [td.sample_source1], path=os.getcwd()
 )
+fake_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
 
 
 def test_initializes_correctly_for_default_location(
@@ -413,9 +414,7 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
         ) as mock_sleep,
     ):
         mock_datetime.now.return_value = tm.MockDatetime.fake_nighttime
-
         fake_non_empty_time_lapse_creator.set_sources_all_images_collected()
-        fake_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
 
         fake_non_empty_time_lapse_creator.execute()
         assert mock_sleep.call_count == 0
@@ -426,12 +425,14 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
             mock_create_video.assert_called_once_with(source)
             assert source.video_created
 
-        fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
+        # Tear down
+        fake_non_empty_time_lapse_creator.reset_test_counter()
+        
+
 
 
 def test_execute_creates_video_for_every_source_when_images_partially_collected():
     # Arrange, Act & Assert
-
     with (
         patch(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.verify_sources_not_empty",
@@ -440,7 +441,7 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
         patch(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.collect_images_from_webcams",
             return_value=True,
-        ),
+        ) as mock_collect,
         patch(
             "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.dt"
         ) as mock_datetime,
@@ -454,13 +455,13 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
         ) as mock_sleep,
     ):
         mock_datetime.now.return_value = tm.MockDatetime.fake_nighttime
+        fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
 
         for source in fake_non_empty_time_lapse_creator.sources:
             source.set_images_partially_collected()
 
-        fake_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
-
         fake_non_empty_time_lapse_creator.execute()
+        assert mock_collect.called
         assert mock_sleep.call_count == 0
         assert mock_create_video.call_count == len(
             fake_non_empty_time_lapse_creator.sources
@@ -470,3 +471,6 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
                 source, delete_source_images=False
             )
             assert source.video_created
+
+        # Tear down
+        fake_non_empty_time_lapse_creator.reset_test_counter()

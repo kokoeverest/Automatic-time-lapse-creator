@@ -10,7 +10,7 @@ class Source:
 
         url: str - a valid web address where a webcam frame (image) should be located.
         
-    Be sure that the url does not point to a video resource."""
+    ##### Be sure that the url does not point to a video resource."""
 
     def __init__(self, location_name: str, url: str) -> None:
         self.location_name: str = location_name
