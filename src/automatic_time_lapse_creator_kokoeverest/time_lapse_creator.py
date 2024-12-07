@@ -5,6 +5,7 @@ from time import sleep
 from pathlib import Path
 from typing import Iterable
 import logging
+from src.automatic_time_lapse_creator_kokoeverest.cache_manager import CacheManager
 from src.automatic_time_lapse_creator_kokoeverest.source import Source
 from src.automatic_time_lapse_creator_kokoeverest.video_manager import (
     VideoManager as vm,
@@ -79,6 +80,28 @@ class TimeLapseCreator:
         self.video_height = video_height
         self._test_counter = night_time_retry_seconds
 
+    def get_cached_self(self):
+        """Retrieve the state of the object from the cache. If the retrieved TimeLapseCreator is older
+        than one day, then its state will be ignored and a default state will be used
+
+        Returns::
+            TimeLapseCretor - either the cached object state or the current state"""
+        try:
+            old_object = CacheManager.get(self.location.city.name)  # type: ignore
+            if (
+                isinstance(old_object, TimeLapseCreator)
+                and old_object.folder_name == self.folder_name
+            ):
+                return old_object
+            else:
+                return self
+        except Exception:
+            return self
+
+    def cache_self(self):
+        """Writes the current state of the TimeLapseCreator to the cache."""
+        CacheManager.write(self, self.location.city.name)  # type: ignore
+
     def execute(self):
         """Verifies that self.sources has at least one Source and starts a while loop. Then, according to the return
         of collect_images_from_webcams():
@@ -90,12 +113,18 @@ class TimeLapseCreator:
         Returns::
             None
         """
+        self = self.get_cached_self()
         self.verify_sources_not_empty()
 
         # self._test_counter > 0 for testing purposes only, see Note in TimeLapseCreator docstring
         while self._test_counter > 0:
             self.reset_test_counter()
-            if self.collect_images_from_webcams():
+            collected = self.collect_images_from_webcams()
+            if collected or (
+                not collected
+                and any(source.images_partially_collected for source in self.sources)
+                and any(not source.video_created for source in self.sources)
+            ):
                 for source in self.sources:
                     # the normal flow of images collection, when all images are collected during the day
                     if (
@@ -152,6 +181,7 @@ class TimeLapseCreator:
                                 file.write(img)
                             source.increase_images()
                             source.set_images_partially_collected()
+                            self.cache_self()
 
                     except Exception as e:
                         logger.error(e)
@@ -159,6 +189,7 @@ class TimeLapseCreator:
                 sleep(self.wait_before_next_frame)
 
             self.set_sources_all_images_collected()
+            self.cache_self()
             logger.info(f"Finished collecting for {self.folder_name}")
             return True
         else:
