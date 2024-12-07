@@ -7,6 +7,7 @@ from src.automatic_time_lapse_creator_kokoeverest.common.constants import JPG_FI
 
 logger = logging.getLogger(__name__)
 
+
 class VideoManager:
     """A class for managing the time lapse from the collected images during the day.
     Contains three static methods for creating the video, deleting the image files
@@ -19,18 +20,20 @@ class VideoManager:
         Parameters::
 
             path: str | Path - the file path to be checked.
-        
+
         Returns::
-         
+
            bool - if the checked file exists or not."""
 
         return os.path.exists(path)
 
     @classmethod
-    def create_timelapse(cls, path: str, output_video: str, fps: int, width: int, height: int) -> bool:
+    def create_timelapse(
+        cls, path: str, output_video: str, fps: int, width: int, height: int
+    ) -> bool:
         """Gets the image files from the specified folder and sorts them chronologically.
         Then a VideoWriter object creates the video and writes it to the specified folder.
-        
+
         Parameters::
 
             path: str - the folder, containing the images
@@ -40,10 +43,10 @@ class VideoManager:
             height: int - height of the video in pixels
 
         Returns::
-         
+
             True - if the video was created successfully;
             False - in case of Exception during the creation of the video
-        
+
         Note: the source image files are not modified or deleted in any case."""
 
         image_files = sorted(glob(f"{path}/*{JPG_FILE}"))
@@ -51,7 +54,9 @@ class VideoManager:
         if len(image_files) > 0:
             try:
                 fourcc = cv2.VideoWriter.fourcc(*"mp4v")
-                video_writer = cv2.VideoWriter(output_video, fourcc, fps, (width, height))
+                video_writer = cv2.VideoWriter(
+                    output_video, fourcc, fps, (width, height)
+                )
 
                 for image_file in image_files:
                     img_path = os.path.join(path, image_file)
@@ -80,7 +85,7 @@ class VideoManager:
             path: str | Path - the folder path
 
         Returns::
-            
+
             True - if the images were deleted successfully;
             False - in case of Exception during files deletion
         """

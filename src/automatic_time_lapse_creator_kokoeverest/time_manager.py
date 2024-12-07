@@ -10,6 +10,7 @@ from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
 
 logger = logging.getLogger(__name__)
 
+
 class LocationAndTimeManager:
     """"""
 
@@ -32,7 +33,9 @@ class LocationAndTimeManager:
             self.start_hour, self.start_minutes = self.s_rise()
             self.end_hour, self.end_minutes = self.s_set()
         else:
-            NOT_IMPLEMENTED_MESSAGE = "Sunset and sunrise for GroupInfo not implemented yet"
+            NOT_IMPLEMENTED_MESSAGE = (
+                "Sunset and sunrise for GroupInfo not implemented yet"
+            )
             logger.warning(NOT_IMPLEMENTED_MESSAGE, exc_info=True)
             raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
@@ -54,22 +57,42 @@ class LocationAndTimeManager:
 
     @property
     def city_is_location_info_object(self):
+        """Returns::
+        
+            bool - if the self.city is a LocationInfo object."""
         return isinstance(self.city, LocationInfo)
-    
+
     def s_rise(self):
-        """"""
+        """Asserts if the city is instantiated as a LocationInfo object and sets the self.start_hour and
+        self.start_minutes according to the return of the Astral sunrise() function. 
+        *Note: an additional time span of 1 hour and 20 minutes is applied for an extended period with sunlight.*
+        
+        Returns::
+            
+            tuple[int, int] - the sunrise hour and sunrise minutes
+            """
         assert isinstance(self.city, LocationInfo)
         sun_rise = sunrise(self.city.observer) + td(hours=1, minutes=20)
         return sun_rise.hour, sun_rise.minute
 
     def s_set(self):
-        """"""
+        """Asserts if the city is instantiated as a LocationInfo object and sets the self.end_hour and
+        self.end_minutes according to the return of the Astral sunset() function.
+        *Note: an additional time span of 2 hours and 40 minutes is applied for an extended period with sunlight.*
+
+        Returns::
+
+            tuple[int, int] - the sunset hour and sunset minutes
+        """
         assert isinstance(self.city, LocationInfo)
         sun_set = sunset(self.city.observer) + td(hours=2, minutes=40)
         return sun_set.hour, sun_set.minute
 
     def is_daylight(self):
-        """"""
+        """Checks if it daylight at the specified location according to the start and end of daylight.
+
+        Returns::
+
+           bool - if the current time of day is between the start of daylight and end of daylight or not."""
 
         return self.start_of_daylight < dt.now() < self.end_of_daylight
-    

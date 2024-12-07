@@ -6,3 +6,4 @@ HHMMSS_UNDERSCORE_FORMAT = "%H_%M_%S"
 HHMMSS_COLON_FORMAT = "%H:%M:%S %p"
 OK_STATUS_CODE = 200
 NO_CONTENT_STATUS_CODE = 204
+LOGGING_FORMAT = "%(name)s: %(asctime)s - %(levelname)s - %(message)s"

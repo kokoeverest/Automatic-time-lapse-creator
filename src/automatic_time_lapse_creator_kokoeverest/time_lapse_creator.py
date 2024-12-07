@@ -20,11 +20,13 @@ from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
     JPG_FILE,
     OK_STATUS_CODE,
     MP4_FILE,
+    LOGGING_FORMAT,
 )
 from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
     InvalidStatusCodeException,
     InvalidCollectionException,
 )
+from src.automatic_time_lapse_creator_kokoeverest.common.utils import create_log_message
 
 cwd = os.getcwd()
 Path(f"{cwd}/logs").mkdir(exist_ok=True)
@@ -33,14 +35,14 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(
     filename=Path(f"{cwd}/logs/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}"),
     level=logging.INFO,
-    format="%(name)s: %(asctime)s - %(levelname)s - %(message)s",
+    format=LOGGING_FORMAT,
     datefmt=f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}",
 )
 
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
 
-formatter = logging.Formatter("%(name)s: %(asctime)s - %(levelname)s - %(message)s")
+formatter = logging.Formatter(LOGGING_FORMAT)
 
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
@@ -48,6 +50,8 @@ logger.addHandler(console_handler)
 
 class TimeLapseCreator:
     """
+    For convenience the TimeLapseCreator can be instantiated with all iterable collections, except for dict().
+    Internally the self.sources is manipulated as a set, ensuring that there will be no duplicate sources added by mistake.
     #### Note: for testing purposes the while loop in execute() is set to break when the self._test_counter == 0.
     #### You should not set the nighttime_retry_seconds to 1 when instantiating a new TimeLapseCreator because
     #### it will stop after the first iteration
@@ -55,7 +59,7 @@ class TimeLapseCreator:
 
     def __init__(
         self,
-        sources: list[Source] = [],
+        sources: Iterable[Source] = [],
         city: str = "Sofia",
         path: str = os.getcwd(),
         seconds_between_frames: int = 60,
@@ -67,7 +71,7 @@ class TimeLapseCreator:
         self.base_path = path
         self.folder_name = dt.today().strftime(YYMMDD_FORMAT)
         self.location = LocationAndTimeManager(city)
-        self.sources: set[Source] = set(sources)
+        self.sources: set[Source] = TimeLapseCreator.validate_collection(sources)
         self.wait_before_next_frame = seconds_between_frames
         self.nighttime_wait_before_next_retry = night_time_retry_seconds
         self.video_fps = video_fps
@@ -89,7 +93,7 @@ class TimeLapseCreator:
         self.verify_sources_not_empty()
 
         # self._test_counter > 0 for testing purposes only, see Note in TimeLapseCreator docstring
-        while self._test_counter > 0: 
+        while self._test_counter > 0:
             self.reset_test_counter()
             if self.collect_images_from_webcams():
                 for source in self.sources:
@@ -246,41 +250,81 @@ class TimeLapseCreator:
 
     def add_sources(self, sources: Source | Iterable[Source]):
         """Adds a single Source or a collection[Source] to the TimeLapseCreator sources.
+        If any source to be added already exists (location_name or url) a warning will be logged
+        and the source will not be added.
 
         Raises::
 
             InvalidCollectionException if the passed collection is a dictionary."""
 
         try:
-            sources = self._check_sources(sources)
+            sources = self.check_sources(sources)
+
+            if isinstance(sources, Source):
+                if self.source_exists(sources):
+                    logger.warning(
+                        create_log_message(sources.location_name, sources.url, "add")
+                    )
+                else:
+                    self.sources.add(sources)
+
+            elif not isinstance(sources, Source):
+                for source in sources:
+                    if self.source_exists(source):
+                        logger.warning(
+                            create_log_message(source.location_name, source.url, "add")
+                        )
+                    else:
+                        self.sources.add(source)
         except InvalidCollectionException as exc:
             raise exc
 
-        if isinstance(sources, Source):
-            self.sources.add(sources)
-        else:
-            self.sources.update(set(sources))
+    def source_exists(self, source: Source):
+        """Checks if any source in self.sources has a match in the location_name or the url.
+
+        Returns::
+            bool - True if a match is found, False if no match is found."""
+        return any(
+            source.location_name == existing.location_name or source.url == existing.url
+            for existing in self.sources
+        )
 
     def remove_sources(self, sources: Source | Iterable[Source]):
         """Removes a single Source or a collection[Source] from the TimeLapseCreator sources.
+        If any source to be removed is not found (location_name or url) a warning will be logged.
 
         Raises::
 
             InvalidCollectionException if the passed collection is a dictionary."""
 
         try:
-            sources = self._check_sources(sources)
+            sources = self.check_sources(sources)
+            if isinstance(sources, Source):
+                if not self.source_exists(sources):
+                    logger.warning(
+                        create_log_message(sources.location_name, sources.url, "remove")
+                    )
+                else:
+                    self.sources.remove(sources)
+            else:
+                for source in sources:
+                    if not self.source_exists(source):
+                        logger.warning(
+                            create_log_message(
+                                source.location_name, source.url, "remove"
+                            )
+                        )
+                    else:
+                        self.sources.remove(source)
+
         except InvalidCollectionException as exc:
             raise exc
+        except Exception as exc:
+            logger.exception(exc)
 
-        if isinstance(sources, Source):
-            self.sources.remove(sources)
-        else:
-            for src in sources:
-                self.sources.remove(src)
-
-    def _check_sources(self, sources: Source | Iterable[Source]):
-        """Checks if the sources are in a valid container.
+    @classmethod
+    def check_sources(cls, sources: Source | Iterable[Source]):
+        """Checks if a single source or a collection of sources is passed.
         Parameters::
 
             sources: Source | Iterable[Source]
@@ -293,10 +337,26 @@ class TimeLapseCreator:
 
             InvalidCollectionException if the collection is passed as dictionary."""
 
-        allowed_collections = (set, list, tuple)
-
         if isinstance(sources, Source):
             return sources
+
+        return cls.validate_collection(sources)
+
+    @classmethod
+    def validate_collection(cls, sources: Iterable[Source]):
+        """Checks if a valid collection is passed.
+        Parameters::
+
+            sources: Iterable[Source]
+
+        Returns::
+
+            set[Source] if the containing collection is of type set, list or tuple.
+
+        Raises::
+
+            InvalidCollectionException if the collection is passed as dictionary."""
+        allowed_collections = (set, list, tuple)
 
         if any(isinstance(sources, col) for col in allowed_collections):
             return set(sources)
@@ -306,6 +366,7 @@ class TimeLapseCreator:
             )
 
     def _decrease_test_counter(self):
+        """Decreases the test counter by 1."""
         self._test_counter -= 1
 
     def reset_test_counter(self):
@@ -313,6 +374,6 @@ class TimeLapseCreator:
         Resets the self._test_couter to equal self.nighttime_wait_before_next_retry.
 
         You should use this method only when testing, in order to meet the breaking condition in
-        the while loop in the execute() method. 
+        the while loop in the execute() method.
         """
         self._test_counter = self.nighttime_wait_before_next_retry

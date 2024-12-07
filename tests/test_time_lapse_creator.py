@@ -76,15 +76,31 @@ def test_sources_not_empty_returns_true_when_source_is_added(
     assert not sample_non_empty_time_lapse_creator.verify_sources_not_empty()
 
 
+def test_validate_collection_raises_InvalidCollectionEception_if_a_dict_is_passed():
+    # Arrange, Act & Assert
+    with pytest.raises(InvalidCollectionException):
+        result = TimeLapseCreator.validate_collection(td.empty_dict)  # type: ignore
+        assert result == "Only list, tuple or set collections are allowed!"
+
+
+def test_validate_collection_returns_set_with_sources_if_valid_collections_are_passed():
+    # Arrange
+    allowed_collections = (set, list, tuple)
+
+    # Act & Assert
+    for col in allowed_collections:
+        argument = col([td.sample_source1, td.sample_source2])  # type: ignore
+
+        result = TimeLapseCreator.validate_collection(argument)  # type: ignore
+        assert isinstance(result, set)
+
+
 def test_check_sources_raises_InvalidCollectionEception_if_a_dict_is_passed(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
-    # Arrange
-    empty_dict = {}
-
-    # Act & Assert
+    # Arrange, Act & Assert
     with pytest.raises(InvalidCollectionException):
-        result = sample_empty_time_lapse_creator._check_sources(empty_dict)  # type: ignore
+        result = sample_empty_time_lapse_creator.check_sources(td.empty_dict)  # type: ignore
         assert result == "Only list, tuple or set collections are allowed!"
 
 
@@ -92,7 +108,7 @@ def test_check_sources_returns_Source_if_a_single_valid_source_is_passed(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange & Act
-    result = sample_empty_time_lapse_creator._check_sources(td.sample_source1)  # type: ignore
+    result = sample_empty_time_lapse_creator.check_sources(td.sample_source1)  # type: ignore
 
     # Assert
     assert isinstance(result, Source)
@@ -108,7 +124,7 @@ def test_check_sources_returns_set_with_sources_if_valid_collections_are_passed(
     for col in allowed_collections:
         argument = col([td.sample_source1, td.sample_source2])  # type: ignore
 
-        result = sample_empty_time_lapse_creator._check_sources(argument)  # type: ignore
+        result = sample_empty_time_lapse_creator.check_sources(argument)  # type: ignore
         assert isinstance(result, set)
 
 
@@ -128,6 +144,30 @@ def test_add_sources_successfully_adds_a_collection_of_sources(
     # Arrange & Act
     result = sample_empty_time_lapse_creator.add_sources(
         {td.sample_source1, td.sample_source2, td.sample_source3}
+    )
+
+    # Assert
+    assert len(sample_empty_time_lapse_creator.sources) == 3
+    assert not result
+
+
+def test_add_sources_doesnt_add_source_if_duplicate_name_or_url_is_found(
+    sample_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    sample_empty_time_lapse_creator.add_sources({td.sample_source1})
+    sample_empty_time_lapse_creator.add_sources({td.duplicate_source})
+
+    # Assert
+    assert len(sample_empty_time_lapse_creator.sources) == 1
+
+
+def test_add_sources_doesnt_add_source_if_duplicate_name_or_url_is_found_in_a_collection(
+    sample_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    result = sample_empty_time_lapse_creator.add_sources(
+        {td.sample_source1, td.sample_source2, td.sample_source3, td.duplicate_source}
     )
 
     # Assert
@@ -167,6 +207,33 @@ def test_remove_sources_successfully_removes_a_collection_of_sources(
     assert len(sample_empty_time_lapse_creator.sources) == 1
     assert not result
 
+
+def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    non_existing_source = Source(td.invalid_city_name, td.valid_url)
+
+    # Act
+    result = sample_non_empty_time_lapse_creator.remove_sources(non_existing_source)
+
+    # Assert
+    assert len(sample_non_empty_time_lapse_creator.sources) == 3
+    assert not result
+
+
+def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found_in_a_collection(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    non_existing_source = Source(td.invalid_city_name, td.valid_url)
+
+    # Act
+    result = sample_non_empty_time_lapse_creator.remove_sources([td.sample_source1, non_existing_source])
+
+    # Assert
+    assert len(sample_non_empty_time_lapse_creator.sources) == 2
+    assert not result
 
 def test_verify_request_reraises_exception_if_url_is_invalid(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
@@ -427,8 +494,6 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
 
         # Tear down
         fake_non_empty_time_lapse_creator.reset_test_counter()
-        
-
 
 
 def test_execute_creates_video_for_every_source_when_images_partially_collected():
