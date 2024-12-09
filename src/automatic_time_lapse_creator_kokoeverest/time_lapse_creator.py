@@ -22,6 +22,12 @@ from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
     OK_STATUS_CODE,
     MP4_FILE,
     LOGGING_FORMAT,
+    DEFAULT_CITY_NAME,
+    DEFAULT_NIGHTTIME_RETRY_SECONDS,
+    DEFAULT_SECONDS_BETWEEN_FRAMES,
+    DEFAULT_VIDEO_FPS,
+    DEFAULT_VIDEO_HEIGHT,
+    DEFAULT_VIDEO_WIDTH,
 )
 from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
     InvalidStatusCodeException,
@@ -61,13 +67,13 @@ class TimeLapseCreator:
     def __init__(
         self,
         sources: Iterable[Source] = [],
-        city: str = "Sofia",
+        city: str = DEFAULT_CITY_NAME,
         path: str = os.getcwd(),
-        seconds_between_frames: int = 60,
-        night_time_retry_seconds: int = 300,
-        video_fps: int = 30,
-        video_width: int = 640,
-        video_height: int = 360,
+        seconds_between_frames: int = DEFAULT_SECONDS_BETWEEN_FRAMES,
+        night_time_retry_seconds: int = DEFAULT_NIGHTTIME_RETRY_SECONDS,
+        video_fps: int = DEFAULT_VIDEO_FPS,
+        video_width: int = DEFAULT_VIDEO_WIDTH,
+        video_height: int = DEFAULT_VIDEO_HEIGHT,
     ) -> None:
         self.base_path = path
         self.folder_name = dt.today().strftime(YYMMDD_FORMAT)
@@ -82,7 +88,9 @@ class TimeLapseCreator:
 
     def get_cached_self(self):
         """Retrieve the state of the object from the cache. If the retrieved TimeLapseCreator is older
-        than one day, then its state will be ignored and a default state will be used
+        than one day, then its state will be ignored and a default state will be used.
+        If object of other type than TimeLapseCreator is returned (including Exception) it will be ignored
+        and the current object will be returned (self).
 
         Returns::
             TimeLapseCretor - either the cached object state or the current state"""
@@ -289,7 +297,7 @@ class TimeLapseCreator:
             InvalidCollectionException if the passed collection is a dictionary."""
 
         try:
-            sources = self.check_sources(sources)
+            sources = TimeLapseCreator.check_sources(sources)
 
             if isinstance(sources, Source):
                 if self.source_exists(sources):
@@ -329,7 +337,7 @@ class TimeLapseCreator:
             InvalidCollectionException if the passed collection is a dictionary."""
 
         try:
-            sources = self.check_sources(sources)
+            sources = TimeLapseCreator.check_sources(sources)
             if isinstance(sources, Source):
                 if not self.source_exists(sources):
                     logger.warning(

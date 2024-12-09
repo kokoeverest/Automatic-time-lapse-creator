@@ -7,6 +7,7 @@ from src.automatic_time_lapse_creator_kokoeverest.video_manager import (
 from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
     YYMMDD_FORMAT,
     MP4_FILE,
+    JPG_FILE,
 )
 from datetime import datetime
 import tests.test_mocks as tm
@@ -17,7 +18,7 @@ cwd = os.getcwd()
 
 def test_video_manager_video_exists_returns_true_with_existing_video_file():
     # Arrange
-    fake_file_path = "fake/path/to/video_file.mp4"
+    fake_file_path = f"fake/path/to/video_file{MP4_FILE}"
 
     # Act & Assert
     with patch(
@@ -74,6 +75,6 @@ def test_create_timelapse_success():
 
     # Assert
     assert result
-    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*.jpg")
+    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
     assert mock_writer.write.call_count == 10
     mock_writer.release.assert_called_once()

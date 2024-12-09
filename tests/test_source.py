@@ -19,9 +19,7 @@ def test_source_initializes_correctly(sample_source: Source):
     assert not sample_source.images_partially_collected
 
 
-def test_set_video_created_changes_video_created_to_True(
-        sample_source: Source
-):
+def test_set_video_created_changes_video_created_to_True(sample_source: Source):
     # Arrange & Act
     sample_source.set_video_created()
 
@@ -37,9 +35,7 @@ def test_reset_video_created_changes_video_created_to_False(sample_source: Sourc
     assert not sample_source.video_created
 
 
-def test_increase_images_increases_the_images_count_by_one(
-        sample_source: Source
-):
+def test_increase_images_increases_the_images_count_by_one(sample_source: Source):
     # Arrange & Act
     sample_source.increase_images()
 
@@ -56,7 +52,9 @@ def test_reset_images_counter_resets_the_images_count_to_zero(sample_source: Sou
     assert sample_source.images_count == 0
 
 
-def test_set_all_images_collected_sets_all_images_collected_to_True(sample_source: Source):
+def test_set_all_images_collected_sets_all_images_collected_to_True(
+    sample_source: Source,
+):
     # Arrange & Act
     sample_source.set_all_images_collected()
 

@@ -8,13 +8,16 @@ from src.automatic_time_lapse_creator_kokoeverest.time_manager import (
 from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
     UnknownLocationException,
 )
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+    DEFAULT_CITY_NAME,
+)
 import tests.test_data as td
 import tests.test_mocks as tm
 
 
 @pytest.fixture
 def sample_LocationAndTimeManager():
-    return LocationAndTimeManager(td.default_city_name)
+    return LocationAndTimeManager(DEFAULT_CITY_NAME)
 
 
 def test_LocationAndTimeManager_raises_UnknownLocationException_if_city_is_not_found():
@@ -75,10 +78,12 @@ def test_is_daylight_returns_True_during_the_day(
     sample_LocationAndTimeManager: LocationAndTimeManager,
 ):
     # Arrange, Act & Assert
-    with patch("src.automatic_time_lapse_creator_kokoeverest.time_manager.dt") as mock_datetime:
+    with patch(
+        "src.automatic_time_lapse_creator_kokoeverest.time_manager.dt"
+    ) as mock_datetime:
         mock_datetime.now.return_value = tm.MockDatetime.fake_daylight
         result = sample_LocationAndTimeManager.is_daylight()
-        
+
         assert isinstance(result, bool)
         assert result is True
 

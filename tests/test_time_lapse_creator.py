@@ -3,7 +3,15 @@ from unittest.mock import mock_open, patch
 import os
 
 import requests
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import YYMMDD_FORMAT
+from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+    YYMMDD_FORMAT,
+    DEFAULT_CITY_NAME,
+    DEFAULT_NIGHTTIME_RETRY_SECONDS,
+    DEFAULT_SECONDS_BETWEEN_FRAMES,
+    DEFAULT_VIDEO_FPS,
+    DEFAULT_VIDEO_HEIGHT,
+    DEFAULT_VIDEO_WIDTH,
+)
 from src.automatic_time_lapse_creator_kokoeverest.source import Source
 from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import (
     TimeLapseCreator,
@@ -23,7 +31,7 @@ import tests.test_mocks as tm
 
 @pytest.fixture
 def sample_empty_time_lapse_creator():
-    return TimeLapseCreator([])
+    return TimeLapseCreator()
 
 
 @pytest.fixture
@@ -47,17 +55,23 @@ def test_initializes_correctly_for_default_location(
     assert isinstance(sample_empty_time_lapse_creator.location, LocationAndTimeManager)
     assert isinstance(sample_empty_time_lapse_creator.sources, set)
     assert isinstance(sample_empty_time_lapse_creator.location.city, LocationInfo)
-    assert sample_empty_time_lapse_creator.location.city.name == td.default_city_name
+    assert sample_empty_time_lapse_creator.location.city.name == DEFAULT_CITY_NAME
     assert sample_empty_time_lapse_creator.folder_name == dt.today().strftime(
         YYMMDD_FORMAT
     )
     assert sample_empty_time_lapse_creator.base_path == os.getcwd()
     assert len(sample_empty_time_lapse_creator.sources) == 0
-    assert sample_empty_time_lapse_creator.wait_before_next_frame == 60
-    assert sample_empty_time_lapse_creator.nighttime_wait_before_next_retry == 300
-    assert sample_empty_time_lapse_creator.video_fps == 30
-    assert sample_empty_time_lapse_creator.video_width == 640
-    assert sample_empty_time_lapse_creator.video_height == 360
+    assert (
+        sample_empty_time_lapse_creator.wait_before_next_frame
+        == DEFAULT_SECONDS_BETWEEN_FRAMES
+    )
+    assert (
+        sample_empty_time_lapse_creator.nighttime_wait_before_next_retry
+        == DEFAULT_NIGHTTIME_RETRY_SECONDS
+    )
+    assert sample_empty_time_lapse_creator.video_fps == DEFAULT_VIDEO_FPS
+    assert sample_empty_time_lapse_creator.video_width == DEFAULT_VIDEO_WIDTH
+    assert sample_empty_time_lapse_creator.video_height == DEFAULT_VIDEO_HEIGHT
 
 
 def test_sources_not_empty_returns_false_with_no_sources(
@@ -211,11 +225,8 @@ def test_remove_sources_successfully_removes_a_collection_of_sources(
 def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
-    # Arrange
-    non_existing_source = Source(td.invalid_city_name, td.valid_url)
-
-    # Act
-    result = sample_non_empty_time_lapse_creator.remove_sources(non_existing_source)
+    # Arrange & Act
+    result = sample_non_empty_time_lapse_creator.remove_sources(td.non_existing_source)
 
     # Assert
     assert len(sample_non_empty_time_lapse_creator.sources) == 3
@@ -225,15 +236,15 @@ def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found(
 def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found_in_a_collection(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
-    # Arrange
-    non_existing_source = Source(td.invalid_city_name, td.valid_url)
-
-    # Act
-    result = sample_non_empty_time_lapse_creator.remove_sources([td.sample_source1, non_existing_source])
+    # Arrange & Act
+    result = sample_non_empty_time_lapse_creator.remove_sources(
+        [td.sample_source1, td.non_existing_source]
+    )
 
     # Assert
     assert len(sample_non_empty_time_lapse_creator.sources) == 2
     assert not result
+
 
 def test_verify_request_reraises_exception_if_url_is_invalid(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
@@ -421,6 +432,9 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "verify_request", mock_bytes
         )
+        monkeypatch.setattr(
+            sample_non_empty_time_lapse_creator, "cache_self", lambda: None
+        )
         sample_non_empty_time_lapse_creator.wait_before_next_frame = 1
 
         # Act & Assert
@@ -539,3 +553,60 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
 
         # Tear down
         fake_non_empty_time_lapse_creator.reset_test_counter()
+
+
+def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day():
+    # Arrange, Act & Assert
+    with patch(
+        "src.automatic_time_lapse_creator_kokoeverest.cache_manager.CacheManager.get",
+        return_value=fake_non_empty_time_lapse_creator,
+    ):
+        result = fake_non_empty_time_lapse_creator.get_cached_self()
+        assert result == fake_non_empty_time_lapse_creator
+        assert result.folder_name == fake_non_empty_time_lapse_creator.folder_name
+
+
+def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day_and_images_were_partially_collected():
+    # Arrange
+    sample_cached_creator = TimeLapseCreator([td.sample_source1])
+    [
+        source.set_images_partially_collected()
+        for source in sample_cached_creator.sources
+    ]
+
+    #  Act & Assert
+    with patch(
+        "src.automatic_time_lapse_creator_kokoeverest.cache_manager.CacheManager.get",
+        return_value=sample_cached_creator,
+    ):
+        result = fake_non_empty_time_lapse_creator.get_cached_self()
+        assert result != fake_non_empty_time_lapse_creator
+        assert result.folder_name == fake_non_empty_time_lapse_creator.folder_name
+        for idx, source in enumerate(result.sources):
+            assert source.images_partially_collected
+            assert list(fake_non_empty_time_lapse_creator.sources)[
+                idx
+            ].images_partially_collected
+
+    # Tear down
+    fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
+
+
+def test_get_cached_self_returns_self_if_cache_rerurns_exception():
+    # Arrange, Act & Assert
+    with patch(
+        "src.automatic_time_lapse_creator_kokoeverest.cache_manager.CacheManager.get",
+        return_value=Exception(),
+    ):
+        result = fake_non_empty_time_lapse_creator.get_cached_self()
+        assert result == fake_non_empty_time_lapse_creator
+        assert result.folder_name == fake_non_empty_time_lapse_creator.folder_name
+
+
+def test_cache_self_returns_None():
+    # Arrange, Act & Assert
+    with patch(
+        "src.automatic_time_lapse_creator_kokoeverest.cache_manager.CacheManager.write",
+        return_value=None,
+    ):
+        assert fake_non_empty_time_lapse_creator.cache_self() is None
