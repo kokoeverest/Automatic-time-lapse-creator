@@ -5,15 +5,15 @@ from time import sleep
 from pathlib import Path
 from typing import Iterable
 import logging
-from src.automatic_time_lapse_creator.cache_manager import CacheManager
-from src.automatic_time_lapse_creator.source import Source
-from src.automatic_time_lapse_creator.video_manager import (
+from .cache_manager import CacheManager
+from .source import Source
+from .video_manager import (
     VideoManager as vm,
 )
-from src.automatic_time_lapse_creator.time_manager import (
+from .time_manager import (
     LocationAndTimeManager,
 )
-from src.automatic_time_lapse_creator.common.constants import (
+from .common.constants import (
     YYMMDD_FORMAT,
     HHMMSS_COLON_FORMAT,
     HHMMSS_UNDERSCORE_FORMAT,
@@ -29,11 +29,11 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
 )
-from src.automatic_time_lapse_creator.common.exceptions import (
+from .common.exceptions import (
     InvalidStatusCodeException,
     InvalidCollectionException,
 )
-from src.automatic_time_lapse_creator.common.utils import create_log_message
+from .common.utils import create_log_message
 
 cwd = os.getcwd()
 Path(f"{cwd}/logs").mkdir(exist_ok=True)

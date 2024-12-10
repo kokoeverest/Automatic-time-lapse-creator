@@ -20,6 +20,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+version = "1.0.0"
 dependencies = [
     "astral>=3.2",
     "certifi>=2024.8.30",
@@ -37,7 +38,6 @@ dependencies = [
     "urllib3>=2.2.3",
 ]
 description = "automatic_time_lapse_creator is a Python program for scraping images from a web cam url and converting them into a timelapse" 
-dynamic = ["version"]
 keywords = ["requests", "astral", "opencv", "opencv-python", "timelapse", "video", "mp4", "webcam"]
 readme = "README.md"
 requires-python = ">=3.10"
