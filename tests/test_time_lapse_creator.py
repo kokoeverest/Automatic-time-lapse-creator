@@ -3,7 +3,7 @@ from unittest.mock import mock_open, patch
 import os
 
 import requests
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+from src.automatic_time_lapse_creator.common.constants import (
     YYMMDD_FORMAT,
     DEFAULT_CITY_NAME,
     DEFAULT_NIGHTTIME_RETRY_SECONDS,
@@ -12,14 +12,14 @@ from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
 )
-from src.automatic_time_lapse_creator_kokoeverest.source import Source
-from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import (
+from src.automatic_time_lapse_creator.source import Source
+from src.automatic_time_lapse_creator.time_lapse_creator import (
     TimeLapseCreator,
 )
-from src.automatic_time_lapse_creator_kokoeverest.time_manager import (
+from src.automatic_time_lapse_creator.time_manager import (
     LocationAndTimeManager,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
+from src.automatic_time_lapse_creator.common.exceptions import (
     InvalidStatusCodeException,
     InvalidCollectionException,
 )
@@ -328,7 +328,7 @@ def test_create_video_returns_False_if_video_is_not_created(
 ):
     # Arrange, Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.video_exists",
+        "src.automatic_time_lapse_creator.time_lapse_creator.vm.video_exists",
         return_value=True,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
@@ -342,15 +342,15 @@ def test_create_video_returns_True_if_video_is_created(
     # Arrange, Act & Assert
     with (
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.video_exists",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.video_exists",
             return_value=False,
         ),
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.create_timelapse",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_timelapse",
             return_value=True,
         ),
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.delete_source_images",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_images",
             return_value=True,
         ) as mock_delete,
     ):
@@ -368,15 +368,15 @@ def test_create_video_returns_True_if_video_is_created_and_source_images_are_not
     # Arrange, Act & Assert
     with (
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.video_exists",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.video_exists",
             return_value=False,
         ),
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.create_timelapse",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_timelapse",
             return_value=True,
         ),
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.vm.delete_source_images",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_images",
             return_value=True,
         ) as mock_delete,
     ):
@@ -421,7 +421,7 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
 
     with (
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.Path.mkdir",
+            "src.automatic_time_lapse_creator.time_lapse_creator.Path.mkdir",
             return_value=None,
         ),
         patch("builtins.open", mock_file),
@@ -458,7 +458,7 @@ def test_execute_sleeps_if_images_are_not_collected(
     # Act
     with (
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.sleep",
+            "src.automatic_time_lapse_creator.time_lapse_creator.sleep",
             return_value=None,
         ) as mock_sleep,
     ):
@@ -483,14 +483,14 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
             return_value=True,
         ),
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.dt"
+            "src.automatic_time_lapse_creator.time_lapse_creator.dt"
         ) as mock_datetime,
         patch(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.create_video",
             return_value=True,
         ) as mock_create_video,
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.sleep",
+            "src.automatic_time_lapse_creator.time_lapse_creator.sleep",
             return_value=None,
         ) as mock_sleep,
     ):
@@ -522,14 +522,14 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
             return_value=True,
         ) as mock_collect,
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.dt"
+            "src.automatic_time_lapse_creator.time_lapse_creator.dt"
         ) as mock_datetime,
         patch(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.create_video",
             return_value=True,
         ) as mock_create_video,
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator.sleep",
+            "src.automatic_time_lapse_creator.time_lapse_creator.sleep",
             return_value=None,
         ) as mock_sleep,
     ):
@@ -558,7 +558,7 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
 def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day():
     # Arrange, Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.cache_manager.CacheManager.get",
+        "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
         return_value=fake_non_empty_time_lapse_creator,
     ):
         result = fake_non_empty_time_lapse_creator.get_cached_self()
@@ -576,7 +576,7 @@ def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day_and_ima
 
     #  Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.cache_manager.CacheManager.get",
+        "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
         return_value=sample_cached_creator,
     ):
         result = fake_non_empty_time_lapse_creator.get_cached_self()
@@ -595,7 +595,7 @@ def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day_and_ima
 def test_get_cached_self_returns_self_if_cache_rerurns_exception():
     # Arrange, Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.cache_manager.CacheManager.get",
+        "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
         return_value=Exception(),
     ):
         result = fake_non_empty_time_lapse_creator.get_cached_self()
@@ -606,7 +606,7 @@ def test_get_cached_self_returns_self_if_cache_rerurns_exception():
 def test_cache_self_returns_None():
     # Arrange, Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.cache_manager.CacheManager.write",
+        "src.automatic_time_lapse_creator.cache_manager.CacheManager.write",
         return_value=None,
     ):
         assert fake_non_empty_time_lapse_creator.cache_self() is None

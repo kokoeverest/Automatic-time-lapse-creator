@@ -1,4 +1,4 @@
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+from src.automatic_time_lapse_creator.common.constants import (
     NO_CONTENT_STATUS_CODE,
     JPG_FILE,
     MP4_FILE,
@@ -43,8 +43,3 @@ class MockResponse:
 class MockDatetime:
     fake_daylight = datetime(today.year, today.month, today.day, 12, 00, 00)
     fake_nighttime = datetime(today.year, today.month, today.day, 23, 59, 00)
-
-
-class MockTimeAndLocationManager:
-    start_of_daylight = datetime(today.year, today.month, today.day, 7, 00, 00)
-    end_of_daylight = datetime(today.year, today.month, today.day, 18, 00, 00)

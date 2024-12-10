@@ -3,7 +3,7 @@ from pathlib import Path
 import cv2
 import os
 import logging
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import JPG_FILE
+from src.automatic_time_lapse_creator.common.constants import JPG_FILE
 
 logger = logging.getLogger(__name__)
 

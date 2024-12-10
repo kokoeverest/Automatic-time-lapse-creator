@@ -3,12 +3,20 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "automatic_time_lapse_creator_kokoeverest"
+name = "automatic_time_lapse_creator"
 authors = [
   { name="Kaloyan Peychev", email="kokoeverest@gmail.com" },
 ]
+maintainers = [
+  { name="Kaloyan Peychev", email="kokoeverest@gmail.com" },
+]
 classifiers = [
+    "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
@@ -28,11 +36,12 @@ dependencies = [
     "tzdata>=2024.2",
     "urllib3>=2.2.3",
 ]
-description = "A Python script for extracting images from a web cam url and converting these images into a timelapse" 
+description = "automatic_time_lapse_creator is a Python program for scraping images from a web cam url and converting them into a timelapse" 
 dynamic = ["version"]
+keywords = ["requests", "astral", "opencv", "opencv-python", "timelapse", "video", "mp4", "webcam"]
 readme = "README.md"
 requires-python = ">=3.10"
 
 [project.urls]
-Homepage = "https://github.com/kokoeverest/Automatic-time-lapse-creator"
+Repository = "https://github.com/kokoeverest/Automatic-time-lapse-creator"
 Issues = "https://github.com/kokoeverest/Automatic-time-lapse-creator/issues"

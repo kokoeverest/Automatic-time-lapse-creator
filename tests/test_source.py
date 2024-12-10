@@ -1,6 +1,6 @@
 import pytest
 import tests.test_data as td
-from src.automatic_time_lapse_creator_kokoeverest.source import Source
+from src.automatic_time_lapse_creator.source import Source
 
 
 @pytest.fixture
@@ -87,5 +87,6 @@ def test_reset_images_partially_collected_resets_images_partially_collected_to_F
 ):
     # Arrange & Act
     sample_source.reset_images_pertially_collected()
+
     # Assert
     assert not sample_source.images_partially_collected

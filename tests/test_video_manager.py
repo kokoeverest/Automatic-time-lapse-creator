@@ -1,10 +1,10 @@
 import os
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from src.automatic_time_lapse_creator_kokoeverest.video_manager import (
+from src.automatic_time_lapse_creator.video_manager import (
     VideoManager as vm,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+from src.automatic_time_lapse_creator.common.constants import (
     YYMMDD_FORMAT,
     MP4_FILE,
     JPG_FILE,
@@ -22,7 +22,7 @@ def test_video_manager_video_exists_returns_true_with_existing_video_file():
 
     # Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.video_manager.os.path"
+        "src.automatic_time_lapse_creator.video_manager.os.path"
     ) as mock_os_path:
         mock_os_path.exists.return_value = True
         assert vm.video_exists(fake_file_path)
@@ -39,7 +39,7 @@ def test_video_manager_video_exists_returns_false_with_non_existing_path():
 def test_create_time_lapse_returns_False_when_images_folder_contains_no_images():
     # Arrange, Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.video_manager.glob",
+        "src.automatic_time_lapse_creator.video_manager.glob",
         return_value=[],
     ):
         assert not vm.create_timelapse(
@@ -58,7 +58,7 @@ def test_create_timelapse_success():
     # Act
     with (
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.video_manager.glob",
+            "src.automatic_time_lapse_creator.video_manager.glob",
             return_value=tm.mock_images_list,
         ) as mock_glob,
         patch("cv2.VideoWriter", return_value=mock_writer),

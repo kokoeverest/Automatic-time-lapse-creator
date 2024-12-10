@@ -37,6 +37,7 @@ pleven_hut_source = Source(
 
 sources_list: list[Source] = [borovets_source, pleven_hut_source]
 
+# creating a TimeLapseCreator can be done in two ways:
 # instantiate the creator directly with the list of Sources
 bulgaria_webcams = TimeLapseCreator(sources_list)
 
@@ -44,6 +45,15 @@ bulgaria_webcams = TimeLapseCreator(sources_list)
 # with the add_sources method
 bulgaria_webcams = TimeLapseCreator()
 bulgaria_webcams.add_sources(sources_list)
+
+# if you try to instantiate a new TimeLapseCreator with a single Source, it will raise an InvalidCollectionException
+# for example:
+pleven_hut_webcam = TimeLapseCreator(pleven_hut_source)
+# output:
+Traceback...:
+...in validate_collection
+    raise InvalidCollectionException(
+src.automatic_time_lapse_creator.common.exceptions.InvalidCollectionException: Only list, tuple or set collections are allowed!
 
 # start the collection of the images with the execute() method
 bulgaria_webcams.execute()

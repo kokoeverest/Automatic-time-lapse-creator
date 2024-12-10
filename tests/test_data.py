@@ -1,9 +1,10 @@
-from src.automatic_time_lapse_creator_kokoeverest.source import Source
+from src.automatic_time_lapse_creator.source import Source
 
 invalid_city_name = "Logator"
 valid_source_name = "aleko"
 valid_url = "https://home-solutions.bg/cams/aleko2.jpg?1705293967111"
 empty_url = "empty url"
+
 sample_source1 = Source(valid_source_name, valid_url)
 duplicate_source = Source(valid_source_name, valid_url)
 

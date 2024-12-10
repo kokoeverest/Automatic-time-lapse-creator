@@ -2,13 +2,13 @@ from datetime import datetime
 import pytest
 from unittest.mock import patch
 from astral import LocationInfo
-from src.automatic_time_lapse_creator_kokoeverest.time_manager import (
+from src.automatic_time_lapse_creator.time_manager import (
     LocationAndTimeManager,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
+from src.automatic_time_lapse_creator.common.exceptions import (
     UnknownLocationException,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_CITY_NAME,
 )
 import tests.test_data as td
@@ -79,7 +79,7 @@ def test_is_daylight_returns_True_during_the_day(
 ):
     # Arrange, Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.time_manager.dt"
+        "src.automatic_time_lapse_creator.time_manager.dt"
     ) as mock_datetime:
         mock_datetime.now.return_value = tm.MockDatetime.fake_daylight
         result = sample_LocationAndTimeManager.is_daylight()
@@ -93,7 +93,7 @@ def test_is_daylight_returns_False_during_the_night(
 ):
     # Arrange, Act & Assert
     with patch(
-        "src.automatic_time_lapse_creator_kokoeverest.time_manager.dt"
+        "src.automatic_time_lapse_creator.time_manager.dt"
     ) as mock_datetime:
         mock_datetime.now.return_value = tm.MockDatetime.fake_nighttime
         result = sample_LocationAndTimeManager.is_daylight()

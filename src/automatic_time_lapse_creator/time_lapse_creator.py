@@ -5,15 +5,15 @@ from time import sleep
 from pathlib import Path
 from typing import Iterable
 import logging
-from src.automatic_time_lapse_creator_kokoeverest.cache_manager import CacheManager
-from src.automatic_time_lapse_creator_kokoeverest.source import Source
-from src.automatic_time_lapse_creator_kokoeverest.video_manager import (
+from src.automatic_time_lapse_creator.cache_manager import CacheManager
+from src.automatic_time_lapse_creator.source import Source
+from src.automatic_time_lapse_creator.video_manager import (
     VideoManager as vm,
 )
-from src.automatic_time_lapse_creator_kokoeverest.time_manager import (
+from src.automatic_time_lapse_creator.time_manager import (
     LocationAndTimeManager,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
+from src.automatic_time_lapse_creator.common.constants import (
     YYMMDD_FORMAT,
     HHMMSS_COLON_FORMAT,
     HHMMSS_UNDERSCORE_FORMAT,
@@ -29,11 +29,11 @@ from src.automatic_time_lapse_creator_kokoeverest.common.constants import (
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
+from src.automatic_time_lapse_creator.common.exceptions import (
     InvalidStatusCodeException,
     InvalidCollectionException,
 )
-from src.automatic_time_lapse_creator_kokoeverest.common.utils import create_log_message
+from src.automatic_time_lapse_creator.common.utils import create_log_message
 
 cwd = os.getcwd()
 Path(f"{cwd}/logs").mkdir(exist_ok=True)
@@ -271,8 +271,9 @@ class TimeLapseCreator:
         [source.reset_images_pertially_collected() for source in self.sources]
 
     def reset_all_sources_counters_to_default_values(self):
-        """Resets the images_count = 0, resets video_created = False and
-        resets images_collected = False for all self.sources
+        """Resets the images_count = 0, resets video_created = False, resets 
+        images_collected = False and resets reset_images_pertially_collected = False
+        for all self.sources
         """
         for source in self.sources:
             source.reset_images_counter()

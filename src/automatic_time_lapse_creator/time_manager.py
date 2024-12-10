@@ -4,7 +4,7 @@ from astral import LocationInfo
 from datetime import datetime as dt, timedelta as td
 import logging
 
-from src.automatic_time_lapse_creator_kokoeverest.common.exceptions import (
+from src.automatic_time_lapse_creator.common.exceptions import (
     UnknownLocationException,
 )
 

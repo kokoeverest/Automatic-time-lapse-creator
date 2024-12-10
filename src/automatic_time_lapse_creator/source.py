@@ -1,5 +1,5 @@
 class Source:
-    """The Source class contains two public attributes and four read-only attributes, which can be changed
+    """Contains two public attributes and four read-only attributes, which can be changed
     through the respective methods.
 
     Attributes::

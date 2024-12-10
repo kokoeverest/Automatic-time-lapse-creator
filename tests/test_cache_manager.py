@@ -1,10 +1,10 @@
 from unittest.mock import mock_open, patch
 import pytest
 
-from src.automatic_time_lapse_creator_kokoeverest.cache_manager import (
+from src.automatic_time_lapse_creator.cache_manager import (
     CacheManager,
 )
-from src.automatic_time_lapse_creator_kokoeverest.time_lapse_creator import (
+from src.automatic_time_lapse_creator.time_lapse_creator import (
     TimeLapseCreator,
 )
 import tests.test_data as td
@@ -40,7 +40,7 @@ def test_get_returns_TimeLapsCreator_object(
     with (
         patch("builtins.open", mock_file),
         patch(
-            "src.automatic_time_lapse_creator_kokoeverest.cache_manager.pickle.load",
+            "src.automatic_time_lapse_creator.cache_manager.pickle.load",
             return_value=mock_creator,
         ),
     ):
