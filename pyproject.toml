@@ -45,3 +45,5 @@ requires-python = ">=3.10"
 [project.urls]
 Repository = "https://github.com/kokoeverest/Automatic-time-lapse-creator"
 Issues = "https://github.com/kokoeverest/Automatic-time-lapse-creator/issues"
+
+[tool.setuptools_scm]
