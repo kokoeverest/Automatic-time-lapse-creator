@@ -18,7 +18,7 @@ jobs:
       run: >-
         python3 -m
         pip install
-        build
+        build setuptools_scm
         --user
     - name: Build a binary wheel and a source tarball
       run: python3 -m build
