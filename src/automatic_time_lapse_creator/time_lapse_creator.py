@@ -1,9 +1,10 @@
+from __future__ import annotations
 import os
 import requests
 from datetime import datetime as dt
 from time import sleep
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 import logging
 from .cache_manager import CacheManager
 from .source import Source
@@ -86,7 +87,7 @@ class TimeLapseCreator:
         self.video_height = video_height
         self._test_counter = night_time_retry_seconds
 
-    def get_cached_self(self):
+    def get_cached_self(self) -> TimeLapseCreator:
         """Retrieve the state of the object from the cache. If the retrieved TimeLapseCreator is older
         than one day, then its state will be ignored and a default state will be used.
         If object of other type than TimeLapseCreator is returned (including Exception) it will be ignored
@@ -106,11 +107,11 @@ class TimeLapseCreator:
         except Exception:
             return self
 
-    def cache_self(self):
+    def cache_self(self) -> None:
         """Writes the current state of the TimeLapseCreator to the cache."""
         CacheManager.write(self, self.location.city.name)  # type: ignore
 
-    def execute(self):
+    def execute(self) -> None:
         """Verifies that self.sources has at least one Source and starts a while loop. Then, according to the return
         of collect_images_from_webcams():
           ##### - creates the video for every source
@@ -234,7 +235,7 @@ class TimeLapseCreator:
 
         return created
 
-    def verify_sources_not_empty(self):
+    def verify_sources_not_empty(self) -> None:
         """Verifies that TimeLapseCreator has at least one Source to take images for.
 
         Raises::
@@ -244,7 +245,7 @@ class TimeLapseCreator:
         if len(self.sources) == 0:
             raise ValueError("You should add at least one source for this location!")
 
-    def verify_request(self, source: Source):
+    def verify_request(self, source: Source) -> bytes | Any:
         """Verifies the request status code is 200.
 
         Raises::
@@ -266,11 +267,11 @@ class TimeLapseCreator:
 
         return response.content
 
-    def reset_images_partially_collected(self):
+    def reset_images_partially_collected(self) -> None:
         """Resets the images_partially_collected = False for all self.sources"""
         [source.reset_images_pertially_collected() for source in self.sources]
 
-    def reset_all_sources_counters_to_default_values(self):
+    def reset_all_sources_counters_to_default_values(self) -> None:
         """Resets the images_count = 0, resets video_created = False, resets 
         images_collected = False and resets reset_images_pertially_collected = False
         for all self.sources
@@ -281,14 +282,14 @@ class TimeLapseCreator:
             source.reset_all_images_collected()
             source.reset_images_pertially_collected()
 
-    def set_sources_all_images_collected(self):
+    def set_sources_all_images_collected(self) -> None:
         """Sets -> images_collected = True for all self.sources
         and calls self.reset_images_partially_collected(), because all images are collected
         """
         [source.set_all_images_collected() for source in self.sources]
         self.reset_images_partially_collected()
 
-    def add_sources(self, sources: Source | Iterable[Source]):
+    def add_sources(self, sources: Source | Iterable[Source]) -> None:
         """Adds a single Source or a collection[Source] to the TimeLapseCreator sources.
         If any source to be added already exists (location_name or url) a warning will be logged
         and the source will not be added.
@@ -319,7 +320,7 @@ class TimeLapseCreator:
         except InvalidCollectionException as exc:
             raise exc
 
-    def source_exists(self, source: Source):
+    def source_exists(self, source: Source) -> bool:
         """Checks if any source in self.sources has a match in the location_name or the url.
 
         Returns::
@@ -329,7 +330,7 @@ class TimeLapseCreator:
             for existing in self.sources
         )
 
-    def remove_sources(self, sources: Source | Iterable[Source]):
+    def remove_sources(self, sources: Source | Iterable[Source]) -> None:
         """Removes a single Source or a collection[Source] from the TimeLapseCreator sources.
         If any source to be removed is not found (location_name or url) a warning will be logged.
 
@@ -363,7 +364,7 @@ class TimeLapseCreator:
             logger.exception(exc)
 
     @classmethod
-    def check_sources(cls, sources: Source | Iterable[Source]):
+    def check_sources(cls, sources: Source | Iterable[Source]) -> Source | set[Source]:
         """Checks if a single source or a collection of sources is passed.
         Parameters::
 
@@ -383,7 +384,7 @@ class TimeLapseCreator:
         return cls.validate_collection(sources)
 
     @classmethod
-    def validate_collection(cls, sources: Iterable[Source]):
+    def validate_collection(cls, sources: Iterable[Source]) -> set[Source]:
         """Checks if a valid collection is passed.
         Parameters::
 
@@ -405,11 +406,11 @@ class TimeLapseCreator:
                 "Only list, tuple or set collections are allowed!"
             )
 
-    def _decrease_test_counter(self):
+    def _decrease_test_counter(self) -> None:
         """Decreases the test counter by 1."""
         self._test_counter -= 1
 
-    def reset_test_counter(self):
+    def reset_test_counter(self) -> None:
         """
         Resets the self._test_couter to equal self.nighttime_wait_before_next_retry.
 

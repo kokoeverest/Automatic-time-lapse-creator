@@ -1,4 +1,4 @@
-def create_log_message(location: str, url: str, method: str):
+def create_log_message(location: str, url: str, method: str) -> str:
     """
     Creates an appropriate log message according to the method which calls it
 

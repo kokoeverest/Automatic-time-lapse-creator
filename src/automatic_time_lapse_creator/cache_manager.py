@@ -7,13 +7,13 @@ class CacheManager:
     the *location_name* attribute of the TimeLapseCreator"""
 
     @classmethod
-    def write(cls, time_lapse_creator: object, location: str):
+    def write(cls, time_lapse_creator: object, location: str) -> None:
         """Writes the TimeLapseCreator object to a file, overwriting existing objects
         if the file already exists"""
         pickle.dump(time_lapse_creator, open(f"cache_{location}.p", "wb"))
 
     @classmethod
-    def get(cls, location: str):
+    def get(cls, location: str) -> object:
         """Retrieves the pickled object in the file. If the file is empty or if it is not found
         it will return an Exception"""
         return pickle.load(open(f"cache_{location}.p", "rb"))

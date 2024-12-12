@@ -21,49 +21,49 @@ class Source:
         self._images_partially_collected: bool = False
 
     @property
-    def images_collected(self):
+    def images_collected(self) -> bool:
         return self._all_images_collected
 
     @property
-    def images_partially_collected(self):
+    def images_partially_collected(self) -> bool:
         return self._images_partially_collected
 
     @property
-    def images_count(self):
+    def images_count(self) -> int:
         return self._images_count
 
     @property
-    def video_created(self):
+    def video_created(self) -> bool:
         return self._video_created
 
-    def set_video_created(self):
+    def set_video_created(self) -> None:
         """Set the video_created to True"""
         self._video_created = True
 
-    def reset_video_created(self):
+    def reset_video_created(self) -> None:
         """Reset the video_created to False"""
         self._video_created = False
 
-    def increase_images(self):
+    def increase_images(self) -> None:
         """Increases the count of the images by 1"""
         self._images_count += 1
 
-    def reset_images_counter(self):
+    def reset_images_counter(self) -> None:
         """Resets the images count to 0"""
         self._images_count = 0
 
-    def set_all_images_collected(self):
+    def set_all_images_collected(self) -> None:
         """Sets the self._all_images_collected to True"""
         self._all_images_collected = True
 
-    def set_images_partially_collected(self):
+    def set_images_partially_collected(self) -> None:
         """Sets the self._images_partially_collected to True"""
         self._images_partially_collected = True
 
-    def reset_all_images_collected(self):
+    def reset_all_images_collected(self) -> None:
         """Resets the self._all_images_collected to False"""
         self._all_images_collected = False
 
-    def reset_images_pertially_collected(self):
+    def reset_images_pertially_collected(self) -> None:
         """Resets the self._images_partially_collected to False"""
         self._images_partially_collected = False

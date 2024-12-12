@@ -56,13 +56,13 @@ class LocationAndTimeManager:
         )
 
     @property
-    def city_is_location_info_object(self):
+    def city_is_location_info_object(self) -> bool:
         """Returns::
         
             bool - if the self.city is a LocationInfo object."""
         return isinstance(self.city, LocationInfo)
 
-    def s_rise(self):
+    def s_rise(self) -> tuple[int, int]:
         """Asserts if the city is instantiated as a LocationInfo object and sets the self.start_hour and
         self.start_minutes according to the return of the Astral sunrise() function. 
         *Note: an additional time span of 1 hour and 20 minutes is applied for an extended period with sunlight.*
@@ -75,7 +75,7 @@ class LocationAndTimeManager:
         sun_rise = sunrise(self.city.observer) + td(hours=1, minutes=20)
         return sun_rise.hour, sun_rise.minute
 
-    def s_set(self):
+    def s_set(self) -> tuple[int, int]:
         """Asserts if the city is instantiated as a LocationInfo object and sets the self.end_hour and
         self.end_minutes according to the return of the Astral sunset() function.
         *Note: an additional time span of 2 hours and 40 minutes is applied for an extended period with sunlight.*
@@ -88,7 +88,7 @@ class LocationAndTimeManager:
         sun_set = sunset(self.city.observer) + td(hours=2, minutes=40)
         return sun_set.hour, sun_set.minute
 
-    def is_daylight(self):
+    def is_daylight(self) -> bool:
         """Checks if it daylight at the specified location according to the start and end of daylight.
 
         Returns::
