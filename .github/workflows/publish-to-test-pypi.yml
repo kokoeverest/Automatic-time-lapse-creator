@@ -10,8 +10,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Clean build artifacts
-      run: rm -rf dist/ build/ *.egg-info
+    #- name: Clean build artifacts
+    #  run: rm -rf dist/ build/ *.egg-info
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -25,7 +25,7 @@ jobs:
         build setuptools_scm
         --user
     - name: Build a binary wheel and a source tarball
-      run: python3 -m build
+      run: python3 -m build --verbose
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4
       with:
