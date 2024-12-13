@@ -461,6 +461,9 @@ def test_execute_sleeps_if_images_are_not_collected(
             "src.automatic_time_lapse_creator.time_lapse_creator.sleep",
             return_value=None,
         ) as mock_sleep,
+        patch(
+        "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
+        return_value=sample_non_empty_time_lapse_creator),
     ):
         sample_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
         sample_non_empty_time_lapse_creator.execute()
@@ -474,6 +477,10 @@ def test_execute_sleeps_if_images_are_not_collected(
 def test_execute_creates_video_for_every_source_when_all_images_are_collected():
     # Arrange, Act & Assert
     with (
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
+            return_value=fake_non_empty_time_lapse_creator,
+        ),
         patch(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.verify_sources_not_empty",
             return_value=True,
@@ -513,6 +520,10 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
 def test_execute_creates_video_for_every_source_when_images_partially_collected():
     # Arrange, Act & Assert
     with (
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
+            return_value=fake_non_empty_time_lapse_creator,
+        ),
         patch(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.verify_sources_not_empty",
             return_value=True,
@@ -564,6 +575,9 @@ def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day():
         result = fake_non_empty_time_lapse_creator.get_cached_self()
         assert result == fake_non_empty_time_lapse_creator
         assert result.folder_name == fake_non_empty_time_lapse_creator.folder_name
+    
+    # Tear down
+    fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
 
 
 def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day_and_images_were_partially_collected():
@@ -601,6 +615,9 @@ def test_get_cached_self_returns_self_if_cache_rerurns_exception():
         result = fake_non_empty_time_lapse_creator.get_cached_self()
         assert result == fake_non_empty_time_lapse_creator
         assert result.folder_name == fake_non_empty_time_lapse_creator.folder_name
+    
+    # Tear down
+    fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
 
 
 def test_cache_self_returns_None():

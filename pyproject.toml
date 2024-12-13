@@ -47,4 +47,5 @@ Repository = "https://github.com/kokoeverest/Automatic-time-lapse-creator"
 Issues = "https://github.com/kokoeverest/Automatic-time-lapse-creator/issues"
 
 [tool.setuptools_scm]
+version_scheme = "post-release"
 local_scheme = "no-local-version" 
