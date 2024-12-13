@@ -9,11 +9,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
     - name: Clean build artifacts
-     run: rm -rf dist/ build/ *.egg-info
+      run: rm -rf dist/ build/ *.egg-info
     
     - name: Set up Python
       uses: actions/setup-python@v5
