@@ -7,6 +7,7 @@ HHMMSS_COLON_FORMAT: str = "%H:%M:%S %p"
 OK_STATUS_CODE: int = 200
 NO_CONTENT_STATUS_CODE: int = 204
 LOGGING_FORMAT: str = "%(name)s: %(asctime)s - %(levelname)s - %(message)s"
+DEFAULT_PATH_STRING: str = ""
 DEFAULT_CITY_NAME: str = "Sofia"
 DEFAULT_SECONDS_BETWEEN_FRAMES: int = 60
 DEFAULT_NIGHTTIME_RETRY_SECONDS: int = 300

@@ -22,10 +22,18 @@ def test_write_returns_none_after_writing_to_file(
     mock_file = mock_open()
 
     # Act & Assert
-    with patch("builtins.open", mock_file):
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.Path.mkdir",
+            return_value=None,
+        ),
+        patch("src.automatic_time_lapse_creator.cache_manager.Path.open", mock_file),
+    ):
         for source in sample_non_empty_time_lapse_creator.sources:
             assert not CacheManager.write(
-                sample_non_empty_time_lapse_creator, source.location_name
+                sample_non_empty_time_lapse_creator,
+                location=source.location_name,
+                path_prefix=sample_non_empty_time_lapse_creator.base_path,
             )
 
 
@@ -38,12 +46,15 @@ def test_get_returns_TimeLapsCreator_object(
 
     # Act & Assert
     with (
-        patch("builtins.open", mock_file),
+        patch("src.automatic_time_lapse_creator.cache_manager.Path.open", mock_file),
         patch(
             "src.automatic_time_lapse_creator.cache_manager.pickle.load",
             return_value=mock_creator,
         ),
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
-            result = CacheManager.get(source.location_name)
+            result = CacheManager.get(
+                location=source.location_name,
+                path_prefix=sample_non_empty_time_lapse_creator.base_path,
+            )
             assert isinstance(result, TimeLapseCreator)

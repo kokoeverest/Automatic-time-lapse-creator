@@ -165,6 +165,7 @@ cython_debug/
 
 # Development and packge functionality. Images and time lapses created by the program are not included in Github commits
 test_file.py
+cache/
 cache*.p
 *.jpg
 *.mp4

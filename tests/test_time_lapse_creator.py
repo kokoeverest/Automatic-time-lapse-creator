@@ -5,6 +5,7 @@ import os
 import requests
 from src.automatic_time_lapse_creator.common.constants import (
     YYMMDD_FORMAT,
+    DEFAULT_PATH_STRING,
     DEFAULT_CITY_NAME,
     DEFAULT_NIGHTTIME_RETRY_SECONDS,
     DEFAULT_SECONDS_BETWEEN_FRAMES,
@@ -59,7 +60,7 @@ def test_initializes_correctly_for_default_location(
     assert sample_empty_time_lapse_creator.folder_name == dt.today().strftime(
         YYMMDD_FORMAT
     )
-    assert sample_empty_time_lapse_creator.base_path == os.getcwd()
+    assert sample_empty_time_lapse_creator.base_path == os.path.join(os.getcwd(), DEFAULT_PATH_STRING)
     assert len(sample_empty_time_lapse_creator.sources) == 0
     assert (
         sample_empty_time_lapse_creator.wait_before_next_frame

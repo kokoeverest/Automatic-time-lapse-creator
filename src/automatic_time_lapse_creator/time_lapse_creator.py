@@ -24,6 +24,7 @@ from .common.constants import (
     OK_STATUS_CODE,
     MP4_FILE,
     LOGGING_FORMAT,
+    DEFAULT_PATH_STRING,
     DEFAULT_CITY_NAME,
     DEFAULT_NIGHTTIME_RETRY_SECONDS,
     DEFAULT_SECONDS_BETWEEN_FRAMES,
@@ -70,14 +71,14 @@ class TimeLapseCreator:
         self,
         sources: Iterable[Source] = [],
         city: str = DEFAULT_CITY_NAME,
-        path: str = os.getcwd(),
+        path: str = DEFAULT_PATH_STRING,
         seconds_between_frames: int = DEFAULT_SECONDS_BETWEEN_FRAMES,
         night_time_retry_seconds: int = DEFAULT_NIGHTTIME_RETRY_SECONDS,
         video_fps: int = DEFAULT_VIDEO_FPS,
         video_width: int = DEFAULT_VIDEO_WIDTH,
         video_height: int = DEFAULT_VIDEO_HEIGHT,
     ) -> None:
-        self.base_path = path
+        self.base_path = os.path.join(os.getcwd(), path)
         self.folder_name = dt.today().strftime(YYMMDD_FORMAT)
         self.location = LocationAndTimeManager(city)
         self.sources: set[Source] = TimeLapseCreator.validate_collection(sources)
@@ -96,8 +97,9 @@ class TimeLapseCreator:
 
         Returns::
             TimeLapseCretor - either the cached object state or the current state"""
+        assert isinstance(self.location.city, LocationInfo)
         try:
-            old_object = CacheManager.get(self.location.city.name)  # type: ignore
+            old_object = CacheManager.get(location=self.location.city.name, path_prefix=self.base_path)
             if (
                 isinstance(old_object, TimeLapseCreator)
                 and old_object.folder_name == self.folder_name
@@ -110,7 +112,8 @@ class TimeLapseCreator:
 
     def cache_self(self) -> None:
         """Writes the current state of the TimeLapseCreator to the cache."""
-        CacheManager.write(self, self.location.city.name)  # type: ignore
+        assert isinstance(self.location.city, LocationInfo)
+        CacheManager.write(self, location=self.location.city.name, path_prefix=self.base_path)
 
     def execute(self) -> None:
         """Verifies that self.sources has at least one Source and starts a while loop. Then, according to the return
