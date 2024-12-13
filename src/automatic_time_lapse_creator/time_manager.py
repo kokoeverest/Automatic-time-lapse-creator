@@ -22,10 +22,7 @@ class LocationAndTimeManager:
         try:
             self.city = lookup(city_name, self.db)
         except KeyError:
-            UNKNOWN_LOCATION_MESSAGE = (
-                f"Location could not be found. "
-                f"Try to use a major city name in your area."
-            )
+            UNKNOWN_LOCATION_MESSAGE = "Location could not be found.\nTry to use a major city name in your area."
             logger.error(UNKNOWN_LOCATION_MESSAGE, exc_info=True)
             raise UnknownLocationException(UNKNOWN_LOCATION_MESSAGE)
 
@@ -58,19 +55,19 @@ class LocationAndTimeManager:
     @property
     def city_is_location_info_object(self) -> bool:
         """Returns::
-        
-            bool - if the self.city is a LocationInfo object."""
+
+        bool - if the self.city is a LocationInfo object."""
         return isinstance(self.city, LocationInfo)
 
     def s_rise(self) -> tuple[int, int]:
         """Asserts if the city is instantiated as a LocationInfo object and sets the self.start_hour and
-        self.start_minutes according to the return of the Astral sunrise() function. 
+        self.start_minutes according to the return of the Astral sunrise() function.
         *Note: an additional time span of 1 hour and 20 minutes is applied for an extended period with sunlight.*
-        
+
         Returns::
-            
+
             tuple[int, int] - the sunrise hour and sunrise minutes
-            """
+        """
         assert isinstance(self.city, LocationInfo)
         sun_rise = sunrise(self.city.observer) + td(hours=1, minutes=20)
         return sun_rise.hour, sun_rise.minute

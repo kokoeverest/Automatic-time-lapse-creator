@@ -43,3 +43,7 @@ class MockResponse:
 class MockDatetime:
     fake_daylight = datetime(today.year, today.month, today.day, 12, 00, 00)
     fake_nighttime = datetime(today.year, today.month, today.day, 23, 59, 00)
+    fake_today = datetime(year=2024, month=1, day=1)
+    fake_next_day = datetime(fake_today.year, fake_today.month, fake_today.day + 1)
+    fake_next_month = datetime(fake_today.year, fake_today.month + 1, fake_today.day)
+    fake_next_year = datetime(fake_today.year + 1, fake_today.month, fake_today.day)

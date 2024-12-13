@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import requests
+from astral import LocationInfo
 from datetime import datetime as dt
 from time import sleep
 from pathlib import Path
@@ -170,9 +171,10 @@ class TimeLapseCreator:
 
             False - if it's not daylight yet.
         """
+        assert isinstance(self.location.city, LocationInfo)
         if self.location.is_daylight():
             self.reset_all_sources_counters_to_default_values()
-            logger.info("Start collecting images")
+            logger.info(f"Start collecting images @{self.location.city.name}")
 
             while self.location.is_daylight():
                 for source in self.sources:
@@ -202,8 +204,26 @@ class TimeLapseCreator:
             logger.info(f"Finished collecting for {self.folder_name}")
             return True
         else:
-            logger.info("Not daylight yet")
+            logger.info(f"Not daylight yet @{self.location.city.name}")
+            self.is_it_next_day()
             return False
+
+    def is_it_next_day(self) -> None:
+        old_date = dt.strptime(self.folder_name, YYMMDD_FORMAT)
+        new_date = dt.today()
+
+        if (
+            new_date.year > old_date.year
+            or new_date.month > old_date.month
+            or new_date.day > old_date.day
+        ):
+            self.folder_name = new_date.strftime(YYMMDD_FORMAT)
+            assert isinstance(self.location.city, LocationInfo)
+            new_location_info = LocationAndTimeManager(self.location.city.name)
+            self.location = new_location_info
+            logger.info(
+                f"New day starts!\nSunrise: {self.location.start_of_daylight}; Sunset: {self.location.end_of_daylight}"
+            )
 
     def create_video(self, source: Source, delete_source_images: bool = True) -> bool:
         """Creates a video from the source collected images. If delete_source_images is True
@@ -272,7 +292,7 @@ class TimeLapseCreator:
         [source.reset_images_pertially_collected() for source in self.sources]
 
     def reset_all_sources_counters_to_default_values(self) -> None:
-        """Resets the images_count = 0, resets video_created = False, resets 
+        """Resets the images_count = 0, resets video_created = False, resets
         images_collected = False and resets reset_images_pertially_collected = False
         for all self.sources
         """

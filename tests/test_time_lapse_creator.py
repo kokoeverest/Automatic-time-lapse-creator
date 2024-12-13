@@ -610,3 +610,51 @@ def test_cache_self_returns_None():
         return_value=None,
     ):
         assert fake_non_empty_time_lapse_creator.cache_self() is None
+
+
+def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeManger(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    old_date = tm.MockDatetime.fake_today
+    old_folder_name = sample_non_empty_time_lapse_creator.folder_name
+    old_location = sample_non_empty_time_lapse_creator.location
+
+    # Act & Assert
+    for fake_date in [
+        tm.MockDatetime.fake_next_year,
+        tm.MockDatetime.fake_next_month,
+        tm.MockDatetime.fake_next_day,
+    ]:
+        with patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.dt"
+        ) as mock_today:
+            mock_today.strptime.return_value = tm.MockDatetime.fake_today
+            mock_today.today.return_value = fake_date
+            sample_non_empty_time_lapse_creator.is_it_next_day()
+
+            assert old_date < fake_date
+            assert (
+                old_folder_name is not sample_non_empty_time_lapse_creator.folder_name
+            )
+            assert old_location is not sample_non_empty_time_lapse_creator.location
+
+
+def test_is_it_next_day_does_not_change_anything_if_it_is_the_same_day(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    old_date = tm.MockDatetime.fake_today
+    old_folder_name = sample_non_empty_time_lapse_creator.folder_name
+    old_location = sample_non_empty_time_lapse_creator.location
+
+    # Act & Assert
+
+    with patch("src.automatic_time_lapse_creator.time_lapse_creator.dt") as mock_today:
+        mock_today.strptime.return_value = tm.MockDatetime.fake_today
+        mock_today.today.return_value = tm.MockDatetime.fake_today
+        sample_non_empty_time_lapse_creator.is_it_next_day()
+
+        assert old_date == tm.MockDatetime.fake_today
+        assert old_folder_name is sample_non_empty_time_lapse_creator.folder_name
+        assert old_location is sample_non_empty_time_lapse_creator.location
