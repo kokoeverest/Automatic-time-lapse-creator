@@ -71,7 +71,7 @@ class VideoManager:
                     img = cv2.resize(src=img, dsize=(width, height))
 
                     if with_stamp:
-                        date_time_text = f"{path[-10:]} {os.path.basename(image_file).rstrip(JPG_FILE).replace("_", ":")}"
+                        date_time_text = f'{path[-10:]} {os.path.basename(image_file).rstrip(JPG_FILE).replace("_", ":")}'
 
                         # Add a rectangle for the date_time_text (black background)
                         font = cv2.FONT_HERSHEY_SIMPLEX
