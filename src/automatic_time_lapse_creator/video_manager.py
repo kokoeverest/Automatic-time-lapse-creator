@@ -29,7 +29,13 @@ class VideoManager:
 
     @classmethod
     def create_timelapse(
-        cls, path: str, output_video: str, fps: int, width: int, height: int
+        cls,
+        path: str,
+        output_video: str,
+        fps: int,
+        width: int,
+        height: int,
+        with_stamp: bool = True,
     ) -> bool:
         """Gets the image files from the specified folder and sorts them chronologically.
         Then a VideoWriter object creates the video and writes it to the specified folder.
@@ -63,6 +69,42 @@ class VideoManager:
 
                     img = cv2.imread(img_path)
                     img = cv2.resize(src=img, dsize=(width, height))
+
+                    if with_stamp:
+                        date_time_text = f"{path[-10:]} {os.path.basename(image_file).rstrip(JPG_FILE).replace("_", ":")}"
+
+                        # Add a rectangle for the date_time_text (black background)
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        font_scale = 0.5
+                        font_thickness = 1
+                        text_size = cv2.getTextSize(
+                            date_time_text, font, font_scale, font_thickness
+                        )[0]
+                        text_x, text_y = 10, 20  # Top-left corner of the text
+                        rect_x2, rect_y2 = (
+                            text_x + text_size[0] + 10,
+                            text_y - text_size[1] - 10,
+                        )
+
+                        cv2.rectangle(
+                            img,
+                            (text_x, text_y),
+                            (rect_x2, rect_y2),
+                            (0, 0, 0),  # Black background
+                            21,  # Curved shape of the rectangle
+                        )
+
+                        cv2.putText(
+                            img,
+                            date_time_text,
+                            (text_x, text_y),  # Padding inside the rectangle
+                            font,
+                            font_scale,
+                            (255, 255, 255),  # White text color
+                            font_thickness,
+                            lineType=cv2.LINE_AA,
+                        )
+
                     video_writer.write(img)
 
                 video_writer.release()

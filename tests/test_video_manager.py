@@ -51,7 +51,7 @@ def test_create_time_lapse_returns_False_when_images_folder_contains_no_images()
         )
 
 
-def test_create_timelapse_success():
+def test_create_timelapse_success_without_timestamp():
     # Arrange
     mock_writer = MagicMock(spec=VideoWriter)
 
@@ -64,6 +64,39 @@ def test_create_timelapse_success():
         patch("cv2.VideoWriter", return_value=mock_writer),
         patch("cv2.imread", return_value=tm.mock_MatLike),
         patch("cv2.resize", return_value=tm.mock_MatLike),
+    ):
+        result = vm.create_timelapse(
+            path=tm.mock_path_to_images_folder,
+            output_video=tm.mock_output_video_name,
+            fps=tm.mock_video_frames_per_second,
+            width=tm.mock_video_width,
+            height=tm.mock_video_height,
+            with_stamp=False
+        )
+
+    # Assert
+    assert result
+    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
+    assert mock_writer.write.call_count == 10
+    mock_writer.release.assert_called_once()
+
+
+def test_create_timelapse_success_with_timestamp():
+    # Arrange
+    mock_writer = MagicMock(spec=VideoWriter)
+
+    # Act
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.video_manager.glob",
+            return_value=tm.mock_images_list,
+        ) as mock_glob,
+        patch("cv2.VideoWriter", return_value=mock_writer),
+        patch("cv2.imread", return_value=tm.mock_MatLike),
+        patch("cv2.resize", return_value=tm.mock_MatLike),
+        patch("cv2.getTextSize", return_value=tm.mock_Size),
+        patch("cv2.rectangle", return_value=tm.mock_MatLike),
+        patch("cv2.putText", return_value=tm.mock_MatLike),
     ):
         result = vm.create_timelapse(
             path=tm.mock_path_to_images_folder,
