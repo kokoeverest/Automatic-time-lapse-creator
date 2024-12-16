@@ -1,7 +1,7 @@
 from astral.geocoder import database, lookup
 from astral.sun import sunrise, sunset
 from astral import LocationInfo
-from datetime import datetime as dt, timedelta as td
+from datetime import datetime as dt, timedelta as td, timezone
 import logging
 
 from .common.exceptions import (
@@ -12,84 +12,73 @@ logger = logging.getLogger(__name__)
 
 
 class LocationAndTimeManager:
-    """"""
+    """Takes care of the sunrise and sunset times for the specified city, which ensures that images are collected only
+    while it's daylight. Checks if the current time is within the daylight interval or is it night time. Light offsets
+    are added to the sunrise and sunset times so the images would be collected in good light conditions."""
 
-    YEAR, MONTH, TODAY = dt.today().year, dt.today().month, dt.today().day
+    SUNSET_OFFSET = td(minutes=60)
+    SUNRISE_OFFSET = td(minutes=40)
 
     def __init__(self, city_name: str) -> None:
         self.db = database()
 
         try:
-            self.city = lookup(city_name, self.db)
+            _city = lookup(city_name, self.db)
         except KeyError:
             UNKNOWN_LOCATION_MESSAGE = "Location could not be found.\nTry to use a major city name in your area."
             logger.error(UNKNOWN_LOCATION_MESSAGE, exc_info=True)
             raise UnknownLocationException(UNKNOWN_LOCATION_MESSAGE)
 
-        if self.city_is_location_info_object:
-            self.start_hour, self.start_minutes = self.s_rise()
-            self.end_hour, self.end_minutes = self.s_set()
+        if isinstance(_city, LocationInfo):
+            self.city = _city
         else:
-            NOT_IMPLEMENTED_MESSAGE = (
-                "Sunset and sunrise for GroupInfo not implemented yet"
-            )
+            NOT_IMPLEMENTED_MESSAGE = f"Sunset and sunrise for {_city} not implemented yet. Use a major city name in the needed timezone."
             logger.warning(NOT_IMPLEMENTED_MESSAGE, exc_info=True)
             raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
-        self.start_of_daylight = dt(
-            year=LocationAndTimeManager.YEAR,
-            month=LocationAndTimeManager.MONTH,
-            day=LocationAndTimeManager.TODAY,
-            hour=self.start_hour,
-            minute=self.start_minutes,
-        )
+    @property
+    def start_of_daylight(self) -> dt:
+        """Gets the time of sunrise, taking into account that the light is good for taking a picture
+        before the actual sunrise time.
 
-        self.end_of_daylight = dt(
-            year=LocationAndTimeManager.YEAR,
-            month=LocationAndTimeManager.MONTH,
-            day=LocationAndTimeManager.TODAY,
-            hour=self.end_hour,
-            minute=self.end_minutes,
-        )
+        Returns::
+            datetime - the datetime object subtracted the SUNRISE_OFFSET"""
+        return sunrise(self.city.observer) - self.SUNRISE_OFFSET
 
     @property
-    def city_is_location_info_object(self) -> bool:
+    def end_of_daylight(self) -> dt:
+        """Gets the time of sunset, taking into account that the light is good for taking a picture
+        after the time of sunset.
+
+        Returns::
+            datetime - the datetime object plus the SUNSET_OFFSET"""
+        return sunset(self.city.observer) + self.SUNSET_OFFSET
+
+    @property
+    def year(self) -> int:
         """Returns::
 
-        bool - if the self.city is a LocationInfo object."""
-        return isinstance(self.city, LocationInfo)
+        int - current year"""
+        return dt.today().year
 
-    def s_rise(self) -> tuple[int, int]:
-        """Asserts if the city is instantiated as a LocationInfo object and sets the self.start_hour and
-        self.start_minutes according to the return of the Astral sunrise() function.
-        *Note: an additional time span of 1 hour and 20 minutes is applied for an extended period with sunlight.*
+    @property
+    def month(self) -> int:
+        """Returns::
 
-        Returns::
+        int - current month"""
+        return dt.today().month
 
-            tuple[int, int] - the sunrise hour and sunrise minutes
-        """
-        assert isinstance(self.city, LocationInfo)
-        sun_rise = sunrise(self.city.observer) + td(hours=1, minutes=20)
-        return sun_rise.hour, sun_rise.minute
+    @property
+    def today(self) -> int:
+        """Returns::
 
-    def s_set(self) -> tuple[int, int]:
-        """Asserts if the city is instantiated as a LocationInfo object and sets the self.end_hour and
-        self.end_minutes according to the return of the Astral sunset() function.
-        *Note: an additional time span of 2 hours and 40 minutes is applied for an extended period with sunlight.*
-
-        Returns::
-
-            tuple[int, int] - the sunset hour and sunset minutes
-        """
-        assert isinstance(self.city, LocationInfo)
-        sun_set = sunset(self.city.observer) + td(hours=2, minutes=40)
-        return sun_set.hour, sun_set.minute
+        int - current day"""
+        return dt.today().day
 
     def is_daylight(self) -> bool:
-        """Checks if it daylight at the specified location according to the start and end of daylight.
+        """Checks if it's daylight at the specified location according to the start and end of daylight.
 
         Returns::
 
            bool - if the current time of day is between the start of daylight and end of daylight or not."""
-
-        return self.start_of_daylight < dt.now() < self.end_of_daylight
+        return self.start_of_daylight < dt.now(timezone.utc) < self.end_of_daylight

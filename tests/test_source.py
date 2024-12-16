@@ -86,7 +86,7 @@ def test_reset_images_partially_collected_resets_images_partially_collected_to_F
     sample_source: Source,
 ):
     # Arrange & Act
-    sample_source.reset_images_pertially_collected()
+    sample_source.reset_images_partially_collected()
 
     # Assert
     assert not sample_source.images_partially_collected

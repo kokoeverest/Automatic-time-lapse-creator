@@ -1,12 +1,13 @@
 from __future__ import annotations
+from logging import Logger
+import logging.handlers
+import logging
 import os
 import requests
-from astral import LocationInfo
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone as tz
 from time import sleep
 from pathlib import Path
 from typing import Any, Iterable
-import logging
 from .cache_manager import CacheManager
 from .source import Source
 from .video_manager import (
@@ -21,9 +22,11 @@ from .common.constants import (
     HHMMSS_UNDERSCORE_FORMAT,
     LOG_FILE,
     JPG_FILE,
-    OK_STATUS_CODE,
     MP4_FILE,
+    LOG_INTERVAL,
+    LOGS_DIR,
     LOGGING_FORMAT,
+    OK_STATUS_CODE,
     DEFAULT_PATH_STRING,
     DEFAULT_CITY_NAME,
     DEFAULT_NIGHTTIME_RETRY_SECONDS,
@@ -38,24 +41,33 @@ from .common.exceptions import (
 )
 from .common.utils import create_log_message
 
-cwd = os.getcwd()
-Path(f"{cwd}/logs").mkdir(exist_ok=True)
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    filename=Path(f"{cwd}/logs/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}"),
-    level=logging.INFO,
-    format=LOGGING_FORMAT,
-    datefmt=f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}",
-)
+def config_logging() -> Logger:
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    cwd = os.getcwd()
+    Path(f"{cwd}{LOGS_DIR}").mkdir(exist_ok=True)
+    filename = Path(f"{cwd}{LOGS_DIR}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}")
+    date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
 
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
+    file_handler = logging.handlers.TimedRotatingFileHandler(
+        filename=filename, when=LOG_INTERVAL, utc=True
+    )
+    file_handler.setLevel(logging.DEBUG)
 
-formatter = logging.Formatter(LOGGING_FORMAT)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
 
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+    formatter = logging.Formatter(fmt=LOGGING_FORMAT, datefmt=date_fmt)
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    return logger
+
+
+logger = config_logging()
 
 
 class TimeLapseCreator:
@@ -97,9 +109,10 @@ class TimeLapseCreator:
 
         Returns::
             TimeLapseCretor - either the cached object state or the current state"""
-        assert isinstance(self.location.city, LocationInfo)
         try:
-            old_object = CacheManager.get(location=self.location.city.name, path_prefix=self.base_path)
+            old_object = CacheManager.get(
+                location=self.location.city.name, path_prefix=self.base_path
+            )
             if (
                 isinstance(old_object, TimeLapseCreator)
                 and old_object.folder_name == self.folder_name
@@ -112,8 +125,9 @@ class TimeLapseCreator:
 
     def cache_self(self) -> None:
         """Writes the current state of the TimeLapseCreator to the cache."""
-        assert isinstance(self.location.city, LocationInfo)
-        CacheManager.write(self, location=self.location.city.name, path_prefix=self.base_path)
+        CacheManager.write(
+            self, location=self.location.city.name, path_prefix=self.base_path
+        )
 
     def execute(self) -> None:
         """Verifies that self.sources has at least one Source and starts a while loop. Then, according to the return
@@ -141,7 +155,7 @@ class TimeLapseCreator:
                 for source in self.sources:
                     # the normal flow of images collection, when all images are collected during the day
                     if (
-                        dt.now() > self.location.end_of_daylight
+                        dt.now(tz.utc) > self.location.end_of_daylight
                         and source.images_collected
                         and not source.images_partially_collected
                         and not source.video_created
@@ -151,7 +165,7 @@ class TimeLapseCreator:
                     # if there was an interruption in program's execution but some images were collected
                     # create a video anyway, but don't delete the source images
                     elif (
-                        dt.now() > self.location.end_of_daylight
+                        dt.now(tz.utc) > self.location.end_of_daylight
                         and source.images_partially_collected
                         and not source.images_collected
                         and not source.video_created
@@ -174,10 +188,11 @@ class TimeLapseCreator:
 
             False - if it's not daylight yet.
         """
-        assert isinstance(self.location.city, LocationInfo)
         if self.location.is_daylight():
             self.reset_all_sources_counters_to_default_values()
-            logger.info(f"Start collecting images @{self.location.city.name}")
+            logger.info(
+                f"Start collecting images @{self.location.city.name}\n    Sunrise: {self.location.start_of_daylight}\n    Sunset: {self.location.end_of_daylight}"
+            )
 
             while self.location.is_daylight():
                 for source in self.sources:
@@ -221,9 +236,6 @@ class TimeLapseCreator:
             or new_date.day > old_date.day
         ):
             self.folder_name = new_date.strftime(YYMMDD_FORMAT)
-            assert isinstance(self.location.city, LocationInfo)
-            new_location_info = LocationAndTimeManager(self.location.city.name)
-            self.location = new_location_info
             logger.info(
                 f"New day starts!\nSunrise: {self.location.start_of_daylight}; Sunset: {self.location.end_of_daylight}"
             )
@@ -252,6 +264,8 @@ class TimeLapseCreator:
                 self.video_width,
                 self.video_height,
             )
+            # else:
+            #   created = True
 
         if created and delete_source_images:
             _ = vm.delete_source_images(input_folder)
@@ -292,7 +306,7 @@ class TimeLapseCreator:
 
     def reset_images_partially_collected(self) -> None:
         """Resets the images_partially_collected = False for all self.sources"""
-        [source.reset_images_pertially_collected() for source in self.sources]
+        [source.reset_images_partially_collected() for source in self.sources]
 
     def reset_all_sources_counters_to_default_values(self) -> None:
         """Resets the images_count = 0, resets video_created = False, resets
@@ -303,7 +317,7 @@ class TimeLapseCreator:
             source.reset_images_counter()
             source.reset_video_created()
             source.reset_all_images_collected()
-            source.reset_images_pertially_collected()
+            source.reset_images_partially_collected()
 
     def set_sources_all_images_collected(self) -> None:
         """Sets -> images_collected = True for all self.sources

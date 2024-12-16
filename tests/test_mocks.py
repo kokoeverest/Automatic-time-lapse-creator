@@ -6,12 +6,17 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
 )
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock
 from cv2.typing import MatLike
+from astral import LocationInfo
+from astral.geocoder import GroupInfo
 
 today = datetime.today()
 
+
+mock_group_info = Mock(spec=GroupInfo)
+mock_location_info = Mock(spec=LocationInfo)
 
 def mock_jpg_file(number: int = 1):
     mock_file = Mock()
@@ -35,14 +40,18 @@ mock_video_frames_per_second = DEFAULT_VIDEO_FPS
 mock_video_width = DEFAULT_VIDEO_WIDTH
 mock_video_height = DEFAULT_VIDEO_HEIGHT
 
+mock_Size = ((185, 12), 1)
+
 
 class MockResponse:
     status_code = NO_CONTENT_STATUS_CODE
 
 
 class MockDatetime:
-    fake_daylight = datetime(today.year, today.month, today.day, 12, 00, 00)
-    fake_nighttime = datetime(today.year, today.month, today.day, 23, 59, 00)
+    fake_daylight = datetime(today.year, today.month, today.day, 12, 00, 00, tzinfo=timezone.utc)
+    fake_nighttime = datetime(
+        today.year, today.month, today.day, 23, 59, 00, tzinfo=timezone.utc
+    )
     fake_today = datetime(year=2024, month=1, day=1)
     fake_next_day = datetime(fake_today.year, fake_today.month, fake_today.day + 1)
     fake_next_month = datetime(fake_today.year, fake_today.month + 1, fake_today.day)

@@ -64,6 +64,6 @@ class Source:
         """Resets the self._all_images_collected to False"""
         self._all_images_collected = False
 
-    def reset_images_pertially_collected(self) -> None:
+    def reset_images_partially_collected(self) -> None:
         """Resets the self._images_partially_collected to False"""
         self._images_partially_collected = False

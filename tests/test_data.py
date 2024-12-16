@@ -1,6 +1,7 @@
 from src.automatic_time_lapse_creator.source import Source
 
 invalid_city_name = "Logator"
+group_name = "Europe"
 valid_source_name = "aleko"
 valid_url = "https://home-solutions.bg/cams/aleko2.jpg?1705293967111"
 empty_url = "empty url"

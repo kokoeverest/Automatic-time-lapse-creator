@@ -655,7 +655,7 @@ def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeMange
             assert (
                 old_folder_name is not sample_non_empty_time_lapse_creator.folder_name
             )
-            assert old_location is not sample_non_empty_time_lapse_creator.location
+            assert old_location is sample_non_empty_time_lapse_creator.location
 
 
 def test_is_it_next_day_does_not_change_anything_if_it_is_the_same_day(
