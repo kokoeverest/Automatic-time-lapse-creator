@@ -169,3 +169,4 @@ cache/
 cache*.p
 *.jpg
 *.mp4
+*.log.*

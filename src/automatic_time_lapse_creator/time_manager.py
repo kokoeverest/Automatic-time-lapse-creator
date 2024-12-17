@@ -3,12 +3,28 @@ from astral.sun import sunrise, sunset
 from astral import LocationInfo
 from datetime import datetime as dt, timedelta as td, timezone
 import logging
-
 from .common.exceptions import (
     UnknownLocationException,
 )
+import os
+from pathlib import Path
+from .common.constants import (
+    LOGS_DIR,
+    YYMMDD_FORMAT,
+    LOG_FILE,
+    LOGGING_FORMAT,
+    HHMMSS_COLON_FORMAT,
+)
+
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+cwd = os.getcwd()
+Path(f"{cwd}{LOGS_DIR}").mkdir(exist_ok=True)
+filename = Path(f"{cwd}{LOGS_DIR}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}")
+date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
+
+logging.basicConfig(filename=filename, datefmt=date_fmt, format=LOGGING_FORMAT)
 
 
 class LocationAndTimeManager:

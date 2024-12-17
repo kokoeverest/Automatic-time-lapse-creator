@@ -42,32 +42,27 @@ from .common.exceptions import (
 from .common.utils import create_log_message
 
 
-def config_logging() -> Logger:
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    cwd = os.getcwd()
-    Path(f"{cwd}{LOGS_DIR}").mkdir(exist_ok=True)
-    filename = Path(f"{cwd}{LOGS_DIR}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}")
-    date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
+logger: Logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+cwd = os.getcwd()
+Path(f"{cwd}{LOGS_DIR}").mkdir(exist_ok=True)
+filename = Path(f"{cwd}{LOGS_DIR}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}")
+date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
 
-    file_handler = logging.handlers.TimedRotatingFileHandler(
-        filename=filename, when=LOG_INTERVAL, utc=True
-    )
-    file_handler.setLevel(logging.DEBUG)
+file_handler = logging.handlers.TimedRotatingFileHandler(
+    filename=filename, when=LOG_INTERVAL, utc=True
+)
+file_handler.setLevel(logging.DEBUG)
 
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
 
-    formatter = logging.Formatter(fmt=LOGGING_FORMAT, datefmt=date_fmt)
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
+formatter = logging.Formatter(fmt=LOGGING_FORMAT, datefmt=date_fmt)
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
 
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    return logger
-
-
-logger = config_logging()
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 
 class TimeLapseCreator:

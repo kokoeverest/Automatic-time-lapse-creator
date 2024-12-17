@@ -60,7 +60,9 @@ def test_initializes_correctly_for_default_location(
     assert sample_empty_time_lapse_creator.folder_name == dt.today().strftime(
         YYMMDD_FORMAT
     )
-    assert sample_empty_time_lapse_creator.base_path == os.path.join(os.getcwd(), DEFAULT_PATH_STRING)
+    assert sample_empty_time_lapse_creator.base_path == os.path.join(
+        os.getcwd(), DEFAULT_PATH_STRING
+    )
     assert len(sample_empty_time_lapse_creator.sources) == 0
     assert (
         sample_empty_time_lapse_creator.wait_before_next_frame
@@ -169,23 +171,52 @@ def test_add_sources_successfully_adds_a_collection_of_sources(
 def test_add_sources_doesnt_add_source_if_duplicate_name_or_url_is_found(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
-    # Arrange & Act
+    # Arrange
     sample_empty_time_lapse_creator.add_sources({td.sample_source1})
-    sample_empty_time_lapse_creator.add_sources({td.duplicate_source})
 
-    # Assert
-    assert len(sample_empty_time_lapse_creator.sources) == 1
+    # Act & Assert
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.warning",
+            return_value=None,
+        ) as mock_logger,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.create_log_message",
+            return_value="",
+        ) as mock_util,
+    ):
+        sample_empty_time_lapse_creator.add_sources({td.duplicate_source})
+        assert mock_logger.call_count == 1
+        assert mock_util.call_count == 1
+        assert len(sample_empty_time_lapse_creator.sources) == 1
 
 
 def test_add_sources_doesnt_add_source_if_duplicate_name_or_url_is_found_in_a_collection(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange & Act
-    result = sample_empty_time_lapse_creator.add_sources(
-        {td.sample_source1, td.sample_source2, td.sample_source3, td.duplicate_source}
-    )
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.warning",
+            return_value=None,
+        ) as mock_logger,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.create_log_message",
+            return_value="",
+        ) as mock_util,
+    ):
+        result = sample_empty_time_lapse_creator.add_sources(
+            {
+                td.sample_source1,
+                td.sample_source2,
+                td.sample_source3,
+                td.duplicate_source,
+            }
+        )
 
     # Assert
+    assert mock_logger.call_count == 1
+    assert mock_util.call_count == 1
     assert len(sample_empty_time_lapse_creator.sources) == 3
     assert not result
 
@@ -227,9 +258,23 @@ def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange & Act
-    result = sample_non_empty_time_lapse_creator.remove_sources(td.non_existing_source)
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.warning",
+            return_value=None,
+        ) as mock_logger,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.create_log_message",
+            return_value="",
+        ) as mock_util,
+    ):
+        result = sample_non_empty_time_lapse_creator.remove_sources(
+            td.non_existing_source
+        )
 
     # Assert
+    assert mock_logger.call_count == 1
+    assert mock_util.call_count == 1
     assert len(sample_non_empty_time_lapse_creator.sources) == 3
     assert not result
 
@@ -238,11 +283,23 @@ def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found_in_a_colle
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange & Act
-    result = sample_non_empty_time_lapse_creator.remove_sources(
-        [td.sample_source1, td.non_existing_source]
-    )
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.warning",
+            return_value=None,
+        ) as mock_logger,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.create_log_message",
+            return_value="",
+        ) as mock_util,
+    ):
+        result = sample_non_empty_time_lapse_creator.remove_sources(
+            [td.sample_source1, td.non_existing_source]
+        )
 
     # Assert
+    assert mock_logger.call_count == 1
+    assert mock_util.call_count == 1
     assert len(sample_non_empty_time_lapse_creator.sources) == 2
     assert not result
 
@@ -396,13 +453,17 @@ def test_collect_images_from_webcams_returns_False_if_not_daylight(
     monkeypatch: pytest.MonkeyPatch,
 ):
     # Arrange
-    mock_bool = lambda: False
     monkeypatch.setattr(
-        sample_non_empty_time_lapse_creator.location, "is_daylight", mock_bool
+        sample_non_empty_time_lapse_creator.location, "is_daylight", lambda: False
     )
 
     # Act & Assert
-    assert not sample_non_empty_time_lapse_creator.collect_images_from_webcams()
+    with patch(
+        "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+        return_value=None,
+    ) as mock_logger:
+        assert not sample_non_empty_time_lapse_creator.collect_images_from_webcams()
+        assert mock_logger.call_count == 1
 
 
 def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_collected(
@@ -411,7 +472,47 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
 ):
     # Arrange
     mock_file = mock_open()
-    mock_bytes = lambda: b"some_content"
+    bools = [True, True]
+
+    def mock_bool():
+        if len(bools) > 0:
+            return bools.pop(0)
+        else:
+            return False
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+            return_value=None,
+        ) as mock_logger,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.Path.mkdir",
+            return_value=None,
+        ),
+        patch("builtins.open", mock_file),
+    ):
+        monkeypatch.setattr(
+            sample_non_empty_time_lapse_creator.location, "is_daylight", mock_bool
+        )
+        monkeypatch.setattr(
+            sample_non_empty_time_lapse_creator, "verify_request", lambda: b"some_content"
+        )
+        monkeypatch.setattr(
+            sample_non_empty_time_lapse_creator, "cache_self", tm.mock_None
+        )
+        sample_non_empty_time_lapse_creator.wait_before_next_frame = 1
+
+        # Act & Assert
+        assert sample_non_empty_time_lapse_creator.collect_images_from_webcams()
+        assert mock_logger.call_count == 2
+
+
+def test_collect_images_from_webcams_returns_True_even_if_request_returns_Exception(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Arrange
+    mock_file = mock_open()
     bools = [True, True]
 
     def mock_bool():
@@ -426,12 +527,20 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
             return_value=None,
         ),
         patch("builtins.open", mock_file),
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+            return_value=None,
+        ) as mock_logger_info,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.error",
+            return_value=None,
+        ) as mock_logger_error,
     ):
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator.location, "is_daylight", mock_bool
         )
         monkeypatch.setattr(
-            sample_non_empty_time_lapse_creator, "verify_request", mock_bytes
+            sample_non_empty_time_lapse_creator, "verify_request", lambda: Exception
         )
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "cache_self", lambda: None
@@ -440,6 +549,8 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
 
         # Act & Assert
         assert sample_non_empty_time_lapse_creator.collect_images_from_webcams()
+        assert mock_logger_info.call_count == 2
+        assert mock_logger_error.call_count == 3
 
 
 def test_execute_sleeps_if_images_are_not_collected(
@@ -447,13 +558,13 @@ def test_execute_sleeps_if_images_are_not_collected(
     monkeypatch: pytest.MonkeyPatch,
 ):
     # Arrange
-    mock_true = lambda: True
-    mock_false = lambda: False
     monkeypatch.setattr(
-        sample_non_empty_time_lapse_creator, "verify_sources_not_empty", mock_true
+        sample_non_empty_time_lapse_creator, "verify_sources_not_empty", lambda: True
     )
     monkeypatch.setattr(
-        sample_non_empty_time_lapse_creator, "collect_images_from_webcams", mock_false
+        sample_non_empty_time_lapse_creator,
+        "collect_images_from_webcams",
+        lambda: False,
     )
 
     # Act
@@ -463,8 +574,9 @@ def test_execute_sleeps_if_images_are_not_collected(
             return_value=None,
         ) as mock_sleep,
         patch(
-        "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
-        return_value=sample_non_empty_time_lapse_creator),
+            "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
+            return_value=sample_non_empty_time_lapse_creator,
+        ),
     ):
         sample_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
         sample_non_empty_time_lapse_creator.execute()
@@ -576,7 +688,7 @@ def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day():
         result = fake_non_empty_time_lapse_creator.get_cached_self()
         assert result == fake_non_empty_time_lapse_creator
         assert result.folder_name == fake_non_empty_time_lapse_creator.folder_name
-    
+
     # Tear down
     fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
 
@@ -616,7 +728,7 @@ def test_get_cached_self_returns_self_if_cache_rerurns_exception():
         result = fake_non_empty_time_lapse_creator.get_cached_self()
         assert result == fake_non_empty_time_lapse_creator
         assert result.folder_name == fake_non_empty_time_lapse_creator.folder_name
-    
+
     # Tear down
     fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
 
@@ -644,9 +756,15 @@ def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeMange
         tm.MockDatetime.fake_next_month,
         tm.MockDatetime.fake_next_day,
     ]:
-        with patch(
-            "src.automatic_time_lapse_creator.time_lapse_creator.dt"
-        ) as mock_today:
+        with (
+            patch(
+                "src.automatic_time_lapse_creator.time_lapse_creator.dt"
+            ) as mock_today,
+            patch(
+                "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+                return_value=None,
+            ) as mock_logger_info,
+        ):
             mock_today.strptime.return_value = tm.MockDatetime.fake_today
             mock_today.today.return_value = fake_date
             sample_non_empty_time_lapse_creator.is_it_next_day()
@@ -656,6 +774,7 @@ def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeMange
                 old_folder_name is not sample_non_empty_time_lapse_creator.folder_name
             )
             assert old_location is sample_non_empty_time_lapse_creator.location
+            assert mock_logger_info.call_count == 1
 
 
 def test_is_it_next_day_does_not_change_anything_if_it_is_the_same_day(

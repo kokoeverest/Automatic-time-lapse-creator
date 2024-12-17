@@ -28,6 +28,10 @@ def test_write_returns_none_after_writing_to_file(
             return_value=None,
         ),
         patch("src.automatic_time_lapse_creator.cache_manager.Path.open", mock_file),
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.logger.info",
+            return_value=None,
+        ) as mock_logger,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             assert not CacheManager.write(
@@ -35,6 +39,7 @@ def test_write_returns_none_after_writing_to_file(
                 location=source.location_name,
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
             )
+        assert mock_logger.call_count == 3
 
 
 def test_get_returns_TimeLapsCreator_object(
@@ -51,6 +56,10 @@ def test_get_returns_TimeLapsCreator_object(
             "src.automatic_time_lapse_creator.cache_manager.pickle.load",
             return_value=mock_creator,
         ),
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.logger.info",
+            return_value=None,
+        ) as mock_logger,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             result = CacheManager.get(
@@ -58,3 +67,4 @@ def test_get_returns_TimeLapsCreator_object(
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
             )
             assert isinstance(result, TimeLapseCreator)
+        assert mock_logger.call_count == 3

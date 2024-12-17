@@ -14,6 +14,8 @@ from astral.geocoder import GroupInfo
 
 today = datetime.today()
 
+def mock_None():
+    return
 
 mock_group_info = Mock(spec=GroupInfo)
 mock_location_info = Mock(spec=LocationInfo)

@@ -1,11 +1,26 @@
 from glob import glob
 from pathlib import Path
+from datetime import datetime as dt
 import cv2
 import os
 import logging
-from .common.constants import JPG_FILE
+from .common.constants import (
+    JPG_FILE,
+    LOGGING_FORMAT,
+    YYMMDD_FORMAT,
+    HHMMSS_COLON_FORMAT,
+    LOGS_DIR,
+    LOG_FILE,
+)
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+cwd = os.getcwd()
+Path(f"{cwd}{LOGS_DIR}").mkdir(exist_ok=True)
+filename = Path(f"{cwd}{LOGS_DIR}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}")
+date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
+
+logging.basicConfig(filename=filename, datefmt=date_fmt, format=LOGGING_FORMAT)
 
 
 class VideoManager:
@@ -132,8 +147,8 @@ class VideoManager:
             False - in case of Exception during files deletion
         """
 
-        image_files = glob(f"{path}/*{JPG_FILE}")
         try:
+            image_files = glob(f"{path}/*{JPG_FILE}")
             logger.info(f"Deleting {len(image_files)} files from {path}")
             [os.remove(file) for file in image_files]
             return True
