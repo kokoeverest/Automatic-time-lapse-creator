@@ -1,14 +1,23 @@
+# File types
 JPG_FILE: str
 MP4_FILE: str
 LOG_FILE: str
+
+# Logging configuration
 LOGS_DIR: str
 LOG_INTERVAL: str
 LOGGING_FORMAT: str
+
+# Date and time formatting
 YYMMDD_FORMAT: str
 HHMMSS_UNDERSCORE_FORMAT: str
 HHMMSS_COLON_FORMAT: str
+
+# Status codes
 OK_STATUS_CODE: int
 NO_CONTENT_STATUS_CODE: int
+
+# TimeLapseCreator default configurations
 DEFAULT_PATH_STRING: str
 DEFAULT_CITY_NAME: str
 DEFAULT_SECONDS_BETWEEN_FRAMES: int

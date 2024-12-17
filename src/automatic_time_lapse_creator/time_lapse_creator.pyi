@@ -28,8 +28,6 @@ from .time_manager import LocationAndTimeManager as LocationAndTimeManager
 from logging import Logger
 from typing import Any, Iterable
 
-def config_logging() -> Logger: ...
-
 logger: Logger
 
 class TimeLapseCreator:

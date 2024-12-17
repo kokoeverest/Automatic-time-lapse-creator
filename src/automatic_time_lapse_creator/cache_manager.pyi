@@ -1,3 +1,7 @@
+import logging
+
+logger: logging.Logger
+
 class CacheManager:
     @classmethod
     def write(
