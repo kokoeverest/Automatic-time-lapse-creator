@@ -18,14 +18,9 @@ from .time_manager import (
 )
 from .common.constants import (
     YYMMDD_FORMAT,
-    HHMMSS_COLON_FORMAT,
     HHMMSS_UNDERSCORE_FORMAT,
-    LOG_FILE,
     JPG_FILE,
     MP4_FILE,
-    LOG_INTERVAL,
-    LOGS_DIR,
-    LOGGING_FORMAT,
     OK_STATUS_CODE,
     DEFAULT_PATH_STRING,
     DEFAULT_CITY_NAME,
@@ -43,26 +38,6 @@ from .common.utils import create_log_message
 
 
 logger: Logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-cwd = os.getcwd()
-Path(f"{cwd}{LOGS_DIR}").mkdir(exist_ok=True)
-filename = Path(f"{cwd}{LOGS_DIR}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}")
-date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
-
-file_handler = logging.handlers.TimedRotatingFileHandler(
-    filename=filename, when=LOG_INTERVAL, utc=True
-)
-file_handler.setLevel(logging.DEBUG)
-
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-
-formatter = logging.Formatter(fmt=LOGGING_FORMAT, datefmt=date_fmt)
-file_handler.setFormatter(formatter)
-console_handler.setFormatter(formatter)
-
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
 
 
 class TimeLapseCreator:
@@ -84,7 +59,12 @@ class TimeLapseCreator:
         video_fps: int = DEFAULT_VIDEO_FPS,
         video_width: int = DEFAULT_VIDEO_WIDTH,
         video_height: int = DEFAULT_VIDEO_HEIGHT,
+        quiet_mode: bool = True,
     ) -> None:
+        """Quiet_mode is set to True by default which will suppress the log messages on every call
+        to self.location.is_daylight() during the night and also on every image taken during the day.
+        Switching it to True will generate a lot of log messages!
+        """
         self.base_path = os.path.join(os.getcwd(), path)
         self.folder_name = dt.today().strftime(YYMMDD_FORMAT)
         self.location = LocationAndTimeManager(city)
@@ -94,6 +74,7 @@ class TimeLapseCreator:
         self.video_fps = video_fps
         self.video_width = video_width
         self.video_height = video_height
+        self.quiet_mode = quiet_mode
         self._test_counter = night_time_retry_seconds
 
     def get_cached_self(self) -> TimeLapseCreator:
@@ -121,7 +102,15 @@ class TimeLapseCreator:
     def cache_self(self) -> None:
         """Writes the current state of the TimeLapseCreator to the cache."""
         CacheManager.write(
-            self, location=self.location.city.name, path_prefix=self.base_path
+            self,
+            location=self.location.city.name,
+            path_prefix=self.base_path,
+            quiet=self.quiet_mode,
+        )
+
+    def clear_cache(self):
+        CacheManager.clear_cache(
+            location=self.location.city.name, path_prefix=self.base_path
         )
 
     def execute(self) -> None:
@@ -135,42 +124,48 @@ class TimeLapseCreator:
         Returns::
             None
         """
-        self = self.get_cached_self()
-        self.verify_sources_not_empty()
+        try:
+            logger.info("Program starts!")
+            self = self.get_cached_self()
+            self.verify_sources_not_empty()
 
-        # self._test_counter > 0 for testing purposes only, see Note in TimeLapseCreator docstring
-        while self._test_counter > 0:
-            self.reset_test_counter()
-            collected = self.collect_images_from_webcams()
-            if collected or (
-                not collected
-                and any(source.images_partially_collected for source in self.sources)
-                and any(not source.video_created for source in self.sources)
-            ):
-                for source in self.sources:
-                    # the normal flow of images collection, when all images are collected during the day
-                    if (
-                        dt.now(tz.utc) > self.location.end_of_daylight
-                        and source.images_collected
-                        and not source.images_partially_collected
-                        and not source.video_created
-                    ):
-                        if self.create_video(source):
-                            source.set_video_created()
-                    # if there was an interruption in program's execution but some images were collected
-                    # create a video anyway, but don't delete the source images
-                    elif (
-                        dt.now(tz.utc) > self.location.end_of_daylight
-                        and source.images_partially_collected
-                        and not source.images_collected
-                        and not source.video_created
-                    ):
-                        if self.create_video(source, delete_source_images=False):
-                            source.set_video_created()
-            else:
-                sleep(self.nighttime_wait_before_next_retry)
+            # self._test_counter > 0 for testing purposes only, see Note in TimeLapseCreator docstring
+            while self._test_counter > 0:
+                self.reset_test_counter()
+                collected = self.collect_images_from_webcams()
+                if collected or (
+                    not collected
+                    and any(source.images_partially_collected for source in self.sources)
+                    and any(not source.video_created for source in self.sources)
+                ):
+                    for source in self.sources:
+                        # the normal flow of images collection, when all images are collected during the day
+                        if (
+                            dt.now(tz.utc) > self.location.end_of_daylight
+                            and source.images_collected
+                            and not source.images_partially_collected
+                            and not source.video_created
+                        ):
+                            if self.create_video(source):
+                                source.set_video_created()
+                                self.cache_self()
+                        # if there was an interruption in program's execution but some images were collected
+                        # create a video anyway, but don't delete the source images
+                        elif (
+                            dt.now(tz.utc) > self.location.end_of_daylight
+                            and source.images_partially_collected
+                            and not source.images_collected
+                            and not source.video_created
+                        ):
+                            if self.create_video(source, delete_source_images=False):
+                                source.set_video_created()
+                                self.cache_self()
+                else:
+                    sleep(self.nighttime_wait_before_next_retry)
 
-            self._decrease_test_counter()
+                self._decrease_test_counter()
+        except KeyboardInterrupt:
+            logger.info("Program execution cancelled...")
 
     def collect_images_from_webcams(self) -> bool:
         """While self.location.is_daylight() returns True, the images for every source
@@ -186,7 +181,7 @@ class TimeLapseCreator:
         if self.location.is_daylight():
             self.reset_all_sources_counters_to_default_values()
             logger.info(
-                f"Start collecting images @{self.location.city.name}\n    Sunrise: {self.location.start_of_daylight}\n    Sunset: {self.location.end_of_daylight}"
+                f"Start collecting images @{self.location.city.name}"
             )
 
             while self.location.is_daylight():
@@ -217,7 +212,8 @@ class TimeLapseCreator:
             logger.info(f"Finished collecting for {self.folder_name}")
             return True
         else:
-            logger.info(f"Not daylight yet @{self.location.city.name}")
+            if not self.quiet_mode:
+                logger.info(f"Not daylight yet @{self.location.city.name}")
             self.is_it_next_day()
             return False
 
@@ -232,7 +228,7 @@ class TimeLapseCreator:
         ):
             self.folder_name = new_date.strftime(YYMMDD_FORMAT)
             logger.info(
-                f"New day starts!\nSunrise: {self.location.start_of_daylight}; Sunset: {self.location.end_of_daylight}"
+                f"New day starts!\nSunrise: {self.location.start_of_daylight} UTC; Sunset: {self.location.end_of_daylight} UTC"
             )
 
     def create_video(self, source: Source, delete_source_images: bool = True) -> bool:
@@ -252,6 +248,7 @@ class TimeLapseCreator:
 
         created = False
         if not vm.video_exists(output_video):
+            logger.info(f"Video doesn't exist in {input_folder}")
             created = vm.create_timelapse(
                 input_folder,
                 output_video,

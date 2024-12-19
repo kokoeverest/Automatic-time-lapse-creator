@@ -1,25 +1,11 @@
 import pickle
 from pathlib import Path
 import logging
-from datetime import datetime as dt
 import os
-from .common.constants import (
-    LOGS_DIR,
-    YYMMDD_FORMAT,
-    LOG_FILE,
-    LOGGING_FORMAT,
-    HHMMSS_COLON_FORMAT,
-)
+from .common.constants import CACHE_DIR, CACHE_FILE_PREFIX, PICKLE_FILE
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-cwd = os.getcwd()
-Path(f"{cwd}{LOGS_DIR}").mkdir(exist_ok=True)
-filename = Path(f"{cwd}{LOGS_DIR}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}")
-date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
-
-logging.basicConfig(filename=filename, datefmt=date_fmt, format=LOGGING_FORMAT)
 
 
 class CacheManager:
@@ -28,20 +14,49 @@ class CacheManager:
     the *location_name* attribute of the TimeLapseCreator"""
 
     @classmethod
-    def write(cls, time_lapse_creator: object, location: str, path_prefix: str) -> None:
+    def write(
+        cls,
+        time_lapse_creator: object,
+        location: str,
+        path_prefix: str,
+        quiet: bool = True,
+    ) -> None:
         """Writes the TimeLapseCreator object to a file, overwriting existing objects
         if the file already exists"""
-        current_path = Path(f"{path_prefix}/cache/cache_{location}.p")
+        current_path = Path(
+            f"{path_prefix}/{CACHE_DIR}/{CACHE_FILE_PREFIX}{location}{PICKLE_FILE}"
+        )
         current_path.parent.mkdir(parents=True, exist_ok=True)
         with current_path.open("wb") as file:
             pickle.dump(time_lapse_creator, file)
-        logger.info(f"State cached in {current_path}")
+        if not quiet:
+            logger.info(f"State cached in {current_path}")
 
     @classmethod
     def get(cls, location: str, path_prefix: str) -> object:
         """Retrieves the pickled object in the file. If the file is empty or if it is not found
         it will return an Exception"""
-        current_path = Path(f"{path_prefix}/cache/cache_{location}.p")
-        logger.info(f"Getting state from  {current_path}")
-        with current_path.open("rb") as file:
-            return pickle.load(file)
+        current_path = Path(
+            f"{path_prefix}/{CACHE_DIR}/{CACHE_FILE_PREFIX}{location}{PICKLE_FILE}"
+        )
+        logger.debug(f"Getting old creator state from {current_path}")
+        if current_path.exists():
+            logger.debug("Success!")
+            with current_path.open("rb") as file:
+                return pickle.load(file)
+        else:
+            logger.warning("Getting old creator state failed!")
+            raise FileNotFoundError()
+
+    @classmethod
+    def clear_cache(cls, location: str, path_prefix: str) -> None:
+        """Deletes the cache file for the current TimeLapseCreator given its location"""
+        current_path = Path(
+            f"{path_prefix}/{CACHE_DIR}/{CACHE_FILE_PREFIX}{location}{PICKLE_FILE}"
+        )
+        logger.debug(f"Clearing cache file {current_path}")
+        if current_path.exists():
+            os.remove(current_path)
+            logger.debug("Cache file deleted!")
+        else:
+            logger.warning("File doesn't exist!")
