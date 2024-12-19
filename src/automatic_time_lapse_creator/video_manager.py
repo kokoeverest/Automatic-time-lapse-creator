@@ -1,26 +1,13 @@
 from glob import glob
 from pathlib import Path
-from datetime import datetime as dt
 import cv2
 import os
 import logging
 from .common.constants import (
     JPG_FILE,
-    LOGGING_FORMAT,
-    YYMMDD_FORMAT,
-    HHMMSS_COLON_FORMAT,
-    LOGS_DIR,
-    LOG_FILE,
 )
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-cwd = os.getcwd()
-Path(f"{cwd}{LOGS_DIR}").mkdir(exist_ok=True)
-filename = Path(f"{cwd}{LOGS_DIR}/{dt.now().strftime(YYMMDD_FORMAT)}{LOG_FILE}")
-date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
-
-logging.basicConfig(filename=filename, datefmt=date_fmt, format=LOGGING_FORMAT)
 
 
 class VideoManager:
@@ -69,7 +56,7 @@ class VideoManager:
             False - in case of Exception during the creation of the video
 
         Note: the source image files are not modified or deleted in any case."""
-
+        logger.info(f"Creating video from images in {path}")
         image_files = sorted(glob(f"{path}/*{JPG_FILE}"))
 
         if len(image_files) > 0:
@@ -123,14 +110,14 @@ class VideoManager:
                     video_writer.write(img)
 
                 video_writer.release()
-                logger.info(f"Video {output_video} created!")
+                logger.info(f"Video created: {output_video}")
                 return True
 
             except Exception as exc:
                 logger.error(exc, exc_info=True)
                 return False
         else:
-            logger.info(f"Folder {path} contained no images")
+            logger.info(f"Folder contained no images {path}")
             return False
 
     @classmethod

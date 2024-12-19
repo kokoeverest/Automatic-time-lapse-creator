@@ -3,7 +3,13 @@ JPG_FILE: str
 MP4_FILE: str
 LOG_FILE: str
 
+# Cacheing configurations
+CACHE_DIR: str
+CACHE_FILE_PREFIX: str
+PICKLE_FILE: str
+
 # Logging configuration
+BACKUP_FILES_COUNT: int
 LOGS_DIR: str
 LOG_INTERVAL: str
 LOGGING_FORMAT: str

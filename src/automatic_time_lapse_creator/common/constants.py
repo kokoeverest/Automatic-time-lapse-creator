@@ -5,8 +5,14 @@ JPG_FILE: str = ".jpg"
 MP4_FILE: str = ".mp4"
 LOG_FILE: str = ".log"
 
+# Cacheing configurations
+CACHE_DIR: str = ".cache"
+CACHE_FILE_PREFIX: str = "cache_"
+PICKLE_FILE: str = ".pkl"
+
 # Logging configuration
-LOGS_DIR: str = "/logs"
+BACKUP_FILES_COUNT: int = 30
+LOGS_DIR: str = ".logs"
 LOG_INTERVAL: str = "midnight"
 LOGGING_FORMAT: str = "%(name)s: %(asctime)s - %(levelname)s - %(message)s"
 
@@ -23,7 +29,7 @@ NO_CONTENT_STATUS_CODE: int = 204
 DEFAULT_PATH_STRING: str = ""
 DEFAULT_CITY_NAME: str = "Sofia"
 DEFAULT_SECONDS_BETWEEN_FRAMES: int = 60
-DEFAULT_NIGHTTIME_RETRY_SECONDS: int = 300
+DEFAULT_NIGHTTIME_RETRY_SECONDS: int = 60
 DEFAULT_VIDEO_FPS: int = 30
 DEFAULT_VIDEO_WIDTH: int = 640
 DEFAULT_VIDEO_HEIGHT: int = 360
