@@ -3,7 +3,7 @@
 > ### A Python package for extracting images from a web cam url and converting these images into a timelapse. The process is intended to be automatic, so the only parameters that need to be provided are:
 > - the image resourse url/urls pointing to an image *(not video!)*
 > - the path on your computer where the images will be stored *(default is os.getcwd())*
-> - the location of the city (or coordinates) for which the daylight will be calculated *(default is Sofia, Bulgaria)*
+> - the location of the city for which the daylight will be calculated *(default is Sofia, Bulgaria)*
 
 ### The purpose of the program is to get an archive/history of the weather in any place that has accessible web cam, so people can actually see what the real weather was like in this place and compare it with weather forecast and/or data from a weather station.
 
@@ -17,6 +17,15 @@ read/resize the jpeg files and build a time lapse mp4 video
 logs of the program execution
 > - Pytest, unittest.mock - testing and mocking objects in isolation
 
+### Installation
+The latest release is available for installation via pip:
+```pip install automatic-time-lapse-creator```
+
+The latest releases under development are available on the TestPyPi web page:
+[TestPyPi/automatic-time-lapse-creator](https://test.pypi.org/project/automatic-time-lapse-creator/#history)
+and can be installed via pip:
+```pip install -i https://test.pypi.org/simple/ automatic-time-lapse-creator=='the_version_you_want'```
+
 > ### Main flow and automation:
 > When the execution of the TimeLapseCreator object starts, it will check if it's daylight at the provided location. Daylight is calculated automatically using the Astral library so there will be few or no images collected during the night. After the collection of images finishes for the day the VideoManager creates a video from the collected images for each of the provided sources and deletes all the images for the day. In case of an interruption of the collection of images during the day (for example: power outage - the program stops and then it's started again), the video will still be created but the daily images won't be deleted. In this case you can inspect them and create a video manually from the pictures that are worth it.
 > During the night the program will not collect any images - they will be collected when there is daylight - the smart power of the Astral library ;)
@@ -24,6 +33,7 @@ logs of the program execution
 > ### Known issues
 > - Images are randomly saved into folders: [#5](https://github.com/kokoeverest/Automatic-time-lapse-creator/issues/5) "Cache doesn't work as expected"
 
+> ### Examples:
 > ### A valid scenario for creating a TimeLapseCreator for webcams in Bulgaria:
 > ***Note that no location is provided in the examples, so the TimeLapseCreator will be instantiated for the default location: Sofia, Bulgaria.***
 ```python
