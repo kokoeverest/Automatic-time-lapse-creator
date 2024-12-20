@@ -22,14 +22,22 @@ def sample_LocationAndTimeManager():
 
 def test_LocationAndTimeManager_raises_UnknownLocationException_if_city_is_not_found():
     # Arrange, Act & Assert
-    with pytest.raises(UnknownLocationException):
-        LocationAndTimeManager(td.invalid_city_name)
+    with patch(
+        "src.automatic_time_lapse_creator.time_manager.logger.error", return_value=None
+    ) as mock_logger:
+        with pytest.raises(UnknownLocationException):
+            LocationAndTimeManager(td.invalid_city_name)
+        assert mock_logger.call_count == 1
 
 
 def test_LocationAndTimeManager_raises_NotImplementedError_if_city_is_a_GroupInfo_object():
     # Arrange, Act & Assert
-    with pytest.raises(NotImplementedError):
-        LocationAndTimeManager(td.group_name)
+    with patch(
+        "src.automatic_time_lapse_creator.time_manager.logger.warning", return_value=None
+    ) as mock_logger:
+        with pytest.raises(NotImplementedError):
+            LocationAndTimeManager(td.group_name)
+        assert mock_logger.call_count == 1
 
 
 def test_LocationAndTimeManager_initializes_correctly_for_correct_location(

@@ -38,7 +38,9 @@ def sample_empty_time_lapse_creator():
 @pytest.fixture
 def sample_non_empty_time_lapse_creator():
     return TimeLapseCreator(
-        [td.sample_source1, td.sample_source2, td.sample_source3], path=os.getcwd()
+        [td.sample_source1, td.sample_source2, td.sample_source3],
+        path=os.getcwd(),
+        quiet_mode=False,
     )
 
 
@@ -411,6 +413,10 @@ def test_create_video_returns_True_if_video_is_created(
             "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_images",
             return_value=True,
         ) as mock_delete,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+            return_value=None,
+        ) as mock_logger_info,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             assert len(sample_non_empty_time_lapse_creator.sources) == 3
@@ -418,6 +424,7 @@ def test_create_video_returns_True_if_video_is_created(
             assert not source.video_created
 
         assert mock_delete.call_count == 3
+        assert mock_logger_info.call_count == 3
 
 
 def test_create_video_returns_True_if_video_is_created_and_source_images_are_not_deleted(
@@ -437,6 +444,10 @@ def test_create_video_returns_True_if_video_is_created_and_source_images_are_not
             "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_images",
             return_value=True,
         ) as mock_delete,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+            return_value=None,
+        ) as mock_logger_info,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             assert len(sample_non_empty_time_lapse_creator.sources) == 3
@@ -445,6 +456,7 @@ def test_create_video_returns_True_if_video_is_created_and_source_images_are_not
             )
             assert not source.video_created
 
+        assert mock_logger_info.call_count == 3
         assert mock_delete.call_count == 0
 
 
@@ -495,7 +507,9 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
             sample_non_empty_time_lapse_creator.location, "is_daylight", mock_bool
         )
         monkeypatch.setattr(
-            sample_non_empty_time_lapse_creator, "verify_request", lambda: b"some_content"
+            sample_non_empty_time_lapse_creator,
+            "verify_request",
+            lambda: b"some_content",
         )
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "cache_self", tm.mock_None
@@ -574,6 +588,10 @@ def test_execute_sleeps_if_images_are_not_collected(
             return_value=None,
         ) as mock_sleep,
         patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+            return_value=None,
+        ) as mock_logger_info,
+        patch(
             "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
             return_value=sample_non_empty_time_lapse_creator,
         ),
@@ -582,6 +600,7 @@ def test_execute_sleeps_if_images_are_not_collected(
         sample_non_empty_time_lapse_creator.execute()
 
         # Assert
+        assert mock_logger_info.call_count == 1
         mock_sleep.assert_called_once_with(
             sample_non_empty_time_lapse_creator.nighttime_wait_before_next_retry
         )
@@ -590,6 +609,10 @@ def test_execute_sleeps_if_images_are_not_collected(
 def test_execute_creates_video_for_every_source_when_all_images_are_collected():
     # Arrange, Act & Assert
     with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+            return_value=None,
+        ) as mock_logger_info,
         patch(
             "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
             return_value=fake_non_empty_time_lapse_creator,
@@ -610,6 +633,10 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
             return_value=True,
         ) as mock_create_video,
         patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.cache_self",
+            return_value=None,
+        ) as mock_cache,
+        patch(
             "src.automatic_time_lapse_creator.time_lapse_creator.sleep",
             return_value=None,
         ) as mock_sleep,
@@ -618,6 +645,8 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
         fake_non_empty_time_lapse_creator.set_sources_all_images_collected()
 
         fake_non_empty_time_lapse_creator.execute()
+        assert mock_logger_info.call_count == 1
+        assert mock_cache.call_count == 1
         assert mock_sleep.call_count == 0
         assert mock_create_video.call_count == len(
             fake_non_empty_time_lapse_creator.sources
@@ -633,6 +662,10 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
 def test_execute_creates_video_for_every_source_when_images_partially_collected():
     # Arrange, Act & Assert
     with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.logger.info",
+            return_value=None,
+        ) as mock_logger_info,
         patch(
             "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
             return_value=fake_non_empty_time_lapse_creator,
@@ -656,6 +689,10 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
             "src.automatic_time_lapse_creator.time_lapse_creator.sleep",
             return_value=None,
         ) as mock_sleep,
+        patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.cache_self",
+            return_value=None,
+        ) as mock_cache,
     ):
         mock_datetime.now.return_value = tm.MockDatetime.fake_nighttime
         fake_non_empty_time_lapse_creator.reset_all_sources_counters_to_default_values()
@@ -664,6 +701,8 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
             source.set_images_partially_collected()
 
         fake_non_empty_time_lapse_creator.execute()
+        assert mock_logger_info.call_count == 1
+        assert mock_cache.call_count == 1
         assert mock_collect.called
         assert mock_sleep.call_count == 0
         assert mock_create_video.call_count == len(
@@ -740,6 +779,15 @@ def test_cache_self_returns_None():
         return_value=None,
     ):
         assert fake_non_empty_time_lapse_creator.cache_self() is None
+
+
+def test_clear_cache_returns_None():
+    # Arrange, Act & Assert
+    with patch(
+        "src.automatic_time_lapse_creator.cache_manager.CacheManager.clear_cache",
+        return_value=None,
+    ):
+        assert fake_non_empty_time_lapse_creator.clear_cache() is None
 
 
 def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeManger(

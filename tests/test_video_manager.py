@@ -41,7 +41,7 @@ def test_create_time_lapse_returns_False_when_images_folder_contains_no_images()
     with (
         patch("src.automatic_time_lapse_creator.video_manager.glob", return_value=[]),
         patch(
-            "src.automatic_time_lapse_creator.video_manager.logger",
+            "src.automatic_time_lapse_creator.video_manager.logger.info",
             return_value=None,
         ) as mock_logger,
     ):
@@ -52,8 +52,7 @@ def test_create_time_lapse_returns_False_when_images_folder_contains_no_images()
             tm.mock_video_width,
             tm.mock_video_height,
         )
-    mock_logger.info.assert_called_once()
-
+    assert mock_logger.call_count == 2
 
 def test_create_timelapse_success_without_timestamp():
     # Arrange
@@ -66,7 +65,7 @@ def test_create_timelapse_success_without_timestamp():
             return_value=tm.mock_images_list,
         ) as mock_glob,
         patch(
-            "src.automatic_time_lapse_creator.video_manager.logger",
+            "src.automatic_time_lapse_creator.video_manager.logger.info",
             return_value=None,
         ) as mock_logger,
         patch("cv2.VideoWriter", return_value=mock_writer),
@@ -87,7 +86,7 @@ def test_create_timelapse_success_without_timestamp():
     mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
     assert mock_writer.write.call_count == 10
     mock_writer.release.assert_called_once()
-    mock_logger.info.assert_called_once()
+    assert mock_logger.call_count == 2
 
 
 def test_create_timelapse_success_with_timestamp():
@@ -107,7 +106,7 @@ def test_create_timelapse_success_with_timestamp():
         patch("cv2.rectangle", return_value=tm.mock_MatLike),
         patch("cv2.putText", return_value=tm.mock_MatLike),
         patch(
-            "src.automatic_time_lapse_creator.video_manager.logger",
+            "src.automatic_time_lapse_creator.video_manager.logger.info",
             return_value=None,
         ) as mock_logger,
     ):
@@ -124,7 +123,7 @@ def test_create_timelapse_success_with_timestamp():
     mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
     assert mock_writer.write.call_count == 10
     mock_writer.release.assert_called_once()
-    mock_logger.info.assert_called_once()
+    assert mock_logger.call_count == 2
 
 
 def test_create_timelapse_returns_False_if_exception_occurs():
@@ -151,6 +150,7 @@ def test_create_timelapse_returns_False_if_exception_occurs():
     # Assert
     assert not result
     mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
+    mock_logger.info.assert_called_once()
     mock_logger.error.assert_called_once()
 
 

@@ -38,6 +38,7 @@ def test_write_returns_none_after_writing_to_file(
                 sample_non_empty_time_lapse_creator,
                 location=source.location_name,
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
+                quiet=False,
             )
         assert mock_logger.call_count == 3
 
@@ -53,11 +54,15 @@ def test_get_returns_TimeLapsCreator_object(
     with (
         patch("src.automatic_time_lapse_creator.cache_manager.Path.open", mock_file),
         patch(
+            "src.automatic_time_lapse_creator.cache_manager.Path.exists",
+            return_value=True,
+        ),
+        patch(
             "src.automatic_time_lapse_creator.cache_manager.pickle.load",
             return_value=mock_creator,
         ),
         patch(
-            "src.automatic_time_lapse_creator.cache_manager.logger.info",
+            "src.automatic_time_lapse_creator.cache_manager.logger.debug",
             return_value=None,
         ) as mock_logger,
     ):
@@ -67,4 +72,97 @@ def test_get_returns_TimeLapsCreator_object(
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
             )
             assert isinstance(result, TimeLapseCreator)
-        assert mock_logger.call_count == 3
+        assert mock_logger.call_count == (
+            len(sample_non_empty_time_lapse_creator.sources) * 2
+        )
+
+
+def test_get_returns_FileNotFoundError_if_the_file_doesnt_exist(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange, Act & Assert
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.Path.exists",
+            return_value=False,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.logger",
+            return_value=None,
+        ) as mock_logger,
+    ):
+        with pytest.raises(FileNotFoundError):
+            for source in sample_non_empty_time_lapse_creator.sources:
+                result = CacheManager.get(
+                    location=source.location_name,
+                    path_prefix=sample_non_empty_time_lapse_creator.base_path,
+                )
+                assert isinstance(result, FileNotFoundError)
+
+        assert mock_logger.debug.call_count == 1
+        assert mock_logger.warning.call_count == 1
+
+
+def test_clear_cache_logs_warning_if_file_not_found(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange, Act & Assert
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.Path.exists",
+            return_value=False,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.os.remove",
+            return_value=None,
+        ) as mock_remove,
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.logger",
+            return_value=None,
+        ) as mock_logger,
+    ):
+        for source in sample_non_empty_time_lapse_creator.sources:
+            result = CacheManager.clear_cache(
+                location=source.location_name,
+                path_prefix=sample_non_empty_time_lapse_creator.base_path,
+            )
+            assert not result
+        assert mock_remove.call_count == 0
+        assert mock_logger.debug.call_count == len(
+            sample_non_empty_time_lapse_creator.sources
+        )
+        assert mock_logger.warning.call_count == len(
+            sample_non_empty_time_lapse_creator.sources
+        )
+
+
+def test_clear_cache_removes_the_file(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange, Act & Assert
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.Path.exists",
+            return_value=True,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.os.remove",
+            return_value=None,
+        ) as mock_remove,
+        patch(
+            "src.automatic_time_lapse_creator.cache_manager.logger.debug",
+            return_value=None,
+        ) as mock_logger,
+    ):
+        for source in sample_non_empty_time_lapse_creator.sources:
+            result = CacheManager.clear_cache(
+                location=source.location_name,
+                path_prefix=sample_non_empty_time_lapse_creator.base_path,
+            )
+            assert not result
+        assert mock_remove.call_count == len(
+            sample_non_empty_time_lapse_creator.sources
+        )
+        assert mock_logger.call_count == (
+            len(sample_non_empty_time_lapse_creator.sources) * 2
+        )
