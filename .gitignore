@@ -164,8 +164,14 @@ cython_debug/
 .vscode/
 
 # Development and packge functionality. Images and time lapses created by the program are not included in Github commits
-test_file.py
+test_file*.py
+test_file*.txt
 cache/
+rila/
+plana/
+vitosha/
+stara_planina/
+osogovo/
 cache*.p
 *.jpg
 *.mp4
