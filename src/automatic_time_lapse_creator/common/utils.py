@@ -26,10 +26,7 @@ def shorten(path: str) -> str:
         str - the shortened path
     """
     sep = os.path.sep
-    if os.path.isdir(path):
-        start_idx = 2
-    else:
-        start_idx = 3
+    start_idx = 2 if os.path.isdir(path) else 3
 
     head, tail = os.path.split(path)
     head = sep.join(head.split(sep)[-start_idx:])

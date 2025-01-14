@@ -1,29 +1,44 @@
 from src.automatic_time_lapse_creator.common.utils import shorten, create_log_message
 from tests.test_data import sample_source1
+import os
+from unittest.mock import patch
 
 
 def test_shorten_returns_correct_file_path():
     # Arrange
-    file_path = "C:\\Users\\user\\Desktop\\Kofe\\Python\\automatic_time_lapse_creator\\Automatic-time-lapse-creator\\stara_planina\\mazalat_hut\\2025-01-07\\2025-01-07.mp4"
-    expected = "stara_planina\\mazalat_hut\\2025-01-07\\2025-01-07.mp4"
+    file_path = os.path.join(
+        "Automatic-time-lapse-creator",
+        "stara_planina",
+        "mazalat_hut",
+        "2025-01-07",
+        "2025-01-07.mp4",
+    )
+    expected = os.path.join(
+        "stara_planina", "mazalat_hut", "2025-01-07", "2025-01-07.mp4"
+    )
 
-    # Act
-    result = shorten(file_path)
-
-    # Assert
-    assert result == expected
+    # Act & Assert
+    with patch(
+        "src.automatic_time_lapse_creator.common.utils.os.path.isdir",
+        return_value=False,
+    ):
+        result = shorten(file_path)
+        assert result == expected
 
 
 def test_shorten_returns_correct_folder_path():
     # Arrange
-    folder_path = "C:\\Users\\user\\Desktop\\Kofe\\Python\\automatic_time_lapse_creator\\Automatic-time-lapse-creator\\stara_planina\\mazalat_hut\\2025-01-07"
-    expected = "stara_planina\\mazalat_hut\\2025-01-07"
+    folder_path = os.path.join(
+        "Automatic-time-lapse-creator", "stara_planina", "mazalat_hut", "2025-01-07"
+    )
+    expected = os.path.join("stara_planina", "mazalat_hut", "2025-01-07")
 
-    # Act
-    result = shorten(folder_path)
-
-    # Assert
-    assert result == expected
+    # Act & Assert
+    with patch(
+        "src.automatic_time_lapse_creator.common.utils.os.path.isdir", return_value=True
+    ):
+        result = shorten(folder_path)
+        assert result == expected
 
 
 def test_create_log_message_returns_correct_message_for_add_method():
