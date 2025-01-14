@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from astral import LocationInfo
 from logging import Logger
 
-logger: Logger
 
 GroupName = str
 LocationName = str
@@ -15,7 +14,8 @@ class LocationAndTimeManager:
     SUNSET_OFFSET: timedelta
     db: LocationDatabase
     city: LocationInfo
-    def __init__(self, city_name: str) -> None: ...
+    logger: Logger
+    def __init__(self, city_name: str, logger: Logger | None) -> None: ...
     @property
     def start_of_daylight(self) -> datetime: ...
     @property

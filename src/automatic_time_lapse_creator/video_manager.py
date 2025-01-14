@@ -2,12 +2,13 @@ from glob import glob
 from pathlib import Path
 import cv2
 import os
-import logging
+from logging import Logger
 from .common.constants import (
     JPG_FILE,
 )
+from .common.utils import shorten
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 class VideoManager:
@@ -32,6 +33,7 @@ class VideoManager:
     @classmethod
     def create_timelapse(
         cls,
+        logger: Logger,
         path: str,
         output_video: str,
         fps: int,
@@ -56,7 +58,7 @@ class VideoManager:
             False - in case of Exception during the creation of the video
 
         Note: the source image files are not modified or deleted in any case."""
-        logger.info(f"Creating video from images in {path}")
+        logger.info(f"Creating video from images in {shorten(path)}")
         image_files = sorted(glob(f"{path}/*{JPG_FILE}"))
 
         if len(image_files) > 0:
@@ -110,18 +112,18 @@ class VideoManager:
                     video_writer.write(img)
 
                 video_writer.release()
-                logger.info(f"Video created: {output_video}")
+                logger.info(f"Video created: {shorten(output_video)}")
                 return True
 
             except Exception as exc:
                 logger.error(exc, exc_info=True)
                 return False
         else:
-            logger.info(f"Folder contained no images {path}")
+            logger.info(f"Folder contained no images {shorten(path)}")
             return False
 
     @classmethod
-    def delete_source_images(cls, path: str | Path) -> bool:
+    def delete_source_images(cls, logger: Logger, path: str | Path) -> bool:
         """Deletes the image files from the specified folder.
 
         Parameters::
@@ -136,7 +138,7 @@ class VideoManager:
 
         try:
             image_files = glob(f"{path}/*{JPG_FILE}")
-            logger.info(f"Deleting {len(image_files)} files from {path}")
+            logger.info(f"Deleting {len(image_files)} files from {shorten(str(path))}")
             [os.remove(file) for file in image_files]
             return True
         except Exception as exc:

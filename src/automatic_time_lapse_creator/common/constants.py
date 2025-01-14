@@ -14,7 +14,7 @@ PICKLE_FILE: str = ".pkl"
 BACKUP_FILES_COUNT: int = 30
 LOGS_DIR: str = ".logs"
 LOG_INTERVAL: str = "midnight"
-LOGGING_FORMAT: str = "%(name)s: %(asctime)s - %(levelname)s - %(message)s"
+LOGGING_FORMAT: str = "%(name)10s : %(asctime)22s - %(levelname)8s - %(message)s"
 
 # Date and time formatting
 YYMMDD_FORMAT: str = "%Y-%m-%d"

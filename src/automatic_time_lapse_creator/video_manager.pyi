@@ -1,7 +1,7 @@
 from pathlib import Path
 from logging import Logger
 
-logger = Logger
+# logger: Logger
 
 class VideoManager:
     @classmethod
@@ -9,6 +9,7 @@ class VideoManager:
     @classmethod
     def create_timelapse(
         cls,
+        logger: Logger,
         path: str,
         output_video: str,
         fps: int,
@@ -17,4 +18,4 @@ class VideoManager:
         with_stamp: bool = True,
     ) -> bool: ...
     @classmethod
-    def delete_source_images(cls, path: str | Path) -> bool: ...
+    def delete_source_images(cls, logger: Logger, path: str | Path) -> bool: ...
