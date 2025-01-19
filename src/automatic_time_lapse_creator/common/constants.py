@@ -1,3 +1,6 @@
+from enum import StrEnum
+from logging import DEBUG, Formatter
+
 """Constants used in the different modules"""
 
 # File types
@@ -11,7 +14,7 @@ CACHE_FILE_PREFIX: str = "cache_"
 PICKLE_FILE: str = ".pkl"
 
 # Logging configuration
-BACKUP_FILES_COUNT: int = 30
+BACKUP_FILES_COUNT: int = 7
 LOGS_DIR: str = ".logs"
 LOG_INTERVAL: str = "midnight"
 LOGGING_FORMAT: str = "%(name)10s : %(asctime)22s - %(levelname)8s - %(message)s"
@@ -33,3 +36,33 @@ DEFAULT_NIGHTTIME_RETRY_SECONDS: int = 60
 DEFAULT_VIDEO_FPS: int = 30
 DEFAULT_VIDEO_WIDTH: int = 640
 DEFAULT_VIDEO_HEIGHT: int = 360
+
+# youtube_manager defaults
+YOUTUBE_URL_PREFIX = "https://www.youtube.com/watch?v="
+DEFAULT_LOG_LEVEL = DEBUG
+DEFAULT_LOGGING_FORMATTER = Formatter(LOGGING_FORMAT)
+YOUTUBE_MUSIC_CATEGORY = "10"
+YOUTUBE_KEYWORDS = ["weather", "ski", "mountain videos"]
+MAX_TITLE_LENGTH = 95
+MEGABYTES = 1
+BYTES = 1024
+DEFAULT_CHUNK_SIZE = MEGABYTES * BYTES * BYTES
+
+
+class VideoPrivacyStatus(StrEnum):
+    PUBLIC = "public"
+    PRIVATE = "private"
+    UNLISTED = "unlisted"
+
+
+# Video defaults
+DEFAULT_VIDEO_CODEC: str = "mp4v"
+DEFAULT_VIDEO_DESCRIPTION = (
+    "Video created with Automatic Time Lapse Creator by Kaloyan Peychev"
+)
+MONTHLY_SUMMARY_VIDEO_DESCRIPTION = "A summary of all daily videos for "
+
+
+class VideoType(StrEnum):
+    DAILY = "daily"
+    MONTHLY = "monthly"

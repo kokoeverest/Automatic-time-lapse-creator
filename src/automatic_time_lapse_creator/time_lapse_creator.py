@@ -27,12 +27,19 @@ from .common.constants import (
     DEFAULT_VIDEO_FPS,
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
+    VideoType,
 )
 from .common.exceptions import (
     InvalidStatusCodeException,
     InvalidCollectionException,
 )
-from .common.utils import create_log_message, shorten
+from glob import glob
+from .common.utils import (
+    create_log_message,
+    shorten,
+    dash_sep_strings,
+    video_type_response,
+)
 from . import configure_logger
 
 
@@ -122,7 +129,11 @@ class TimeLapseCreator:
             logger=self.logger,
         )
 
-    def execute(self, video_queue: Queue[Any] | None = None, log_queue: Queue[Any] | None = None) -> None:
+    def execute(
+        self,
+        video_queue: Queue[Any] | None = None,
+        log_queue: Queue[Any] | None = None,
+    ) -> None:
         """Verifies that self.sources has at least one Source and starts a while loop. Then, according to the return
         of collect_images_from_webcams():
           ##### - creates the video for every source
@@ -136,7 +147,7 @@ class TimeLapseCreator:
         self.video_queue = video_queue
         if log_queue:
             self.log_queue = log_queue
-            _, tail = os.path.split(self.base_path) 
+            _, tail = os.path.split(self.base_path)
             self.logger = configure_logger(log_queue, tail)
         try:
             self.logger.info("Program starts!")
@@ -170,7 +181,7 @@ class TimeLapseCreator:
                             if self.create_video(source):
                                 source.set_video_created()
                                 if self.video_queue is not None:
-                                    self.video_queue.put(video_path)
+                                    self.video_queue.put(video_type_response(video_path, VideoType.DAILY.value))
                                 self.cache_self()
                         # if there was an interruption in program's execution but some images were collected
                         # create a video anyway, but don't delete the source images
@@ -183,9 +194,12 @@ class TimeLapseCreator:
                             if self.create_video(source, delete_source_images=False):
                                 source.set_video_created()
                                 if self.video_queue is not None:
-                                    self.video_queue.put(video_path)
+                                    self.video_queue.put(video_type_response(video_path, VideoType.DAILY.value))
                                 self.cache_self()
                 else:
+                    # monthly summary logic
+                    if self.is_next_month():
+                        self.process_monthly_summary()
                     sleep(self.nighttime_wait_before_next_retry)
 
                 self._decrease_test_counter()
@@ -284,7 +298,7 @@ class TimeLapseCreator:
             #   created = True
 
         if created and delete_source_images:
-            _ = vm.delete_source_images(self.logger, input_folder)
+            _ = vm.delete_source_media_files(self.logger, input_folder)
 
         return created
 
@@ -475,3 +489,98 @@ class TimeLapseCreator:
         the while loop in the execute() method.
         """
         self._test_counter = self.nighttime_wait_before_next_retry
+
+    def valid_folder(self, *args: str):
+        base, folder_name, year, month = args
+        if not os.path.isdir(os.path.join(base, folder_name)):
+            return
+        if not folder_name.startswith(dash_sep_strings(year, month)):
+            return
+
+        return folder_name
+
+    def get_video_files_paths(self, base_folder: str, year: str, month: str):
+        folders = os.listdir(base_folder)
+        video_files_paths: list[str] = []
+        for folder in folders:
+            if self.valid_folder(base_folder, folder, year, month):
+                video_file = glob(
+                    os.path.join(
+                        base_folder,
+                        folder,
+                        f"{dash_sep_strings(year, month)}*{MP4_FILE}",
+                    )
+                )
+                if len(video_file) > 0 and video_file[0] != "":
+                    video_files_paths.append(next(iter(video_file)))
+
+        return video_files_paths
+
+    def create_monthly_video(
+        self,
+        base_path: str,
+        year: str,
+        month: str,
+        delete_source_files: bool = False,
+        extension: str = MP4_FILE,
+    ):
+        yy_mm_format = dash_sep_strings(year, month)
+
+        video_files = self.get_video_files_paths(
+            base_folder=base_path, year=year, month=month
+        )
+        video_folder_name = os.path.join(base_path, yy_mm_format)
+        output_video_name = os.path.join(
+            video_folder_name, f"{yy_mm_format}{extension}"
+        )
+
+        if len(video_files) == 0:
+            self.logger.warning(
+                f"No folders found for a monthly summary video - {shorten(output_video_name)}!"
+            )
+            return
+
+        if vm.create_monthly_summary_video(
+            self.logger,
+            video_files,
+            output_video_name,
+            DEFAULT_VIDEO_FPS,
+            DEFAULT_VIDEO_WIDTH,
+            DEFAULT_VIDEO_HEIGHT,
+        ):
+            self.logger.info(f"Video created: {shorten(output_video_name)}")
+
+            if delete_source_files:
+                for video_path in video_files:
+                    head, _ = os.path.split(video_path)
+                    vm.delete_source_media_files(
+                        logger=self.logger,
+                        path=head,
+                        extension=extension,
+                        delete_folder=True,
+                    )
+
+            return video_folder_name
+
+    def is_next_month(
+        self,
+    ) -> bool:
+        if dt.today().day == 3 and 2 < dt.now().hour < 6:
+            return True
+        if not self.quiet_mode:
+            self.logger.info("Not next month")
+        return False
+
+    def process_monthly_summary(self):
+        """Create and send the monthly summary video."""
+        # year = "2024"
+        # month = "12"
+        year = self.folder_name[:4]
+        month = self.folder_name[5:7]
+        for source in self.sources:
+            base_path = os.path.join(self.base_path, source.location_name)
+            new_video = self.create_monthly_video(base_path, year, month)
+            
+            if new_video and self.video_queue:
+                self.video_queue.put(video_type_response(new_video, VideoType.MONTHLY.value))
+        self.logger.info(f"Monthly summaries created for {year}-{month}")

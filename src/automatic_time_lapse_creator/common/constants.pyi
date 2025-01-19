@@ -1,3 +1,6 @@
+from enum import StrEnum
+from logging import Formatter
+
 # File types
 JPG_FILE: str
 MP4_FILE: str
@@ -31,3 +34,28 @@ DEFAULT_NIGHTTIME_RETRY_SECONDS: int
 DEFAULT_VIDEO_FPS: int
 DEFAULT_VIDEO_WIDTH: int
 DEFAULT_VIDEO_HEIGHT: int
+
+# youtube_manager defaults
+YOUTUBE_URL_PREFIX: str
+DEFAULT_LOG_LEVEL: int
+DEFAULT_LOGGING_FORMATTER: Formatter
+YOUTUBE_MUSIC_CATEGORY: str
+YOUTUBE_KEYWORDS: list[str]
+MAX_TITLE_LENGTH: int
+BYTES: int
+MEGABYTES: int
+DEFAULT_CHUNK_SIZE: int
+
+class VideoPrivacyStatus(StrEnum):
+    PUBLIC: StrEnum
+    PRIVATE: StrEnum
+    UNLISTED: StrEnum
+
+# Video defaults
+DEFAULT_VIDEO_CODEC: str
+DEFAULT_VIDEO_DESCRIPTION: str
+MONTHLY_SUMMARY_VIDEO_DESCRIPTION: str
+
+class VideoType(StrEnum):
+    DAILY: StrEnum
+    MONTHLY: StrEnum

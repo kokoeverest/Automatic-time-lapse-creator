@@ -3,12 +3,8 @@ from pathlib import Path
 import cv2
 import os
 from logging import Logger
-from .common.constants import (
-    JPG_FILE,
-)
+from .common.constants import JPG_FILE, DEFAULT_VIDEO_CODEC
 from .common.utils import shorten
-
-# logger = logging.getLogger(__name__)
 
 
 class VideoManager:
@@ -75,7 +71,7 @@ class VideoManager:
                     img = cv2.resize(src=img, dsize=(width, height))
 
                     if with_stamp:
-                        date_time_text = f'{path[-10:]} {os.path.basename(image_file).rstrip(JPG_FILE).replace("_", ":")}'
+                        date_time_text = f"{path[-10:]} {os.path.basename(image_file).rstrip(JPG_FILE).replace('_', ':')}"
 
                         # Add a rectangle for the date_time_text (black background)
                         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -123,8 +119,14 @@ class VideoManager:
             return False
 
     @classmethod
-    def delete_source_images(cls, logger: Logger, path: str | Path) -> bool:
-        """Deletes the image files from the specified folder.
+    def delete_source_media_files(
+        cls,
+        logger: Logger,
+        path: str | Path,
+        extension: str = JPG_FILE,
+        delete_folder: bool = False,
+    ) -> bool:
+        """Deletes the image or video files from the specified folder.
 
         Parameters::
 
@@ -132,14 +134,66 @@ class VideoManager:
 
         Returns::
 
-            True - if the images were deleted successfully;
+            True - if the files were deleted successfully;
             False - in case of Exception during files deletion
         """
-
+        path = Path(path)
         try:
-            image_files = glob(f"{path}/*{JPG_FILE}")
-            logger.info(f"Deleting {len(image_files)} files from {shorten(str(path))}")
-            [os.remove(file) for file in image_files]
+            media_files = glob(f"{path}/*{extension}")
+            logger.info(f"Deleting {len(media_files)} files from {shorten(str(path))}")
+            [os.remove(file) for file in media_files]
+            if delete_folder:
+                files = os.listdir(path)
+                if len(files) == 0:
+                    path.rmdir()
+
+            return True
+        except Exception as exc:
+            logger.error(exc, exc_info=True)
+            return False
+
+    @classmethod
+    def create_monthly_summary_video(
+        cls,
+        logger: Logger,
+        video_paths: list[str],
+        output_video_path: str,
+        fps: int,
+        width: int,
+        height: int,
+    ) -> bool:
+        video_paths.sort()
+
+        if cls.video_exists(output_video_path):
+            logger.warning(f"Video exists, skipping... {shorten(output_video_path)}")
+            return False
+        video_parent_folder, _ = os.path.split(output_video_path)
+
+        if not cls.video_exists(video_parent_folder):
+            os.mkdir(video_parent_folder)
+        try:
+            fourcc = cv2.VideoWriter.fourcc(*DEFAULT_VIDEO_CODEC)
+            output_video = cv2.VideoWriter(
+                output_video_path, fourcc, fps, (width, height)
+            )
+
+            for video_path in video_paths:
+                cap = cv2.VideoCapture(video_path)
+                if not cap.isOpened():
+                    logger.warning(
+                        f"Cannot open video: {shorten(video_path)}. Skipping..."
+                    )
+                    continue
+
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    output_video.write(frame)
+
+                cap.release()
+
+            output_video.release()
             return True
         except Exception as exc:
             logger.error(exc, exc_info=True)
