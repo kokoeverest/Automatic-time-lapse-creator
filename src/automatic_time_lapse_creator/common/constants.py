@@ -1,4 +1,4 @@
-from enum import StrEnum
+from enum import Enum
 from logging import DEBUG, Formatter
 from calendar import month_name
 
@@ -52,7 +52,7 @@ BYTES = 1024
 DEFAULT_CHUNK_SIZE = MEGABYTES * BYTES * BYTES
 
 
-class VideoPrivacyStatus(StrEnum):
+class VideoPrivacyStatus(Enum):
     PUBLIC = "public"
     PRIVATE = "private"
     UNLISTED = "unlisted"
@@ -68,6 +68,6 @@ BLACK_BACKGROUND = (0, 0, 0)
 WHITE_TEXT = (255, 255, 255)
 FILLED_RECTANGLE_VALUE = -1
 
-class VideoType(StrEnum):
+class VideoType(Enum):
     DAILY = "daily"
     MONTHLY = "monthly"

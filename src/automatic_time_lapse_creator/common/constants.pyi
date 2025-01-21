@@ -1,4 +1,4 @@
-from enum import StrEnum
+from enum import Enum
 from logging import Formatter
 
 # File types
@@ -48,10 +48,10 @@ BYTES: int
 MEGABYTES: int
 DEFAULT_CHUNK_SIZE: int
 
-class VideoPrivacyStatus(StrEnum):
-    PUBLIC: StrEnum
-    PRIVATE: StrEnum
-    UNLISTED: StrEnum
+class VideoPrivacyStatus(Enum):
+    PUBLIC: Enum
+    PRIVATE: Enum
+    UNLISTED: Enum
 
 # Video defaults
 DEFAULT_VIDEO_CODEC: str
@@ -61,6 +61,6 @@ BLACK_BACKGROUND: tuple[int]
 WHITE_TEXT: tuple[int]
 FILLED_RECTANGLE_VALUE: int
 
-class VideoType(StrEnum):
-    DAILY: StrEnum
-    MONTHLY: StrEnum
+class VideoType(Enum):
+    DAILY: Enum
+    MONTHLY: Enum
