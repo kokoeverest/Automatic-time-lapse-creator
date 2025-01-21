@@ -1,6 +1,9 @@
 import os
-from .constants import DEFAULT_VIDEO_DESCRIPTION, MONTHLY_SUMMARY_VIDEO_DESCRIPTION
-from datetime import datetime as dt
+from .constants import (
+    DEFAULT_VIDEO_DESCRIPTION,
+    MONTHLY_SUMMARY_VIDEO_DESCRIPTION,
+    MONTH_NAMES,
+)
 
 
 def create_log_message(location: str, url: str, method: str) -> str:
@@ -54,7 +57,7 @@ def create_description_for_monthly_video(monthly_video: str):
     _, tail = os.path.split(monthly_video)
     year = tail[:4]
     month = tail[5:7]
-    month_name = dt(int(year), int(month), 1).strftime("%B")
+    month_name = MONTH_NAMES[int(month)]
     suffix = f"{month_name}, {year}"
 
     result = f"{MONTHLY_SUMMARY_VIDEO_DESCRIPTION}{suffix}\n{DEFAULT_VIDEO_DESCRIPTION}"

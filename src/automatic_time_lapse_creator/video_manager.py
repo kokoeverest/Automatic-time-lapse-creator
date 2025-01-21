@@ -3,7 +3,14 @@ from pathlib import Path
 import cv2
 import os
 from logging import Logger
-from .common.constants import JPG_FILE, DEFAULT_VIDEO_CODEC
+from math import ceil
+from .common.constants import (
+    JPG_FILE,
+    DEFAULT_VIDEO_CODEC,
+    BLACK_BACKGROUND,
+    WHITE_TEXT,
+    FILLED_RECTANGLE_VALUE,
+)
 from .common.utils import shorten
 
 
@@ -16,7 +23,7 @@ class VideoManager:
     def video_exists(cls, path: str | Path) -> bool:
         """Checks if a file exists at the specified path.
 
-        Parameters::
+        Args::
 
             path: str | Path - the file path to be checked.
 
@@ -39,14 +46,18 @@ class VideoManager:
     ) -> bool:
         """Gets the image files from the specified folder and sorts them chronologically.
         Then a VideoWriter object creates the video and writes it to the specified folder.
+        If the with_stamp is set to True (default) it will put a rectangle (containing the
+        date and time of creation of the image) in the top left corner of every image.
 
-        Parameters::
+        Args::
 
+            logger: Logger - The logger instance for logging warnings, errors, and information.
             path: str - the folder, containing the images
             output_video: str - the name of the video file to be created
             fps: int - frames per second of the video
             width: int - width of the video in pixels
             height: int - height of the video in pixels
+            with_stamp: bool - put the date and time text in the top left corner
 
         Returns::
 
@@ -73,34 +84,49 @@ class VideoManager:
                     if with_stamp:
                         date_time_text = f"{path[-10:]} {os.path.basename(image_file).rstrip(JPG_FILE).replace('_', ':')}"
 
-                        # Add a rectangle for the date_time_text (black background)
+                        font_scale = width * 0.001
+                        font_thickness = max(1, int(height * 0.004))
+
+                        horizontal_padding = int(width * 0.02)
+                        vertical_padding = int(height * 0.02)
+
                         font = cv2.FONT_HERSHEY_SIMPLEX
-                        font_scale = 0.5
-                        font_thickness = 1
-                        text_size = cv2.getTextSize(
+                        text_width, text_height = cv2.getTextSize(
                             date_time_text, font, font_scale, font_thickness
                         )[0]
-                        text_x, text_y = 10, 20  # Top-left corner of the text
-                        rect_x2, rect_y2 = (
-                            text_x + text_size[0] + 10,
-                            text_y - text_size[1] - 10,
+
+                        text_position_left, text_position_up = (
+                            ceil(width * 0.0001),
+                            int(text_height * 1.2),
+                        )
+                        rect_top_left_x, rect_top_left_y = (
+                            text_position_left - horizontal_padding // 2,
+                            text_position_up - text_height - vertical_padding // 2,
+                        )
+                        rect_bottom_right_x, rect_bottom_right_y = (
+                            text_position_left + text_width + horizontal_padding,
+                            int((text_position_up + vertical_padding) * 1.2),
                         )
 
                         cv2.rectangle(
                             img,
-                            (text_x, text_y),
-                            (rect_x2, rect_y2),
-                            (0, 0, 0),  # Black background
-                            21,  # Curved shape of the rectangle
+                            (rect_top_left_x, rect_top_left_y),
+                            (rect_bottom_right_x, rect_bottom_right_y),
+                            BLACK_BACKGROUND,
+                            FILLED_RECTANGLE_VALUE,
+                        )
+                        rectangle_padding = (
+                            int(text_position_left * 5),
+                            int(text_position_up * 1.3),
                         )
 
                         cv2.putText(
                             img,
                             date_time_text,
-                            (text_x, text_y),  # Padding inside the rectangle
+                            rectangle_padding,
                             font,
                             font_scale,
-                            (255, 255, 255),  # White text color
+                            WHITE_TEXT,
                             font_thickness,
                             lineType=cv2.LINE_AA,
                         )
@@ -128,9 +154,13 @@ class VideoManager:
     ) -> bool:
         """Deletes the image or video files from the specified folder.
 
-        Parameters::
+        Args::
 
+            logger: Logger - The logger instance for logging warnings, errors, and information.
             path: str | Path - the folder path
+            extension: str - the file extension of the files intended for deletion
+            delete_folder: bool - if the folder containing the files should also be deleted after 
+                the files are deleted. The folder is deleted only if it's empty
 
         Returns::
 
@@ -145,8 +175,15 @@ class VideoManager:
             if delete_folder:
                 files = os.listdir(path)
                 if len(files) == 0:
-                    path.rmdir()
-
+                    try:
+                        path.rmdir()
+                        logger.info(f"Folder {shorten(str(path))} deleted!")
+                    except PermissionError as exc:
+                        logger.error(exc)
+                    finally:
+                        return True
+                else:
+                    logger.warning(f"Folder {shorten(str(path))} is not empty!")
             return True
         except Exception as exc:
             logger.error(exc, exc_info=True)
@@ -162,6 +199,25 @@ class VideoManager:
         width: int,
         height: int,
     ) -> bool:
+        """
+        Creates a monthly summary video by concatenating a list of input videos.
+
+        This method processes a list of video files and outputs a single video file
+        to the specified location. The resulting video is created in the specified 
+        resolution and frame rate.
+
+        Args:
+            logger (Logger): The logger instance for logging warnings, errors, and information.
+            video_paths (list[str]): A list of video paths to the input videos.
+            output_video_path (str): The path where the output video will be saved. If the video already
+                exists, the method skips the operation.
+            fps (int): Frames per second for the output video.
+            width (int): Width of the output video in pixels.
+            height (int): Height of the output video in pixels.
+
+        Returns:
+            bool: Returns True if the video is successfully created, otherwise False.
+        """
         video_paths.sort()
 
         if cls.video_exists(output_video_path):

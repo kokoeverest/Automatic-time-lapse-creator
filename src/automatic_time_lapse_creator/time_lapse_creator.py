@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 import requests
-from datetime import datetime as dt, timezone as tz
+from datetime import datetime as dt, timezone as tz, timedelta as td
 from time import sleep
 from pathlib import Path
 from queue import Queue
@@ -27,6 +27,7 @@ from .common.constants import (
     DEFAULT_VIDEO_FPS,
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
+    DEFAULT_DAY_FOR_MONTHLY_VIDEO,
     VideoType,
 )
 from .common.exceptions import (
@@ -181,7 +182,11 @@ class TimeLapseCreator:
                             if self.create_video(source):
                                 source.set_video_created()
                                 if self.video_queue is not None:
-                                    self.video_queue.put(video_type_response(video_path, VideoType.DAILY.value))
+                                    self.video_queue.put(
+                                        video_type_response(
+                                            video_path, VideoType.DAILY.value
+                                        )
+                                    )
                                 self.cache_self()
                         # if there was an interruption in program's execution but some images were collected
                         # create a video anyway, but don't delete the source images
@@ -194,7 +199,11 @@ class TimeLapseCreator:
                             if self.create_video(source, delete_source_images=False):
                                 source.set_video_created()
                                 if self.video_queue is not None:
-                                    self.video_queue.put(video_type_response(video_path, VideoType.DAILY.value))
+                                    self.video_queue.put(
+                                        video_type_response(
+                                            video_path, VideoType.DAILY.value
+                                        )
+                                    )
                                 self.cache_self()
                 else:
                     # monthly summary logic
@@ -272,7 +281,7 @@ class TimeLapseCreator:
         """Creates a video from the source collected images. If delete_source_images is True
         the source image files will be deleted after the video is created
 
-        Attributes::
+        Args::
 
             source: Source - the source from which collected images the video will be created
 
@@ -491,6 +500,22 @@ class TimeLapseCreator:
         self._test_counter = self.nighttime_wait_before_next_retry
 
     def valid_folder(self, *args: str):
+        """
+        Validates a folder based on the provided arguments.
+
+        This method checks whether a specified folder exists and if its name starts with a given prefix
+        based on the year and month.
+
+        Args:
+            *args (str): A sequence of strings representing:
+                - base: The base directory path.
+                - folder_name: The name of the folder to validate.
+                - year: The year used to validate the folder's name.
+                - month: The month used to validate the folder's name.
+
+        Returns:
+            str | None: Returns the folder name if it exists and matches the criteria; otherwise, None.
+        """
         base, folder_name, year, month = args
         if not os.path.isdir(os.path.join(base, folder_name)):
             return
@@ -500,6 +525,20 @@ class TimeLapseCreator:
         return folder_name
 
     def get_video_files_paths(self, base_folder: str, year: str, month: str):
+        """
+        Retrieves video file paths for a specific year and month from a base folder.
+
+        This method scans the base folder for subfolders that match the specified year and month,
+        validates them, and collects the paths of video files matching the expected naming pattern.
+
+        Args:
+            base_folder: str - The base directory to search for video files.
+            year: str - The year used to validate subfolder names and video file prefixes.
+            month: str - The month used to validate subfolder names and video file prefixes.
+
+        Returns:
+            list[str]: A list of file paths to the video files found in valid subfolders.
+        """
         folders = os.listdir(base_folder)
         video_files_paths: list[str] = []
         for folder in folders:
@@ -524,6 +563,25 @@ class TimeLapseCreator:
         delete_source_files: bool = False,
         extension: str = MP4_FILE,
     ):
+        """
+        Creates a monthly summary video by combining video files from a specific year and month.
+
+        This method identifies all video files for the given year and month in the specified base path,
+        combines them into a single output video, and optionally deletes the source video files after
+        successful creation.
+
+        Args:
+            base_path: str - The base directory containing the subfolders with video files.
+            year: str - The year to filter subfolders and video files.
+            month: str - The month to filter subfolders and video files.
+            delete_source_files: bool - If True, deletes the source video files and their parent
+                folders after the summary video is created. Defaults to False.
+            extension: str - The file extension of the video files to process. Defaults to MP4_FILE.
+
+        Returns:
+            str | None: Returns the path to the folder containing the created monthly summary video if
+                successful, otherwise None.
+        """
         yy_mm_format = dash_sep_strings(year, month)
 
         video_files = self.get_video_files_paths(
@@ -565,22 +623,43 @@ class TimeLapseCreator:
     def is_next_month(
         self,
     ) -> bool:
-        if dt.today().day == 3 and 2 < dt.now().hour < 6:
+        """
+        Checks if it is the right time for creating a monthly summary video.
+
+            Returns::
+
+                bool
+        """
+        if dt.today().day == DEFAULT_DAY_FOR_MONTHLY_VIDEO and 2 < dt.now().hour < 6:
             return True
         if not self.quiet_mode:
             self.logger.info("Not next month")
         return False
 
     def process_monthly_summary(self):
-        """Create and send the monthly summary video."""
-        # year = "2024"
-        # month = "12"
-        year = self.folder_name[:4]
-        month = self.folder_name[5:7]
+        """Create and optionally send the monthly summary video to the queue."""
+        year, month = self.get_previous_year_and_month()
+
         for source in self.sources:
             base_path = os.path.join(self.base_path, source.location_name)
             new_video = self.create_monthly_video(base_path, year, month)
-            
+
             if new_video and self.video_queue:
-                self.video_queue.put(video_type_response(new_video, VideoType.MONTHLY.value))
+                self.video_queue.put(
+                    video_type_response(new_video, VideoType.MONTHLY.value)
+                )
         self.logger.info(f"Monthly summaries created for {year}-{month}")
+
+    def get_previous_year_and_month(self):
+        """
+        Gets the previous year and month at the time of calling
+
+            Returns::
+
+                tuple[str] - containing the year and month
+        """
+        datetime_object = dt.strptime(self.folder_name, YYMMDD_FORMAT)
+        days_offset = td(days=DEFAULT_DAY_FOR_MONTHLY_VIDEO + 1)
+        prev_date = datetime_object - days_offset
+
+        return (str(prev_date.year), str(prev_date.month))

@@ -1,5 +1,6 @@
 from enum import StrEnum
 from logging import DEBUG, Formatter
+from calendar import month_name
 
 """Constants used in the different modules"""
 
@@ -23,12 +24,13 @@ LOGGING_FORMAT: str = "%(name)10s : %(asctime)22s - %(levelname)8s - %(message)s
 YYMMDD_FORMAT: str = "%Y-%m-%d"
 HHMMSS_UNDERSCORE_FORMAT: str = "%H_%M_%S"
 HHMMSS_COLON_FORMAT: str = "%H:%M:%S %p"
+MONTH_NAMES = list(month_name)
 
 # Status codes
 OK_STATUS_CODE: int = 200
 NO_CONTENT_STATUS_CODE: int = 204
 
-# TimeLapseCreator default configurations
+# TimeLapseCreator defaults
 DEFAULT_PATH_STRING: str = ""
 DEFAULT_CITY_NAME: str = "Sofia"
 DEFAULT_SECONDS_BETWEEN_FRAMES: int = 60
@@ -36,6 +38,7 @@ DEFAULT_NIGHTTIME_RETRY_SECONDS: int = 60
 DEFAULT_VIDEO_FPS: int = 30
 DEFAULT_VIDEO_WIDTH: int = 640
 DEFAULT_VIDEO_HEIGHT: int = 360
+DEFAULT_DAY_FOR_MONTHLY_VIDEO: int = 3
 
 # youtube_manager defaults
 YOUTUBE_URL_PREFIX = "https://www.youtube.com/watch?v="
@@ -56,12 +59,14 @@ class VideoPrivacyStatus(StrEnum):
 
 
 # Video defaults
-DEFAULT_VIDEO_CODEC: str = "mp4v"
+DEFAULT_VIDEO_CODEC = "mp4v"
 DEFAULT_VIDEO_DESCRIPTION = (
     "Video created with Automatic Time Lapse Creator by Kaloyan Peychev"
 )
 MONTHLY_SUMMARY_VIDEO_DESCRIPTION = "A summary of all daily videos for "
-
+BLACK_BACKGROUND = (0, 0, 0)
+WHITE_TEXT = (255, 255, 255)
+FILLED_RECTANGLE_VALUE = -1
 
 class VideoType(StrEnum):
     DAILY = "daily"

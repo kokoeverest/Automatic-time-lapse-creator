@@ -29,6 +29,7 @@ from .common.constants import (
 
 class YouTubeAuth:
     def __init__(self, youtube_client_secrets_file: str) -> None:
+        """"""
         self.logger = logging.getLogger("Authenticator")
         self.validate_secrets_file(self.logger, youtube_client_secrets_file)
 
@@ -156,6 +157,7 @@ class YouTubeUpload:
         self.privacy_status = privacy_status
 
     def find_input_files(self) -> list[str]:
+        """"""
         video_files = [
             os.path.join(self.source_directory, f)
             for f in os.listdir(self.source_directory)
@@ -169,11 +171,10 @@ class YouTubeUpload:
         return video_files
 
     def get_channel_id(self) -> str | None:
-        # Get the authenticated user's channel
+        """Get the authenticated user's channel ID"""
         request = self.youtube.service.channels().list(part="snippet", mine=True)
         response = request.execute()
 
-        # Extract the channel ID
         if "items" in response:
             channel_id = response["items"][0]["id"]
             return channel_id
@@ -181,6 +182,7 @@ class YouTubeUpload:
             return None
 
     def shorten_title(self, title: str, max_length: int = MAX_TITLE_LENGTH) -> str:
+        """"""
         if len(title) <= max_length:
             return title
 
@@ -199,6 +201,7 @@ class YouTubeUpload:
         youtube_title: str,
         youtube_description: str,
     ) -> str:
+        """"""
         self.logger.info(f"Uploading video {shorten(video_file)} to YouTube...")
         body: dict[str, dict[str, str | Iterable[str]]] = {
             "snippet": {
@@ -230,8 +233,11 @@ class YouTubeUpload:
         return youtube_video_id
 
     def process(self) -> dict[str, str]:
+        """"""
         video_files = self.find_input_files()
         uploaded_videos: list[dict[str, str]] = []
+        emtpty_dict: dict[str, str] = {}
+        
         for video_file in video_files:
             try:
                 youtube_id = self.upload_video_to_youtube(
@@ -248,4 +254,4 @@ class YouTubeUpload:
                     f"Failed to upload video {shorten(video_file)} to YouTube: {e}"
                 )
 
-        return next(iter(uploaded_videos))
+        return next(iter(uploaded_videos), emtpty_dict)
