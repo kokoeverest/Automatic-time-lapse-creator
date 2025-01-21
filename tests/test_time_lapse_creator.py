@@ -411,7 +411,7 @@ def test_create_video_returns_True_if_video_is_created(
             return_value=True,
         ),
         patch(
-            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_images",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_media_files",
             return_value=True,
         ) as mock_delete,
         patch.object(
@@ -441,7 +441,7 @@ def test_create_video_returns_True_if_video_is_created_and_source_images_are_not
             return_value=True,
         ),
         patch(
-            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_images",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_media_files",
             return_value=True,
         ) as mock_delete,
         patch.object(
@@ -585,6 +585,9 @@ def test_execute_sleeps_if_images_are_not_collected(
         patch.object(
             sample_non_empty_time_lapse_creator.logger, "info", return_value=None
         ) as mock_logger_info,
+        patch.object(
+            sample_non_empty_time_lapse_creator, "is_next_month", return_value=False
+        ),
         patch(
             "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
             return_value=sample_non_empty_time_lapse_creator,

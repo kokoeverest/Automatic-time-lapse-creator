@@ -1,3 +1,4 @@
+import os
 from src.automatic_time_lapse_creator.source import Source
 
 invalid_city_name = "Logator"
@@ -18,3 +19,11 @@ sample_source3 = Source(
 non_existing_source = Source(invalid_city_name, empty_url)
 sample_source_with_empty_url = Source("fake", empty_url)
 empty_dict = {}
+
+
+valid_json_content = '{"key": "value"}'
+invalid_json_content = '{"key": "value"'
+
+mock_secrets_file = "mock_secrets.json"
+
+sample_file_path = os.path.join("path", "to", "2020-01-01")

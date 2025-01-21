@@ -154,7 +154,7 @@ def test_create_timelapse_returns_False_if_exception_occurs(mock_logger: MagicMo
     mock_logger.error.assert_called_once()
 
 
-def test_delete_source_images_returns_True_on_success(mock_logger: MagicMock):
+def test_delete_source_media_files_returns_True_on_success(mock_logger: MagicMock):
     # Arrange & Act
     with (
         patch(
@@ -166,18 +166,18 @@ def test_delete_source_images_returns_True_on_success(mock_logger: MagicMock):
             return_value=None,
         ) as mock_remove,
     ):
-        result = vm.delete_source_images(
+        result = vm.delete_source_media_files(
             logger=mock_logger, path=tm.mock_path_to_images_folder
         )
 
     # Assert
     assert result
     assert mock_remove.call_count == 10
-    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
+    mock_glob.assert_called_once_with(os.path.join(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}"))
     mock_logger.info.assert_called_once()
 
 
-def test_delete_source_images_returns_False_on_Exception(mock_logger: MagicMock):
+def test_delete_source_media_files_returns_False_on_Exception(mock_logger: MagicMock):
     # Arrange & Act
     with (
         patch(
@@ -189,7 +189,7 @@ def test_delete_source_images_returns_False_on_Exception(mock_logger: MagicMock)
             return_value=Exception,
         ) as mock_remove,
     ):
-        result = vm.delete_source_images(
+        result = vm.delete_source_media_files(
             logger=mock_logger, path=tm.mock_path_to_images_folder
         )
 

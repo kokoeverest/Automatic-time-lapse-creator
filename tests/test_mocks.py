@@ -6,19 +6,24 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
 )
+from src.automatic_time_lapse_creator.youtube_manager import YouTubeAuth
 from datetime import datetime, timezone
 from unittest.mock import Mock
 from cv2.typing import MatLike
 from astral import LocationInfo
 from astral.geocoder import GroupInfo
+import os
 
 today = datetime.today()
+
 
 def mock_None():
     return
 
+
 mock_group_info = Mock(spec=GroupInfo)
 mock_location_info = Mock(spec=LocationInfo)
+
 
 def mock_jpg_file(number: int = 1):
     mock_file = Mock()
@@ -36,7 +41,7 @@ def mock_mat_like():
 mock_image = mock_jpg_file()
 mock_images_list = [mock_jpg_file(x) for x in range(1, 11)]
 mock_MatLike = mock_mat_like()
-mock_path_to_images_folder = "fake/folder/path"
+mock_path_to_images_folder = os.path.join("fake", "folder", "path")
 mock_output_video_name = f"fake_video{MP4_FILE}"
 mock_video_frames_per_second = DEFAULT_VIDEO_FPS
 mock_video_width = DEFAULT_VIDEO_WIDTH
@@ -50,7 +55,9 @@ class MockResponse:
 
 
 class MockDatetime:
-    fake_daylight = datetime(today.year, today.month, today.day, 12, 00, 00, tzinfo=timezone.utc)
+    fake_daylight = datetime(
+        today.year, today.month, today.day, 12, 00, 00, tzinfo=timezone.utc
+    )
     fake_nighttime = datetime(
         today.year, today.month, today.day, 23, 59, 00, tzinfo=timezone.utc
     )
@@ -58,3 +65,5 @@ class MockDatetime:
     fake_next_day = datetime(fake_today.year, fake_today.month, fake_today.day + 1)
     fake_next_month = datetime(fake_today.year, fake_today.month + 1, fake_today.day)
     fake_next_year = datetime(fake_today.year + 1, fake_today.month, fake_today.day)
+
+mock_youTubeAuth = Mock(spec=YouTubeAuth)
