@@ -1,5 +1,6 @@
 import os
 from src.automatic_time_lapse_creator.source import Source
+from src.automatic_time_lapse_creator.common.constants import MP4_FILE
 
 invalid_city_name = "Logator"
 group_name = "Europe"
@@ -20,10 +21,20 @@ non_existing_source = Source(invalid_city_name, empty_url)
 sample_source_with_empty_url = Source("fake", empty_url)
 empty_dict = {}
 
+sample_base_path = os.path.join("base", "path")
+sample_folder_name_01 = "2020-01-01"
+sample_folder_name_02 = "2020-01-02"
+
+sample_year = "2020"
+sample_month_january = "01"
+sample_month_february = "02"
+
+sample_video_file1 = os.path.join(sample_base_path, sample_folder_name_01, f"{sample_folder_name_01}{MP4_FILE}")
+sample_video_file2 = os.path.join(sample_base_path, sample_folder_name_02, f"{sample_folder_name_02}{MP4_FILE}")
 
 valid_json_content = '{"key": "value"}'
 invalid_json_content = '{"key": "value"'
 
 mock_secrets_file = "mock_secrets.json"
 
-sample_file_path = os.path.join("path", "to", "2020-01-01")
+sample_folder_path = os.path.join("path", "to", sample_folder_name_01)

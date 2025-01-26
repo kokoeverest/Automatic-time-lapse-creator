@@ -1,10 +1,14 @@
+from queue import Queue
 import pytest
-from unittest.mock import mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 import os
 from logging import Logger
 
 import requests
+from src.automatic_time_lapse_creator.common.utils import dash_sep_strings
 from src.automatic_time_lapse_creator.common.constants import (
+    DEFAULT_DAY_FOR_MONTHLY_VIDEO,
+    MP4_FILE,
     YYMMDD_FORMAT,
     DEFAULT_PATH_STRING,
     DEFAULT_CITY_NAME,
@@ -388,9 +392,15 @@ def test_create_video_returns_False_if_video_is_not_created(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange, Act & Assert
-    with patch(
-        "src.automatic_time_lapse_creator.time_lapse_creator.vm.video_exists",
-        return_value=True,
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.video_exists",
+            return_value=False,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.video_exists",
+            return_value=False,
+        ),
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             assert not sample_non_empty_time_lapse_creator.create_video(source)
@@ -457,6 +467,32 @@ def test_create_video_returns_True_if_video_is_created_and_source_images_are_not
 
         assert mock_logger_info.call_count == 3
         assert mock_delete.call_count == 0
+
+
+def test_create_video_returns_True_if_video_exists(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange, Act & Assert
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.video_exists",
+            return_value=True,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_media_files",
+            return_value=True,
+        ) as mock_delete,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "info", return_value=None
+        ) as mock_logger_info,
+    ):
+        for source in sample_non_empty_time_lapse_creator.sources:
+            assert len(sample_non_empty_time_lapse_creator.sources) == 3
+            assert sample_non_empty_time_lapse_creator.create_video(source)
+            assert not source.video_created
+
+        assert mock_delete.call_count == 3
+        assert mock_logger_info.call_count == 0
 
 
 def test_collect_images_from_webcams_returns_False_if_not_daylight(
@@ -839,3 +875,588 @@ def test_is_it_next_day_does_not_change_anything_if_it_is_the_same_day(
         assert old_date == tm.MockDatetime.fake_today
         assert old_folder_name is sample_non_empty_time_lapse_creator.folder_name
         assert old_location is sample_non_empty_time_lapse_creator.location
+
+
+def test_valid_folder_returns_True_with_valid_folder_name():
+    # Arrange
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.isdir",
+            return_value=True,
+        ) as mock_isdir,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.join",
+            return_value=f"{td.sample_base_path}/{td.sample_folder_name_01}",
+        ) as mock_join,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.dash_sep_strings",
+            return_value=f"{td.sample_year}-{td.sample_month_january}",
+        ) as mock_dash_sep,
+    ):
+        # Act
+        result = TimeLapseCreator.valid_folder(
+            td.sample_base_path,
+            td.sample_folder_name_01,
+            td.sample_year,
+            td.sample_month_january,
+        )
+
+        # Assert
+        mock_isdir.assert_called_once_with(
+            f"{td.sample_base_path}/{td.sample_folder_name_01}"
+        )
+        mock_join.assert_called_once_with(td.sample_base_path, td.sample_folder_name_01)
+        mock_dash_sep.assert_called_once_with(td.sample_year, td.sample_month_january)
+        assert result
+
+
+def test_valid_folder_returns_False_when_folder_does_not_exist():
+    # Arrange
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.isdir",
+            return_value=False,
+        ) as mock_isdir,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.join",
+            return_value=f"{td.sample_base_path}/{td.sample_folder_name_01}",
+        ) as mock_join,
+    ):
+        # Act
+        result = TimeLapseCreator.valid_folder(
+            td.sample_base_path,
+            td.sample_folder_name_01,
+            td.sample_year,
+            td.sample_month_january,
+        )
+
+        # Assert
+        mock_isdir.assert_called_once_with(
+            f"{td.sample_base_path}/{td.sample_folder_name_01}"
+        )
+        mock_join.assert_called_once_with(td.sample_base_path, td.sample_folder_name_01)
+        assert not result
+
+
+def test_valid_folder_returns_False_when_folder_name_does_not_match():
+    # Arrange
+    invalid_folder_path = "2025-04"
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.isdir",
+            return_value=True,
+        ) as mock_isdir,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.join",
+            return_value=f"{td.sample_base_path}/{td.sample_folder_name_01}",
+        ) as mock_join,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.dash_sep_strings",
+            return_value=invalid_folder_path,
+        ) as mock_dash_sep,
+    ):
+        # Act
+        result = TimeLapseCreator.valid_folder(
+            td.sample_base_path,
+            td.sample_folder_name_01,
+            td.sample_year,
+            td.sample_month_january,
+        )
+
+        # Assert
+        mock_isdir.assert_called_once_with(
+            f"{td.sample_base_path}/{td.sample_folder_name_01}"
+        )
+        mock_join.assert_called_once_with(td.sample_base_path, td.sample_folder_name_01)
+        mock_dash_sep.assert_called_once_with(td.sample_year, td.sample_month_january)
+        assert not result
+
+
+def test_get_video_files_paths_returns_correct_paths(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    folders = [td.sample_folder_name_01, td.sample_folder_name_02]
+    expected_paths = [td.sample_video_file1, td.sample_video_file2]
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.listdir",
+            return_value=folders,
+        ) as mock_listdir,
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "valid_folder",
+            return_value=True,
+        ) as mock_valid_folder,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.glob",
+            side_effect=lambda path: [td.sample_video_file1]
+            if td.sample_folder_name_01 in path
+            else [td.sample_video_file2],
+        ) as mock_glob,
+    ):
+        # Act
+        result = sample_non_empty_time_lapse_creator.get_video_files_paths(
+            td.sample_base_path, td.sample_year, td.sample_month_january
+        )
+
+        # Assert
+        mock_listdir.assert_called_once_with(td.sample_base_path)
+        assert mock_valid_folder.call_count == 2
+        assert mock_glob.call_count == 2
+        assert result == expected_paths
+
+
+def test_get_video_files_paths_skips_invalid_folders(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    folders = [td.sample_folder_name_01, "invalid_folder"]
+    expected_paths = [td.sample_video_file1]
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.listdir",
+            return_value=folders,
+        ) as mock_listdir,
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "valid_folder",
+            side_effect=lambda base, folder, y, m: folder == td.sample_folder_name_01,
+        ) as mock_valid_folder,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.glob",
+            return_value=[td.sample_video_file1],
+        ) as mock_glob,
+    ):
+        # Act
+        result = sample_non_empty_time_lapse_creator.get_video_files_paths(
+            td.sample_base_path, td.sample_year, td.sample_month_january
+        )
+
+        # Assert
+        mock_listdir.assert_called_once_with(td.sample_base_path)
+        assert mock_valid_folder.call_count == 2
+        assert mock_glob.call_count == 1
+        assert result == expected_paths
+
+
+def test_get_video_files_paths_returns_empty_if_no_valid_folders(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    folders = ["invalid_folder1", "invalid_folder2"]
+    expected_paths = []
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.listdir",
+            return_value=folders,
+        ) as mock_listdir,
+        patch.object(
+            sample_non_empty_time_lapse_creator, "valid_folder", return_value=False
+        ) as mock_valid_folder,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.glob", return_value=[]
+        ) as mock_glob,
+    ):
+        # Act
+        result = sample_non_empty_time_lapse_creator.get_video_files_paths(
+            td.sample_base_path, td.sample_year, td.sample_month_january
+        )
+
+        # Assert
+        mock_listdir.assert_called_once_with(td.sample_base_path)
+        assert mock_valid_folder.call_count == 2
+        assert mock_glob.call_count == 0
+        assert result == expected_paths
+
+
+def test_get_video_files_paths_ignores_empty_video_files(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    folders = [td.sample_folder_name_01]
+    video_files = [""]
+    expected_paths = []
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.listdir",
+            return_value=folders,
+        ) as mock_listdir,
+        patch.object(
+            sample_non_empty_time_lapse_creator, "valid_folder", return_value=True
+        ) as mock_valid_folder,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.glob",
+            return_value=video_files,
+        ) as mock_glob,
+    ):
+        # Act
+        result = sample_non_empty_time_lapse_creator.get_video_files_paths(
+            td.sample_base_path, td.sample_year, td.sample_month_january
+        )
+
+        # Assert
+        mock_listdir.assert_called_once_with(td.sample_base_path)
+        assert mock_valid_folder.call_count == 1
+        assert mock_glob.call_count == 1
+        assert result == expected_paths
+
+
+def test_create_monthly_video_creates_video(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    yy_mm_format = dash_sep_strings(td.sample_year, td.sample_month_january)
+    video_files = [td.sample_video_file1, td.sample_video_file2]
+    video_folder_name = os.path.join(td.sample_base_path, yy_mm_format)
+    output_video_name = os.path.join(video_folder_name, f"{yy_mm_format}{MP4_FILE}")
+
+    with (
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "get_video_files_paths",
+            return_value=video_files,
+        ) as mock_get_video_files_paths,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_monthly_summary_video",
+            return_value=True,
+        ) as mock_create_monthly_summary_video,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.join",
+            side_effect=os.path.join,
+        ) as mock_path_join,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.shorten",
+            return_value="",
+        ) as mock_shorten,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "info", return_value=None
+        ) as mock_logger,
+    ):
+        # Act
+        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+            base_path=td.sample_base_path,
+            year=td.sample_year,
+            month=td.sample_month_january,
+        )
+
+        # Assert
+        mock_get_video_files_paths.assert_called_once_with(
+            base_folder=td.sample_base_path,
+            year=td.sample_year,
+            month=td.sample_month_january,
+        )
+        mock_create_monthly_summary_video.assert_called_once_with(
+            sample_non_empty_time_lapse_creator.logger,
+            video_files,
+            output_video_name,
+            DEFAULT_VIDEO_FPS,
+            DEFAULT_VIDEO_WIDTH,
+            DEFAULT_VIDEO_HEIGHT,
+        )
+        mock_shorten.assert_called_once_with(output_video_name)
+        assert mock_path_join.call_count == 2
+        assert result == video_folder_name
+        assert mock_logger.call_count == 1
+
+
+def test_create_monthly_video_no_video_files(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    yy_mm_format = dash_sep_strings(td.sample_year, td.sample_month_february)
+    output_video_name = os.path.join(
+        td.sample_base_path, yy_mm_format, f"{yy_mm_format}{MP4_FILE}"
+    )
+
+    with (
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "get_video_files_paths",
+            return_value=[],
+        ) as mock_get_video_files_paths,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.join",
+            side_effect=os.path.join,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.shorten",
+            return_value="",
+        ) as mock_shorten,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "warning"
+        ) as mock_logger_warning,
+    ):
+        # Act
+        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+            base_path=td.sample_base_path,
+            year=td.sample_year,
+            month=td.sample_month_february,
+        )
+
+        # Assert
+        mock_get_video_files_paths.assert_called_once_with(
+            base_folder=td.sample_base_path,
+            year=td.sample_year,
+            month=td.sample_month_february,
+        )
+        mock_logger_warning.assert_called_once_with(
+            f"No folders found for a monthly summary video - {''}!"
+        )
+        mock_shorten.assert_called_once_with(output_video_name)
+        assert mock_shorten.call_count == 1
+        assert result is None
+
+
+def test_create_monthly_video_deletes_source_files(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    yy_mm_format = dash_sep_strings(td.sample_year, td.sample_month_january)
+    video_files = [td.sample_video_file1, td.sample_video_file2]
+    video_folder_name = os.path.join(td.sample_base_path, yy_mm_format)
+    output_video_name = os.path.join(video_folder_name, f"{yy_mm_format}{MP4_FILE}")
+
+    with (
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "get_video_files_paths",
+            return_value=video_files,
+        ) as mock_get_video_files_paths,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_monthly_summary_video",
+            return_value=True,
+        ) as mock_create_monthly_summary_video,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_media_files"
+        ) as mock_delete_source_media_files,
+    ):
+        # Act
+        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+            base_path=td.sample_base_path,
+            year=td.sample_year,
+            month=td.sample_month_january,
+            delete_source_files=True,
+        )
+
+        # Assert
+        mock_get_video_files_paths.assert_called_once_with(
+            base_folder=td.sample_base_path,
+            year=td.sample_year,
+            month=td.sample_month_january,
+        )
+        mock_create_monthly_summary_video.assert_called_once_with(
+            sample_non_empty_time_lapse_creator.logger,
+            video_files,
+            output_video_name,
+            DEFAULT_VIDEO_FPS,
+            DEFAULT_VIDEO_WIDTH,
+            DEFAULT_VIDEO_HEIGHT,
+        )
+        assert mock_delete_source_media_files.call_count == len(video_files)
+        for video_path in video_files:
+            head, _ = os.path.split(video_path)
+            mock_delete_source_media_files.assert_any_call(
+                logger=sample_non_empty_time_lapse_creator.logger,
+                path=head,
+                extension=MP4_FILE,
+                delete_folder=True,
+            )
+        assert result == video_folder_name
+
+
+def test_is_next_month_true(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.dt",
+        ) as mock_dt,
+    ):
+        mock_dt.today.return_value = tm.MockDatetime.fake_day_for_a_monthly_video
+        mock_dt.now.return_value = tm.MockDatetime.fake_now
+        # Act
+        result = sample_non_empty_time_lapse_creator.is_next_month()
+
+        # Assert
+        assert result is True
+
+
+def test_is_next_month_false_wrong_day(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.dt",
+        ) as mock_dt,
+    ):
+        mock_dt.today.return_value = tm.MockDatetime.fake_today
+        mock_dt.now.return_value = tm.MockDatetime.fake_now
+        # Act
+        result = sample_non_empty_time_lapse_creator.is_next_month()
+
+        # Assert
+        assert result is False
+
+
+def test_is_next_month_false_wrong_hour(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.dt",
+        ) as mock_dt,
+    ):
+        mock_dt.today.return_value = tm.MockDatetime.fake_day_for_a_monthly_video
+        mock_dt.now.return_value = tm.MockDatetime.fake_now_wrong_hour
+
+        # Act
+        result = sample_non_empty_time_lapse_creator.is_next_month()
+
+        # Assert
+        assert result is False
+
+
+def test_is_next_month_logs_info(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    sample_non_empty_time_lapse_creator.quiet_mode = False
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.dt",
+        ) as mock_dt,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "info"
+        ) as mock_logger_info,
+    ):
+        mock_dt.today.return_value = tm.MockDatetime.fake_day_for_a_monthly_video
+        mock_dt.now.return_value = tm.MockDatetime.fake_now_wrong_hour
+        # Act
+        result = sample_non_empty_time_lapse_creator.is_next_month()
+
+        # Assert
+        assert result is False
+        mock_logger_info.assert_called_once_with("Not next month")
+
+
+def test_process_monthly_summary_creates_videos_and_sends_to_queue(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    mock_video_queue = MagicMock(spec=Queue)
+    sample_non_empty_time_lapse_creator.video_queue = mock_video_queue
+
+    with (
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "get_previous_year_and_month",
+            return_value=(td.sample_year, td.sample_month_january),
+        ) as mock_get_year_month,
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "create_monthly_video",
+            return_value=td.sample_video_file1,
+        ) as mock_create_video,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "info"
+        ) as mock_logger_info,
+    ):
+        # Act
+        sample_non_empty_time_lapse_creator.process_monthly_summary()
+
+        # Assert
+        mock_get_year_month.assert_called_once()
+        assert mock_create_video.call_count == 3
+        assert mock_video_queue.put.call_count == 3
+        mock_logger_info.assert_called_once_with(
+            f"Monthly summaries created for {td.sample_year}-{td.sample_month_january}"
+        )
+    for src in sample_non_empty_time_lapse_creator.sources:
+        mock_create_video.assert_any_call(
+            os.path.join(
+                sample_non_empty_time_lapse_creator.base_path, src.location_name
+            ),
+            td.sample_year,
+            td.sample_month_january,
+        )
+
+
+def test_process_monthly_summary_no_sources(
+    sample_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    with patch.object(
+        sample_empty_time_lapse_creator.logger, "info"
+    ) as mock_logger_info:
+        # Act
+        sample_empty_time_lapse_creator.process_monthly_summary()
+
+        # Assert
+        mock_logger_info.assert_called_once()
+
+
+def test_process_monthly_summary_no_video_queue(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    with (
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "get_previous_year_and_month",
+            return_value=(td.sample_year, td.sample_month_january),
+        ) as mock_get_year_month,
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "create_monthly_video",
+            return_value=td.sample_video_file1,
+        ) as mock_create_video,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "info"
+        ) as mock_logger_info,
+    ):
+        # Act
+        sample_non_empty_time_lapse_creator.process_monthly_summary()
+
+        # Assert
+        mock_get_year_month.assert_called_once()
+        for src in sample_non_empty_time_lapse_creator.sources:
+            mock_create_video.assert_any_call(
+                os.path.join(
+                    sample_non_empty_time_lapse_creator.base_path, src.location_name
+                ),
+                td.sample_year,
+                td.sample_month_january,
+            )
+        mock_logger_info.assert_called_once_with(
+            f"Monthly summaries created for {td.sample_year}-{td.sample_month_january}"
+        )
+
+
+def test_get_previous_year_and_month_returns_tuple_with_correct_values(
+    sample_empty_time_lapse_creator: TimeLapseCreator,
+):
+    """
+    Testing the function with a change of the month and change of the year"""
+    # Arrange
+    inputs = [
+        f"2020-02-{DEFAULT_DAY_FOR_MONTHLY_VIDEO}",
+        f"2020-01-{DEFAULT_DAY_FOR_MONTHLY_VIDEO}",
+    ]
+
+    expected = [("2020", "01"), ("2019", "12")]
+
+    # Act & Assert
+    for idx, inp in enumerate(inputs):
+        sample_empty_time_lapse_creator.folder_name = inp
+        result = sample_empty_time_lapse_creator.get_previous_year_and_month()
+        assert result == expected[idx]

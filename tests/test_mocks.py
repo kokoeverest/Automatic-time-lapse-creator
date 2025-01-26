@@ -5,6 +5,7 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_FPS,
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
+    DEFAULT_DAY_FOR_MONTHLY_VIDEO
 )
 from src.automatic_time_lapse_creator.youtube_manager import YouTubeAuth
 from datetime import datetime, timezone
@@ -65,5 +66,8 @@ class MockDatetime:
     fake_next_day = datetime(fake_today.year, fake_today.month, fake_today.day + 1)
     fake_next_month = datetime(fake_today.year, fake_today.month + 1, fake_today.day)
     fake_next_year = datetime(fake_today.year + 1, fake_today.month, fake_today.day)
+    fake_day_for_a_monthly_video = datetime(year=2024, month=1, day=DEFAULT_DAY_FOR_MONTHLY_VIDEO)
+    fake_now = datetime(year=2024, month=2, day=DEFAULT_DAY_FOR_MONTHLY_VIDEO, hour=3)
+    fake_now_wrong_hour = fake_day_for_a_monthly_video
 
 mock_youTubeAuth = Mock(spec=YouTubeAuth)

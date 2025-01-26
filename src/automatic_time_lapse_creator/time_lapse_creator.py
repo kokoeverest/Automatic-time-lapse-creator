@@ -124,6 +124,7 @@ class TimeLapseCreator:
         )
 
     def clear_cache(self):
+        """Deletes the cache file for the current TimeLapseCreator"""
         CacheManager.clear_cache(
             location=self.location.city.name,
             path_prefix=self.base_path,
@@ -135,16 +136,38 @@ class TimeLapseCreator:
         video_queue: Queue[Any] | None = None,
         log_queue: Queue[Any] | None = None,
     ) -> None:
-        """Verifies that self.sources has at least one Source and starts a while loop. Then, according to the return
-        of collect_images_from_webcams():
-          ##### - creates the video for every source
-          ##### - waits the nighttime retry time interval.
-        If the source.all_images_collected is True the sources' images are deleted after the video is created.
-        If the source.images_partially_collected, the sources' images won't be deleted.
+        """
+        Executes the main time-lapse creation process for the configured sources.
 
-        Returns::
+        This method verifies that `self.sources` contains at least one valid source and initiates a continuous
+        while loop. Within the loop, the following steps are performed:
+
+        1. Calls `collect_images_from_webcams()` to gather images from sources.
+        2. Depending on the result of image collection:
+           - If all images are successfully collected for a source:
+             - Creates a video from the collected images.
+             - Deletes the source's images after video creation.
+             - Sends the video information to the `video_queue` if provided.
+           - If images are partially collected (e.g., due to an interruption):
+             - Creates a video from the partially collected images without deleting them.
+             - Sends the video information to the `video_queue` if provided.
+
+        3. If it's the start of a new month, initiates the monthly summary video creation process by calling
+           `process_monthly_summary()`.
+
+        4. If no conditions are met, the program waits for the configured nighttime retry interval before retrying.
+
+        The method logs key events and maintains a cache of the current state to ensure continuity in case of
+        interruptions.
+
+        Parameters:
+            video_queue: Queue[Any] | None - A queue to send video information for further processing or uploading.
+            log_queue: Queue[Any] | None - A queue for centralized logging across processes.
+
+        Returns:
             None
         """
+
         self.video_queue = video_queue
         if log_queue:
             self.log_queue = log_queue
@@ -172,7 +195,6 @@ class TimeLapseCreator:
                                 f"{self.base_path}/{source.location_name}/{self.folder_name}"
                             )
                         )
-                        # the normal flow of images collection, when all images are collected during the day
                         if (
                             dt.now(tz.utc) > self.location.end_of_daylight
                             and source.images_collected
@@ -188,8 +210,6 @@ class TimeLapseCreator:
                                         )
                                     )
                                 self.cache_self()
-                        # if there was an interruption in program's execution but some images were collected
-                        # create a video anyway, but don't delete the source images
                         elif (
                             dt.now(tz.utc) > self.location.end_of_daylight
                             and source.images_partially_collected
@@ -206,7 +226,6 @@ class TimeLapseCreator:
                                     )
                                 self.cache_self()
                 else:
-                    # monthly summary logic
                     if self.is_next_month():
                         self.process_monthly_summary()
                     sleep(self.nighttime_wait_before_next_retry)
@@ -303,8 +322,8 @@ class TimeLapseCreator:
                 self.video_width,
                 self.video_height,
             )
-            # else:
-            #   created = True
+        else:
+          created = True
 
         if created and delete_source_images:
             _ = vm.delete_source_media_files(self.logger, input_folder)
@@ -499,7 +518,8 @@ class TimeLapseCreator:
         """
         self._test_counter = self.nighttime_wait_before_next_retry
 
-    def valid_folder(self, *args: str):
+    @classmethod
+    def valid_folder(cls, *args: str):
         """
         Validates a folder based on the provided arguments.
 
@@ -514,15 +534,15 @@ class TimeLapseCreator:
                 - month: The month used to validate the folder's name.
 
         Returns:
-            str | None: Returns the folder name if it exists and matches the criteria; otherwise, None.
+            bool: Returns True if the folder exists and matches the criteria; otherwise, False.
         """
         base, folder_name, year, month = args
         if not os.path.isdir(os.path.join(base, folder_name)):
-            return
+            return False
         if not folder_name.startswith(dash_sep_strings(year, month)):
-            return
+            return False
 
-        return folder_name
+        return True
 
     def get_video_files_paths(self, base_folder: str, year: str, month: str):
         """
@@ -661,5 +681,9 @@ class TimeLapseCreator:
         datetime_object = dt.strptime(self.folder_name, YYMMDD_FORMAT)
         days_offset = td(days=DEFAULT_DAY_FOR_MONTHLY_VIDEO + 1)
         prev_date = datetime_object - days_offset
+        if prev_date.month < 10:
+            month = "0" + str(prev_date.month)
+        else:
+            month = str(prev_date.month)
 
-        return (str(prev_date.year), str(prev_date.month))
+        return (str(prev_date.year), month)

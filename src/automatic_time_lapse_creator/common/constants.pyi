@@ -16,6 +16,8 @@ BACKUP_FILES_COUNT: int
 LOGS_DIR: str
 LOG_INTERVAL: str
 LOGGING_FORMAT: str
+LOG_START: str
+LOG_START_INT: int
 
 # Date and time formatting
 YYMMDD_FORMAT: str

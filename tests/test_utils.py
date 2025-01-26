@@ -10,17 +10,17 @@ from src.automatic_time_lapse_creator.common.constants import (
     MONTHLY_SUMMARY_VIDEO_DESCRIPTION,
     VideoType
 )
-from tests.test_data import sample_source1, sample_file_path
+from tests.test_data import sample_source1, sample_folder_path
 import os
 from unittest.mock import patch
 
 
 def test_video_type_response_returns_correct_result():
     # Arrange
-    expected_result = {"video_path": sample_file_path, "video_type": VideoType.DAILY.value}
+    expected_result: dict[str, str] = {"video_path": sample_folder_path, "video_type": VideoType.DAILY.value}
 
     # Act
-    actual_result = video_type_response(sample_file_path, VideoType.DAILY.value)
+    actual_result = video_type_response(sample_folder_path, VideoType.DAILY.value)
 
     # Assert
     assert expected_result == actual_result
@@ -34,7 +34,7 @@ def test_create_description_for_monthly_video_returns_correct_string():
     )
 
     # Act
-    actual_result = create_description_for_monthly_video(sample_file_path)
+    actual_result = create_description_for_monthly_video(sample_folder_path)
 
     # Assert
     assert expexcted_result == actual_result
