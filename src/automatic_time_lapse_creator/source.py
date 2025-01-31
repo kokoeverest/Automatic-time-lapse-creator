@@ -1,4 +1,7 @@
 from typing import Any
+
+from .common.constants import OK_STATUS_CODE
+from .common.exceptions import InvalidStatusCodeException
 from .weather_station_info import WeatherStationInfo
 import cv2
 import subprocess
@@ -9,18 +12,37 @@ logger = logging.getLogger("Source")
 
 
 class Source:
-    """Contains two public attributes and four read-only attributes, which can be changed
-    through the respective methods.
+    """
+    Represents a webcam source for capturing images or video frames.
 
-    Attributes::
+    This class handles both static image webcams and video stream sources. It provides
+    functionality for retrieving images, validating video streams, and managing metadata
+    such as the number of collected images and video creation status.
 
-        location_name: str - a folder with that name will be created on your pc. The videos
-            for every day of the execution of the TimeLapseCreator will be created and put into
-            subfolders into the "location_name" folder
+    Attributes:
+        location_name: str - The name of the location. This is used for organizing
+            the images and videos into appropriate folders.
+        
+        url: str - The URL of the webcam feed (it should poit to either an image resource or a video stream).
+        
+        url_is_video_stream: bool - Indicates whether the URL points to a video stream.
+        
+        weather_data_on_images: bool - Set this to True if the images already have weather data
+        on them
 
-        url: str - a valid web address where a webcam frame (image) should be located.
-
-
+        weather_data_provider: (WeatherStationInfo | None) - An optional provider
+            for retrieving weather data to overlay on images. Will be ignored if the
+            weather_data_on_images is set to True in order to avoid duplicate data.
+        
+        _is_valid_url: bool - Whether the provided URL is a valid for collecting images from.
+        _is_valid_stream: bool - Whether the provided URL is a valid video stream.
+        _has_weather_data: bool - Whether weather data should be included in images.
+        _video_created: bool - Indicates whether a video has been successfully created.
+        _images_count: int - Tracks the number of images collected from the source.
+        _all_images_collected: bool - Flag indicating whether all images have been
+            collected for a specific period.
+        _images_partially_collected: bool - Flag indicating whether images were
+            only partially collected due to interruptions.
     """
 
     def __init__(
@@ -36,19 +58,23 @@ class Source:
         self.url_is_video_stream = is_video_stream
 
         if self.url_is_video_stream:
+            self._is_valid_url = False
             self._is_valid_stream = self.validate_stream_url(url)
         else:
             self._is_valid_stream = False
+            self._is_valid_url = self.validate_url(url)
 
         self._has_weather_data = weather_data_on_images
+
         if self._has_weather_data and weather_data_provider is not None:
             logger.warning(
                 "Weather data on images is set to True!\nWeather data provider will be ignored to avoid duplicate data on images!"
             )
             self.weather_data_provider = None
         else:
-            logger.info(f"Weather provider set for {self.location_name}")
             self.weather_data_provider = weather_data_provider
+            if not self.has_weather_data: 
+                logger.info(f"Weather provider set for {self.location_name}")
 
         self._video_created: bool = False
         self._images_count: int = 0
@@ -57,26 +83,74 @@ class Source:
 
     @property
     def has_weather_data(self) -> bool:
-        return self.weather_data_provider is not None
+        """
+        If weather data is originally available on the images for the given url.
+
+        Returns:
+            bool: True if weather data exists on images, otherwise False.
+        """
+        return self._has_weather_data
 
     @property
     def is_valid_stream(self) -> bool:
+        """
+        Checks whether the provided URL is a valid video stream.
+
+        Returns:
+            bool: True if the URL is a valid video stream, otherwise False.
+        """
         return self._is_valid_stream
 
     @property
+    def is_valid_url(self) -> bool:
+        """
+        Checks whether the provided URL is valid.
+
+        Returns:
+            bool: True if the URL returns bytes content, otherwise False.
+        """
+        return self._is_valid_url
+
+    @property
     def images_collected(self) -> bool:
+        """
+        Indicates whether all expected images have been collected.
+
+        Returns:
+            bool: True if all images have been collected, otherwise False.
+        """
         return self._all_images_collected
 
     @property
     def images_partially_collected(self) -> bool:
+        """
+        Indicates whether only a portion of the expected images have been collected. 
+        This will happen if the execute() method of the TimeLapseCreator is killed 
+        prematurely.
+
+        Returns:
+            bool: True if images were partially collected, otherwise False.
+        """
         return self._images_partially_collected
 
     @property
     def images_count(self) -> int:
+        """
+        Retrieves the number of images collected from this source.
+
+        Returns:
+            int: The total number of images collected.
+        """
         return self._images_count
 
     @property
     def video_created(self) -> bool:
+        """
+        Indicates whether a video has been successfully created from the collected images.
+
+        Returns:
+            bool: True if a video has been created, otherwise False.
+        """
         return self._video_created
 
     def set_video_created(self) -> None:
@@ -114,13 +188,16 @@ class Source:
     @classmethod
     def validate_stream_url(cls, url: str):
         """
-        Scrapes the latest frame from a video stream URL and returns bool of the operation success.
+        Validates if the given URL is a valid video stream.
+
+        If the URL is a YouTube link, it attempts to retrieve a direct video stream URL
+        using `yt-dlp`. Then, OpenCV tries to open the stream and check if frames can be read.
 
         Args:
-            video_url: str - URL of the video stream.
+            url (str): The URL of the video stream.
 
         Returns:
-            bool: True if successful, False otherwise.
+            bool: True if the URL is a valid video stream, otherwise False.
         """
         _url = cls.get_url_with_yt_dlp(url) if "youtube.com/watch?v=" in url else url
 
@@ -129,14 +206,35 @@ class Source:
 
             ret, _ = cap.read()
             if not ret:
-                logger.warning(f"Source: {url} is not a valid url and will be ignored!")
+                logger.warning(f"Source: {_url} is not a valid url and will be ignored!")
                 return False
 
             cap.release()
             return True
 
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
+            return False
+        
+    @classmethod
+    def validate_url(cls, url: str):
+        """Verifies the provided url will return bytes content.
+
+        Returns::
+            bool - if the response returns bytes content.
+        """
+
+        try:
+            response = requests.get(url, timeout=15)
+            response.raise_for_status()
+        except Exception as exc:
+            logger.error(f"Something went wrong during check of url {url}! ({exc})")
+            return False
+        if isinstance(response.content, bytes):
+            logger.info(f"{url} is a valid source for collecting images")
+            return True
+        else:
+            logger.warning(F"{url} is NOT a valid source for collecting images")
             return False
 
     @classmethod
@@ -150,12 +248,13 @@ class Source:
 
     def get_frame_bytes(self) -> bytes | None:
         """
-        Fetches the bytes content of the url's response depending on the type of webcam url
+        Fetches the bytes content of the url's response depending on the type of webcam url.
+        It will not try to fetch an image if the url is marked as invalid!
 
             Returns::
                 bytes | None - if the result was successful or not
         """
-        if not self.url_is_video_stream:
+        if not self.url_is_video_stream and self.is_valid_url:
             return self.fetch_image_from_static_web_cam()
 
         if self.url_is_video_stream and self.is_valid_stream:
@@ -168,7 +267,7 @@ class Source:
         Returns:
             bytes | None: The frame encoded as a JPEG byte array, or None if unsuccessful.
         """
-        _url = self.get_url_with_yt_dlp(self.url)
+        _url = self.get_url_with_yt_dlp(self.url) if "youtube.com/watch?v=" in self.url else self.url
         try:
             cap = cv2.VideoCapture(_url)
 
@@ -185,11 +284,10 @@ class Source:
                 return None
 
             cap.release()
-            # logger.info(f"{self.location_name} fetched image from video stream")
             return buffer.tobytes()
 
         except Exception as e:
-            logger.error(f"An error occurred: {e}")
+            logger.error(f"{self.location_name}: {e}")
             raise e
 
     def fetch_image_from_static_web_cam(self) -> bytes | Any:
@@ -204,10 +302,12 @@ class Source:
             bytes | Any - the content of the response if Exception is not raised."""
 
         try:
-            response = requests.get(self.url)
-            response.raise_for_status()
+            response = requests.get(self.url, timeout=15)
+            if response.status_code != OK_STATUS_CODE:
+                raise InvalidStatusCodeException(
+                    f"Status code {response.status_code} is not {OK_STATUS_CODE} for url {self.url}"
+                )
         except Exception as exc:
-            logger.error(exc, exc_info=True)
+            logger.error(f"{self.location_name}: {exc}")
             raise exc
-        # logger.info(f"{self.location_name} fetched image from static webcam")
         return response.content

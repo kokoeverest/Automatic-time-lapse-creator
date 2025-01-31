@@ -12,7 +12,7 @@ import tests.test_data as td
 
 @pytest.fixture
 def sample_non_empty_time_lapse_creator():
-    return TimeLapseCreator([td.sample_source1, td.sample_source2, td.sample_source3])
+    return TimeLapseCreator([td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data])
 
 
 def test_write_returns_none_after_writing_to_file(
@@ -47,7 +47,7 @@ def test_get_returns_TimeLapsCreator_object(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange
-    mock_creator = TimeLapseCreator([td.sample_source1])
+    mock_creator = TimeLapseCreator([td.sample_source_no_weather_data])
     mock_file = mock_open()
 
     # Act & Assert

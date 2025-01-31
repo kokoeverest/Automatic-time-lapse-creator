@@ -1,7 +1,6 @@
 from pathlib import Path
 from logging import Logger
 
-# logger: Logger
 
 class VideoManager:
     @classmethod
@@ -29,8 +28,6 @@ class VideoManager:
         video_paths: list[str],
         output_video_path: str,
         fps: int,
-        width: int,
-        height: int,
     ) -> bool: ...
     @classmethod
     def save_image_with_weather_overlay(

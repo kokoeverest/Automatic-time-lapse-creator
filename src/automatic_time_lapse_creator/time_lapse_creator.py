@@ -1,6 +1,5 @@
 from __future__ import annotations
 import os
-import requests
 from datetime import datetime as dt, timezone as tz, timedelta as td
 from time import sleep
 from pathlib import Path
@@ -20,7 +19,6 @@ from .common.constants import (
     HHMMSS_COLON_FORMAT,
     JPG_FILE,
     MP4_FILE,
-    OK_STATUS_CODE,
     DEFAULT_PATH_STRING,
     DEFAULT_CITY_NAME,
     DEFAULT_NIGHTTIME_RETRY_SECONDS,
@@ -32,7 +30,6 @@ from .common.constants import (
     VideoType,
 )
 from .common.exceptions import (
-    InvalidStatusCodeException,
     InvalidCollectionException,
 )
 from glob import glob
@@ -258,7 +255,7 @@ class TimeLapseCreator:
                         if img:
                             if source.weather_data_provider:
                                 source.weather_data_provider.get_data()
-                                
+
                             file_name = dt.now().strftime(HHMMSS_UNDERSCORE_FORMAT)
                             current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
                             dt_text = f"{self.folder_name} {dt.now().strftime(HHMMSS_COLON_FORMAT)}"
@@ -272,9 +269,11 @@ class TimeLapseCreator:
                                 width=self.video_width,
                                 height=self.video_height,
                                 date_time_text=dt_text,
-                                weather_data_text=str(source.weather_data_provider) if source.weather_data_provider else None
+                                weather_data_text=str(source.weather_data_provider)
+                                if source.weather_data_provider
+                                else None,
                             )
-                            
+
                             source.increase_images()
                             source.set_images_partially_collected()
                             self.cache_self()
@@ -349,32 +348,6 @@ class TimeLapseCreator:
 
         if len(self.sources) == 0:
             raise ValueError("You should add at least one source for this location!")
-
-    def verify_request(self, source: Source, retry: bool = False) -> bytes | Any:
-        """Verifies the request status code is 200.
-
-        Raises::
-
-            InvalidStatusCodeException if the code is different,
-            because request.content would not be accessible and the program will crash.
-
-        Returns::
-            bytes | Any - the content of the response if Exception is not raised."""
-
-        try:
-            response = requests.get(source.url)
-            if response.status_code != OK_STATUS_CODE:
-                raise InvalidStatusCodeException(
-                    f"Status code {response.status_code} is not {OK_STATUS_CODE} for url {source}"
-                )
-        except Exception as exc:
-            if not retry:
-                sleep(3)
-                self.logger.info(f"Retrying request for {source.location_name}")
-                self.verify_request(source, retry=True)
-            raise exc
-
-        return response.content
 
     def reset_images_partially_collected(self) -> None:
         """Resets the images_partially_collected = False for all self.sources"""
@@ -629,12 +602,10 @@ class TimeLapseCreator:
             return
 
         if vm.create_monthly_summary_video(
-            self.logger,
-            video_files,
-            output_video_name,
-            DEFAULT_VIDEO_FPS,
-            DEFAULT_VIDEO_WIDTH,
-            DEFAULT_VIDEO_HEIGHT,
+            logger=self.logger,
+            video_paths=video_files,
+            output_video_path=output_video_name,
+            fps=DEFAULT_VIDEO_FPS,
         ):
             self.logger.info(f"Video created: {shorten(output_video_name)}")
 

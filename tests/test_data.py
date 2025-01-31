@@ -8,13 +8,13 @@ valid_source_name = "aleko"
 valid_url = "https://home-solutions.bg/cams/aleko2.jpg?1705293967111"
 empty_url = "empty url"
 
-sample_source1 = Source(valid_source_name, valid_url)
+sample_source_no_weather_data = Source(valid_source_name, valid_url)
 duplicate_source = Source(valid_source_name, valid_url)
 
-sample_source2 = Source(
+sample_source2_no_weather_data = Source(
     "markudjik", "https://media.borovets-bg.com/cams/channel?channel=31"
 )
-sample_source3 = Source(
+sample_source3_no_weather_data = Source(
     "plevenhut", "https://meter.ac/gs/nodes/N160/snap.jpg?1705436803718"
 )
 non_existing_source = Source(invalid_city_name, empty_url)

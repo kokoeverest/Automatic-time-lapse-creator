@@ -10,7 +10,7 @@ from src.automatic_time_lapse_creator.common.constants import (
     MONTHLY_SUMMARY_VIDEO_DESCRIPTION,
     VideoType
 )
-from tests.test_data import sample_source1, sample_folder_path
+from tests.test_data import sample_source_no_weather_data, sample_folder_path
 import os
 from unittest.mock import patch
 
@@ -116,10 +116,10 @@ def test_shorten_returns_correct_folder_path():
 
 def test_create_log_message_returns_correct_message_for_add_method():
     # Arrange
-    expected = f"Source with location: {sample_source1.location_name} or url: {sample_source1.url} already exists!"
+    expected = f"Source with location: {sample_source_no_weather_data.location_name} or url: {sample_source_no_weather_data.url} already exists!"
 
     #  Act
-    result = create_log_message(sample_source1.location_name, sample_source1.url, "add")
+    result = create_log_message(sample_source_no_weather_data.location_name, sample_source_no_weather_data.url, "add")
 
     # Assert
     assert expected == result
@@ -127,11 +127,11 @@ def test_create_log_message_returns_correct_message_for_add_method():
 
 def test_create_log_message_returns_correct_message_for_remove_method():
     # Arrange
-    expected = f"Source with location: {sample_source1.location_name} or url: {sample_source1.url} doesn't exist!"
+    expected = f"Source with location: {sample_source_no_weather_data.location_name} or url: {sample_source_no_weather_data.url} doesn't exist!"
 
     #  Act
     result = create_log_message(
-        sample_source1.location_name, sample_source1.url, "remove"
+        sample_source_no_weather_data.location_name, sample_source_no_weather_data.url, "remove"
     )
 
     # Assert
@@ -145,7 +145,7 @@ def test_create_log_message_returns_correct_message_for_unknown_method():
 
     #  Act
     result = create_log_message(
-        sample_source1.location_name, sample_source1.url, unknown_method
+        sample_source_no_weather_data.location_name, sample_source_no_weather_data.url, unknown_method
     )
 
     # Assert

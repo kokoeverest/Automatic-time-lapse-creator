@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, mock_open, patch
 import os
 from logging import Logger
 
-import requests
 from src.automatic_time_lapse_creator.common.utils import dash_sep_strings
 from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_DAY_FOR_MONTHLY_VIDEO,
@@ -26,7 +25,6 @@ from src.automatic_time_lapse_creator.time_manager import (
     LocationAndTimeManager,
 )
 from src.automatic_time_lapse_creator.common.exceptions import (
-    InvalidStatusCodeException,
     InvalidCollectionException,
 )
 import tests.test_data as td
@@ -43,14 +41,14 @@ def sample_empty_time_lapse_creator():
 @pytest.fixture
 def sample_non_empty_time_lapse_creator():
     return TimeLapseCreator(
-        [td.sample_source1, td.sample_source2, td.sample_source3],
+        [td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data],
         path=os.getcwd(),
         quiet_mode=False,
     )
 
 
 fake_non_empty_time_lapse_creator = TimeLapseCreator(
-    [td.sample_source1], path=os.getcwd()
+    [td.sample_source_no_weather_data], path=os.getcwd()
 )
 fake_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
 
@@ -117,7 +115,7 @@ def test_validate_collection_returns_set_with_sources_if_valid_collections_are_p
 
     # Act & Assert
     for col in allowed_collections:
-        argument = col([td.sample_source1, td.sample_source2])  # type: ignore
+        argument = col([td.sample_source_no_weather_data, td.sample_source2_no_weather_data])  # type: ignore
 
         result = TimeLapseCreator.validate_collection(argument)  # type: ignore
         assert isinstance(result, set)
@@ -136,7 +134,7 @@ def test_check_sources_returns_Source_if_a_single_valid_source_is_passed(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange & Act
-    result = sample_empty_time_lapse_creator.check_sources(td.sample_source1)  # type: ignore
+    result = sample_empty_time_lapse_creator.check_sources(td.sample_source_no_weather_data)  # type: ignore
 
     # Assert
     assert isinstance(result, Source)
@@ -150,7 +148,7 @@ def test_check_sources_returns_set_with_sources_if_valid_collections_are_passed(
 
     # Act & Assert
     for col in allowed_collections:
-        argument = col([td.sample_source1, td.sample_source2])  # type: ignore
+        argument = col([td.sample_source_no_weather_data, td.sample_source2_no_weather_data])  # type: ignore
 
         result = sample_empty_time_lapse_creator.check_sources(argument)  # type: ignore
         assert isinstance(result, set)
@@ -160,7 +158,7 @@ def test_add_sources_successfully_adds_one_source(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange & Act
-    sample_empty_time_lapse_creator.add_sources({td.sample_source1})
+    sample_empty_time_lapse_creator.add_sources({td.sample_source_no_weather_data})
 
     # Assert
     assert len(sample_empty_time_lapse_creator.sources) == 1
@@ -171,7 +169,7 @@ def test_add_sources_successfully_adds_a_collection_of_sources(
 ):
     # Arrange & Act
     result = sample_empty_time_lapse_creator.add_sources(
-        {td.sample_source1, td.sample_source2, td.sample_source3}
+        {td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data}
     )
 
     # Assert
@@ -183,7 +181,7 @@ def test_add_sources_doesnt_add_source_if_duplicate_name_or_url_is_found(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange
-    sample_empty_time_lapse_creator.add_sources({td.sample_source1})
+    sample_empty_time_lapse_creator.add_sources({td.sample_source_no_weather_data})
 
     # Act & Assert
     with (
@@ -216,9 +214,9 @@ def test_add_sources_doesnt_add_source_if_duplicate_name_or_url_is_found_in_a_co
     ):
         result = sample_empty_time_lapse_creator.add_sources(
             {
-                td.sample_source1,
-                td.sample_source2,
-                td.sample_source3,
+                td.sample_source_no_weather_data,
+                td.sample_source2_no_weather_data,
+                td.sample_source3_no_weather_data,
                 td.duplicate_source,
             }
         )
@@ -235,13 +233,13 @@ def test_remove_sources_successfully_removes_a_single_source(
 ):
     # Arrange & Act
     sample_empty_time_lapse_creator.add_sources(
-        {td.sample_source1, td.sample_source2, td.sample_source3}
+        {td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data}
     )
 
     # Assert
     assert len(sample_empty_time_lapse_creator.sources) == 3
 
-    sample_empty_time_lapse_creator.remove_sources(td.sample_source1)
+    sample_empty_time_lapse_creator.remove_sources(td.sample_source_no_weather_data)
     assert len(sample_empty_time_lapse_creator.sources) == 2
 
 
@@ -250,14 +248,14 @@ def test_remove_sources_successfully_removes_a_collection_of_sources(
 ):
     # Arrange
     sample_empty_time_lapse_creator.add_sources(
-        {td.sample_source1, td.sample_source2, td.sample_source3}
+        {td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data}
     )
 
     # Act & Assert
     assert len(sample_empty_time_lapse_creator.sources) == 3
 
     result = sample_empty_time_lapse_creator.remove_sources(
-        {td.sample_source1, td.sample_source2}
+        {td.sample_source_no_weather_data, td.sample_source2_no_weather_data}
     )
     assert len(sample_empty_time_lapse_creator.sources) == 1
     assert not result
@@ -301,7 +299,7 @@ def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found_in_a_colle
         ) as mock_util,
     ):
         result = sample_non_empty_time_lapse_creator.remove_sources(
-            [td.sample_source1, td.non_existing_source]
+            [td.sample_source_no_weather_data, td.non_existing_source]
         )
 
     # Assert
@@ -309,36 +307,6 @@ def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found_in_a_colle
     assert mock_util.call_count == 1
     assert len(sample_non_empty_time_lapse_creator.sources) == 2
     assert not result
-
-
-def test_verify_request_reraises_exception_if_url_is_invalid(
-    sample_non_empty_time_lapse_creator: TimeLapseCreator,
-):
-    # Arrange, Act & Assert
-    with pytest.raises(Exception):
-        result = sample_non_empty_time_lapse_creator.verify_request(
-            td.sample_source_with_empty_url
-        )
-        message = f"HTTPSConnectionPool(host='{td.sample_source_with_empty_url.url}', port=443): Max retries exceeded with url: / (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x00000144137B4500>: Failed to resolve '{td.sample_source_with_empty_url.url}' ([Errno 11001] getaddrinfo failed)\"))"
-        assert result == message
-
-
-def test_verify_request_reraises_exception_if_response_status_code_is_not_200(
-    sample_non_empty_time_lapse_creator: TimeLapseCreator,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    # Arrange
-    def mock_get(*args, **kwargs):  # type: ignore
-        return tm.MockResponse()
-
-    # Act
-    monkeypatch.setattr(requests, "get", mock_get)  # type: ignore
-
-    # Assert
-    with pytest.raises(InvalidStatusCodeException):
-        sample_non_empty_time_lapse_creator.verify_request(
-            td.sample_source_with_empty_url
-        )
 
 
 def test_reset_images_partially_collected(
@@ -535,14 +503,13 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
             return_value=None,
         ),
         patch("builtins.open", mock_file),
+        patch(
+            "src.automatic_time_lapse_creator.source.Source.get_frame_bytes",
+            return_value=b"some_content",
+        ),
     ):
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator.location, "is_daylight", mock_bool
-        )
-        monkeypatch.setattr(
-            sample_non_empty_time_lapse_creator,
-            "verify_request",
-            lambda: b"some_content",
         )
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "cache_self", tm.mock_None
@@ -573,6 +540,7 @@ def test_collect_images_from_webcams_returns_True_even_if_request_returns_Except
             "src.automatic_time_lapse_creator.time_lapse_creator.Path.mkdir",
             return_value=None,
         ),
+        patch("src.automatic_time_lapse_creator.source.Source.get_frame_bytes", return_value=Exception),
         patch("builtins.open", mock_file),
         patch.object(
             sample_non_empty_time_lapse_creator.logger, "info", return_value=None
@@ -583,9 +551,6 @@ def test_collect_images_from_webcams_returns_True_even_if_request_returns_Except
     ):
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator.location, "is_daylight", mock_bool
-        )
-        monkeypatch.setattr(
-            sample_non_empty_time_lapse_creator, "verify_request", lambda: Exception
         )
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "cache_self", lambda: None
@@ -767,7 +732,7 @@ def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day():
 
 def test_get_cached_self_returns_old_object_if_retrieved_at_the_same_day_and_images_were_partially_collected():
     # Arrange
-    sample_cached_creator = TimeLapseCreator([td.sample_source1])
+    sample_cached_creator = TimeLapseCreator([td.sample_source_no_weather_data])
     [
         source.set_images_partially_collected()
         for source in sample_cached_creator.sources
@@ -1152,12 +1117,10 @@ def test_create_monthly_video_creates_video(
             month=td.sample_month_january,
         )
         mock_create_monthly_summary_video.assert_called_once_with(
-            sample_non_empty_time_lapse_creator.logger,
-            video_files,
-            output_video_name,
-            DEFAULT_VIDEO_FPS,
-            DEFAULT_VIDEO_WIDTH,
-            DEFAULT_VIDEO_HEIGHT,
+            logger=sample_non_empty_time_lapse_creator.logger,
+            video_paths=video_files,
+            output_video_path=output_video_name,
+            fps=DEFAULT_VIDEO_FPS,
         )
         mock_shorten.assert_called_once_with(output_video_name)
         assert mock_path_join.call_count == 2
@@ -1251,12 +1214,10 @@ def test_create_monthly_video_deletes_source_files(
             month=td.sample_month_january,
         )
         mock_create_monthly_summary_video.assert_called_once_with(
-            sample_non_empty_time_lapse_creator.logger,
-            video_files,
-            output_video_name,
-            DEFAULT_VIDEO_FPS,
-            DEFAULT_VIDEO_WIDTH,
-            DEFAULT_VIDEO_HEIGHT,
+            logger=sample_non_empty_time_lapse_creator.logger,
+            video_paths=video_files,
+            output_video_path=output_video_name,
+            fps=DEFAULT_VIDEO_FPS,
         )
         assert mock_delete_source_media_files.call_count == len(video_files)
         for video_path in video_files:

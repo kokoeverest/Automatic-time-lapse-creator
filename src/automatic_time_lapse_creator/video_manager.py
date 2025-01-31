@@ -152,8 +152,6 @@ class VideoManager:
         video_paths: list[str],
         output_video_path: str,
         fps: int,
-        width: int,
-        height: int,
     ) -> bool:
         """
         Creates a monthly summary video by concatenating a list of input videos.
@@ -175,7 +173,7 @@ class VideoManager:
             bool: Returns True if the video is successfully created, otherwise False.
         """
         video_paths.sort()
-
+        
         if cls.video_exists(output_video_path):
             logger.warning(f"Video exists, skipping... {shorten(output_video_path)}")
             return False
@@ -184,6 +182,19 @@ class VideoManager:
         if not cls.video_exists(video_parent_folder):
             os.mkdir(video_parent_folder)
         try:
+            cap = cv2.VideoCapture(video_paths[0])
+            if not cap.isOpened():
+                logger.error(f"Could not open video file: {shorten(video_paths[0])}")
+                return False
+
+            ret, first_frame = cap.read()
+            cap.release()
+
+            if not ret or first_frame is None:
+                logger.error(f"Could not read first frame from video: {shorten(video_paths[0])}")
+                return False
+
+            height, width, _ = first_frame.shape
             fourcc = cv2.VideoWriter.fourcc(*DEFAULT_VIDEO_CODEC)
             output_video = cv2.VideoWriter(
                 output_video_path, fourcc, fps, (width, height)
@@ -233,37 +244,32 @@ class VideoManager:
             weather_data_text: str | None - The text for weather data, defaults to None.
         """
 
-        # Convert bytes to an OpenCV image
         image_array = np.frombuffer(image_bytes, dtype=np.uint8)
         img = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
-        # Ensure the image is properly loaded
         if img is None:
             return False
         img = cv2.resize(img, (width, height))
 
-        overlay_text = date_time_text if weather_data_text is None else f"{date_time_text} | {weather_data_text}"
+        rectangle_text = date_time_text if weather_data_text is None else f"{date_time_text} | {weather_data_text}"
 
-        # Define font settings
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_thickness = max(1, int(height * 0.004))
         font_scale = width * 0.0007
-        text_size = cv2.getTextSize(overlay_text, font, font_scale, font_thickness)[0]
+        text_size = cv2.getTextSize(rectangle_text, font, font_scale, font_thickness)[0]
 
-        # Define overlay rectangle dimensions
-        overlay_height = int(text_size[1] * 2.5)  # Extra padding
-        overlay_width = width
-        overlay = np.full(
-            (overlay_height, overlay_width, 3), BLACK_BACKGROUND, dtype=np.uint8
-        )  # Black rectangle
+        rectangle_height = int(text_size[1] * 2.5)
+        rectangle_width = width
+        rectangle = np.full(
+            (rectangle_height, rectangle_width, 3), BLACK_BACKGROUND, dtype=np.uint8
+        )
 
-        # Position text in the overlay
-        text_x = int(width * 0.02)  # Small left margin
-        text_y = int(overlay_height * 0.7)  # Centered vertically
+        text_x = int(width * 0.02)
+        text_y = int(rectangle_height * 0.7)
 
         cv2.putText(
-            overlay,
-            overlay_text,
+            rectangle,
+            rectangle_text,
             (text_x, text_y),
             font,
             font_scale,
@@ -272,10 +278,8 @@ class VideoManager:
             lineType=cv2.LINE_AA,
         )
 
-        # Stack overlay on top of the image
-        final_image = np.vstack((overlay, img))
+        final_image = np.vstack((rectangle, img))
 
-        # Save the image
         cv2.imwrite(save_path, final_image)
 
         return True

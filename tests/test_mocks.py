@@ -8,9 +8,12 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_DAY_FOR_MONTHLY_VIDEO
 )
 from src.automatic_time_lapse_creator.youtube_manager import YouTubeAuth
+from src.automatic_time_lapse_creator.source import Source
+from src.automatic_time_lapse_creator.weather_station_info import MeteoRocks
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock
 from cv2.typing import MatLike
+from cv2 import VideoCapture
 from astral import LocationInfo
 from astral.geocoder import GroupInfo
 import os
@@ -72,3 +75,20 @@ class MockDatetime:
     fake_now_wrong_hour = fake_day_for_a_monthly_video
 
 mock_youTubeAuth = Mock(spec=YouTubeAuth)
+
+mock_weather_info_provider = Mock(spec=MeteoRocks)
+
+def mock_source_with_weather_info_provider():
+    mock_src = Mock(spec=Source)
+    mock_src.weather_data_provider = mock_weather_info_provider
+
+    return mock_src
+
+def mock_source_valid_video_stream():
+    mock_src = MagicMock(spec=Source)
+    mock_src.url_is_video_stream = True
+    mock_src.is_valid_stream = True
+
+    return mock_src
+
+mock_capture = MagicMock(spec=VideoCapture)
