@@ -26,3 +26,4 @@ setuptools==75.5.0
 tzdata==2024.2
 urllib3==2.2.3
 virtualenv==20.27.1
+yt-dlp==2025.1.26

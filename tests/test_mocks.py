@@ -9,7 +9,7 @@ from src.automatic_time_lapse_creator.common.constants import (
 )
 from src.automatic_time_lapse_creator.youtube_manager import YouTubeAuth
 from datetime import datetime, timezone
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 from cv2.typing import MatLike
 from astral import LocationInfo
 from astral.geocoder import GroupInfo
@@ -34,7 +34,8 @@ def mock_jpg_file(number: int = 1):
 
 
 def mock_mat_like():
-    mat_like = Mock(spec=MatLike)
+    mat_like = MagicMock(spec=MatLike)
+    mat_like.shape = [600, 300, 10]
 
     return mat_like
 

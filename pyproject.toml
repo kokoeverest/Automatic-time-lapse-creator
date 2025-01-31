@@ -36,6 +36,7 @@ dependencies = [
     "requests>=2.32.3",
     "tzdata>=2024.2",
     "urllib3>=2.2.3",
+    "yt-dlp>=2025.1.26",
     "google-api-core>=2.24.0",
     "google-api-python-client>=2.156.0",
     "google-auth>=2.37.0",

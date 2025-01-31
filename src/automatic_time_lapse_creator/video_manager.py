@@ -2,14 +2,13 @@ from glob import glob
 from pathlib import Path
 import cv2
 import os
+import numpy as np
 from logging import Logger
-from math import ceil
 from .common.constants import (
     JPG_FILE,
     DEFAULT_VIDEO_CODEC,
     BLACK_BACKGROUND,
     WHITE_TEXT,
-    FILLED_RECTANGLE_VALUE,
 )
 from .common.utils import shorten
 
@@ -40,9 +39,6 @@ class VideoManager:
         path: str,
         output_video: str,
         fps: int,
-        width: int,
-        height: int,
-        with_stamp: bool = True,
     ) -> bool:
         """Gets the image files from the specified folder and sorts them chronologically.
         Then a VideoWriter object creates the video and writes it to the specified folder.
@@ -70,6 +66,16 @@ class VideoManager:
 
         if len(image_files) > 0:
             try:
+                # Read the first image to determine the correct height
+                first_image = cv2.imread(image_files[0])
+                if first_image is None:
+                    logger.error(
+                        f"Could not read first image: {shorten(image_files[0])}"
+                    )
+                    return False
+
+                height, width, _ = first_image.shape
+
                 fourcc = cv2.VideoWriter.fourcc(*"mp4v")
                 video_writer = cv2.VideoWriter(
                     output_video, fourcc, fps, (width, height)
@@ -79,57 +85,7 @@ class VideoManager:
                     img_path = os.path.join(path, image_file)
 
                     img = cv2.imread(img_path)
-                    img = cv2.resize(src=img, dsize=(width, height))
-
-                    if with_stamp:
-                        date_time_text = f"{path[-10:]} {os.path.basename(image_file).rstrip(JPG_FILE).replace('_', ':')}"
-
-                        font_scale = width * 0.001
-                        font_thickness = max(1, int(height * 0.004))
-
-                        horizontal_padding = int(width * 0.02)
-                        vertical_padding = int(height * 0.02)
-
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        text_width, text_height = cv2.getTextSize(
-                            date_time_text, font, font_scale, font_thickness
-                        )[0]
-
-                        text_position_left, text_position_up = (
-                            ceil(width * 0.0001),
-                            int(text_height * 1.2),
-                        )
-                        rect_top_left_x, rect_top_left_y = (
-                            text_position_left - horizontal_padding // 2,
-                            text_position_up - text_height - vertical_padding // 2,
-                        )
-                        rect_bottom_right_x, rect_bottom_right_y = (
-                            text_position_left + text_width + horizontal_padding,
-                            int((text_position_up + vertical_padding) * 1.2),
-                        )
-
-                        cv2.rectangle(
-                            img,
-                            (rect_top_left_x, rect_top_left_y),
-                            (rect_bottom_right_x, rect_bottom_right_y),
-                            BLACK_BACKGROUND,
-                            FILLED_RECTANGLE_VALUE,
-                        )
-                        rectangle_padding = (
-                            int(text_position_left * 5),
-                            int(text_position_up * 1.3),
-                        )
-
-                        cv2.putText(
-                            img,
-                            date_time_text,
-                            rectangle_padding,
-                            font,
-                            font_scale,
-                            WHITE_TEXT,
-                            font_thickness,
-                            lineType=cv2.LINE_AA,
-                        )
+                    # img = cv2.resize(src=img, dsize=(width, height))
 
                     video_writer.write(img)
 
@@ -159,7 +115,7 @@ class VideoManager:
             logger: Logger - The logger instance for logging warnings, errors, and information.
             path: str | Path - the folder path
             extension: str - the file extension of the files intended for deletion
-            delete_folder: bool - if the folder containing the files should also be deleted after 
+            delete_folder: bool - if the folder containing the files should also be deleted after
                 the files are deleted. The folder is deleted only if it's empty
 
         Returns::
@@ -203,7 +159,7 @@ class VideoManager:
         Creates a monthly summary video by concatenating a list of input videos.
 
         This method processes a list of video files and outputs a single video file
-        to the specified location. The resulting video is created in the specified 
+        to the specified location. The resulting video is created in the specified
         resolution and frame rate.
 
         Args:
@@ -254,3 +210,72 @@ class VideoManager:
         except Exception as exc:
             logger.error(exc, exc_info=True)
             return False
+
+    @classmethod
+    def save_image_with_weather_overlay(
+        cls,
+        image_bytes: bytes,
+        save_path: str,
+        width: int,
+        height: int,
+        date_time_text: str = "",
+        weather_data_text: str | None = None,
+    ):
+        """
+        Saves an image from bytes data with an additional overlay containing weather information at the top.
+
+        Args:
+            image_bytes: bytes - Image data received from a request (response.content).
+            save_path: str - Path where the new image will be saved.
+            width: int - Width of the final image.
+            height: int - Height of the final image (excluding overlay).
+            date_time_text: str - The timestamp to be displayed (YYYY-MM-DD H:M:S).
+            weather_data_text: str | None - The text for weather data, defaults to None.
+        """
+
+        # Convert bytes to an OpenCV image
+        image_array = np.frombuffer(image_bytes, dtype=np.uint8)
+        img = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+        # Ensure the image is properly loaded
+        if img is None:
+            return False
+        img = cv2.resize(img, (width, height))
+
+        overlay_text = date_time_text if weather_data_text is None else f"{date_time_text} | {weather_data_text}"
+
+        # Define font settings
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_thickness = max(1, int(height * 0.004))
+        font_scale = width * 0.0007
+        text_size = cv2.getTextSize(overlay_text, font, font_scale, font_thickness)[0]
+
+        # Define overlay rectangle dimensions
+        overlay_height = int(text_size[1] * 2.5)  # Extra padding
+        overlay_width = width
+        overlay = np.full(
+            (overlay_height, overlay_width, 3), BLACK_BACKGROUND, dtype=np.uint8
+        )  # Black rectangle
+
+        # Position text in the overlay
+        text_x = int(width * 0.02)  # Small left margin
+        text_y = int(overlay_height * 0.7)  # Centered vertically
+
+        cv2.putText(
+            overlay,
+            overlay_text,
+            (text_x, text_y),
+            font,
+            font_scale,
+            WHITE_TEXT,
+            font_thickness,
+            lineType=cv2.LINE_AA,
+        )
+
+        # Stack overlay on top of the image
+        final_image = np.vstack((overlay, img))
+
+        # Save the image
+        cv2.imwrite(save_path, final_image)
+
+        return True

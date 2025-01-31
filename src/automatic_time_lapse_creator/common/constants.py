@@ -25,7 +25,7 @@ LOG_START_INT: int = len(LOG_START)
 # Date and time formatting
 YYMMDD_FORMAT: str = "%Y-%m-%d"
 HHMMSS_UNDERSCORE_FORMAT: str = "%H_%M_%S"
-HHMMSS_COLON_FORMAT: str = "%H:%M:%S %p"
+HHMMSS_COLON_FORMAT: str = "%H:%M:%S"
 MONTH_NAMES = list(month_name)
 
 # Status codes

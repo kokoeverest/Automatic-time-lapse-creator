@@ -13,9 +13,6 @@ class VideoManager:
         path: str,
         output_video: str,
         fps: int,
-        width: int,
-        height: int,
-        with_stamp: bool = ...,
     ) -> bool: ...
     @classmethod
     def delete_source_media_files(
@@ -34,4 +31,14 @@ class VideoManager:
         fps: int,
         width: int,
         height: int,
+    ) -> bool: ...
+    @classmethod
+    def save_image_with_weather_overlay(
+        cls,
+        image_bytes: bytes,
+        save_path: str,
+        width: int,
+        height: int,
+        date_time_text: str = ...,
+        weather_data_text: str | None = ...,
     ) -> bool: ...

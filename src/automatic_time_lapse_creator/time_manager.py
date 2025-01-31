@@ -17,7 +17,7 @@ class LocationAndTimeManager:
     SUNSET_OFFSET = td(minutes=50)
     SUNRISE_OFFSET = td(minutes=50)
 
-    def __init__(self, city_name: str, logger: Logger | None) -> None:
+    def __init__(self, city_name: str, logger: Logger | None = None) -> None:
         self.db = database()
 
         if logger is None:

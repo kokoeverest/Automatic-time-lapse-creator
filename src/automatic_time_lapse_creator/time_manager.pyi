@@ -14,8 +14,8 @@ class LocationAndTimeManager:
     SUNSET_OFFSET: timedelta
     db: LocationDatabase
     city: LocationInfo
-    logger: Logger
-    def __init__(self, city_name: str, logger: Logger | None) -> None: ...
+    logger: Logger | None
+    def __init__(self, city_name: str, logger: Logger | None = ...) -> None: ...
     @property
     def start_of_daylight(self) -> datetime: ...
     @property

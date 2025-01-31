@@ -17,6 +17,7 @@ from .time_manager import (
 from .common.constants import (
     YYMMDD_FORMAT,
     HHMMSS_UNDERSCORE_FORMAT,
+    HHMMSS_COLON_FORMAT,
     JPG_FILE,
     MP4_FILE,
     OK_STATUS_CODE,
@@ -252,17 +253,28 @@ class TimeLapseCreator:
             while self.location.is_daylight():
                 for source in self.sources:
                     try:
-                        img = self.verify_request(source)
+                        img = source.get_frame_bytes()
 
-                        file_name = dt.now().strftime(HHMMSS_UNDERSCORE_FORMAT)
-                        current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
-
-                        Path(current_path).mkdir(parents=True, exist_ok=True)
                         if img:
+                            if source.weather_data_provider:
+                                source.weather_data_provider.get_data()
+                                
+                            file_name = dt.now().strftime(HHMMSS_UNDERSCORE_FORMAT)
+                            current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
+                            dt_text = f"{self.folder_name} {dt.now().strftime(HHMMSS_COLON_FORMAT)}"
+
+                            Path(current_path).mkdir(parents=True, exist_ok=True)
                             full_path = Path(f"{current_path}/{file_name}{JPG_FILE}")
 
-                            with open(full_path, "wb") as file:
-                                file.write(img)
+                            vm.save_image_with_weather_overlay(
+                                image_bytes=img,
+                                save_path=str(full_path),
+                                width=self.video_width,
+                                height=self.video_height,
+                                date_time_text=dt_text,
+                                weather_data_text=str(source.weather_data_provider) if source.weather_data_provider else None
+                            )
+                            
                             source.increase_images()
                             source.set_images_partially_collected()
                             self.cache_self()
@@ -319,11 +331,9 @@ class TimeLapseCreator:
                 input_folder,
                 output_video,
                 self.video_fps,
-                self.video_width,
-                self.video_height,
             )
         else:
-          created = True
+            created = True
 
         if created and delete_source_images:
             _ = vm.delete_source_media_files(self.logger, input_folder)
