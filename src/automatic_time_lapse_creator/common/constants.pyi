@@ -66,3 +66,7 @@ FILLED_RECTANGLE_VALUE: int
 class VideoType(Enum):
     DAILY: Enum
     MONTHLY: Enum
+
+# LocationNadTimeManger defaults
+DEFAULT_SUNSET_OFFSET: int
+DEFAULT_SUNRISE_OFFSET: int

@@ -17,6 +17,8 @@ from cv2 import VideoCapture
 from astral import LocationInfo
 from astral.geocoder import GroupInfo
 import os
+import numpy as np
+
 
 today = datetime.today()
 
@@ -27,7 +29,7 @@ def mock_None():
 
 mock_group_info = Mock(spec=GroupInfo)
 mock_location_info = Mock(spec=LocationInfo)
-
+mock_save_file_path = "test_output.jpg"
 
 def mock_jpg_file(number: int = 1):
     mock_file = Mock()
@@ -92,3 +94,5 @@ def mock_source_valid_video_stream():
     return mock_src
 
 mock_capture = MagicMock(spec=VideoCapture)
+
+mock_bytes = np.zeros((100, 100, 3), dtype=np.uint8).tobytes()

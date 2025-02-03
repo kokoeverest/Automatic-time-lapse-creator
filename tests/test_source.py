@@ -30,14 +30,16 @@ def test_source_initializes_correctly_with_default_config():
     with (
         patch("src.automatic_time_lapse_creator.source.logger") as mock_logger,
         patch(
-            "src.automatic_time_lapse_creator.source.Source.validate_url"
+            "src.automatic_time_lapse_creator.source.Source.validate_url",
+            return_value=True,
         ) as mock_validate,
     ):
         sample_source = Source(td.valid_source_name, td.valid_url)
         assert isinstance(sample_source, Source)
         assert sample_source.location_name == td.valid_source_name
         assert sample_source.url == td.valid_url
-        assert not sample_source.video_created
+        assert not sample_source.daily_video_created
+        assert not sample_source.monthly_video_created
         assert sample_source.images_count == 0
         assert not sample_source.images_collected
         assert not sample_source.images_partially_collected
@@ -121,18 +123,34 @@ def test_source_sets_is_valid_stream_to_False_for_invalid_video_stream():
 
 def test_set_video_created_changes_video_created_to_True(sample_source: Source):
     # Arrange & Act
-    sample_source.set_video_created()
+    sample_source.set_daily_video_created()
 
     # Assert
-    assert sample_source.video_created
+    assert sample_source.daily_video_created
 
 
 def test_reset_video_created_changes_video_created_to_False(sample_source: Source):
     # Arrange & Act
-    sample_source.reset_video_created()
+    sample_source.reset_daily_video_created()
 
     # Assert
-    assert not sample_source.video_created
+    assert not sample_source.daily_video_created
+
+
+def test_set_monthly_video_created_changes_monthly_video_created_to_True(sample_source: Source):
+    # Arrange & Act
+    sample_source.set_monthly_video_created()
+
+    # Assert
+    assert sample_source.monthly_video_created
+
+
+def test_reset_monthly_video_created_changes_monthly_video_created_to_False(sample_source: Source):
+    # Arrange & Act
+    sample_source.reset_monthly_video_created()
+
+    # Assert
+    assert not sample_source.monthly_video_created
 
 
 def test_increase_images_increases_the_images_count_by_one(sample_source: Source):

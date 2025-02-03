@@ -22,22 +22,23 @@ class Source:
     Attributes:
         location_name: str - The name of the location. This is used for organizing
             the images and videos into appropriate folders.
-        
+
         url: str - The URL of the webcam feed (it should poit to either an image resource or a video stream).
-        
+
         url_is_video_stream: bool - Indicates whether the URL points to a video stream.
-        
+
         weather_data_on_images: bool - Set this to True if the images already have weather data
         on them
 
         weather_data_provider: (WeatherStationInfo | None) - An optional provider
             for retrieving weather data to overlay on images. Will be ignored if the
             weather_data_on_images is set to True in order to avoid duplicate data.
-        
+
         _is_valid_url: bool - Whether the provided URL is a valid for collecting images from.
         _is_valid_stream: bool - Whether the provided URL is a valid video stream.
         _has_weather_data: bool - Whether weather data should be included in images.
-        _video_created: bool - Indicates whether a video has been successfully created.
+        _daily_video_created: bool - Indicates whether a daily video has been successfully created.
+        _monthly_video_created: bool - Indicates whether a monthly video has been successfully created.
         _images_count: int - Tracks the number of images collected from the source.
         _all_images_collected: bool - Flag indicating whether all images have been
             collected for a specific period.
@@ -73,10 +74,11 @@ class Source:
             self.weather_data_provider = None
         else:
             self.weather_data_provider = weather_data_provider
-            if not self.has_weather_data: 
+            if not self.has_weather_data:
                 logger.info(f"Weather provider set for {self.location_name}")
 
-        self._video_created: bool = False
+        self._daily_video_created: bool = False
+        self._monthly_video_created: bool = False
         self._images_count: int = 0
         self._all_images_collected: bool = False
         self._images_partially_collected: bool = False
@@ -124,8 +126,8 @@ class Source:
     @property
     def images_partially_collected(self) -> bool:
         """
-        Indicates whether only a portion of the expected images have been collected. 
-        This will happen if the execute() method of the TimeLapseCreator is killed 
+        Indicates whether only a portion of the expected images have been collected.
+        This will happen if the execute() method of the TimeLapseCreator is killed
         prematurely.
 
         Returns:
@@ -144,22 +146,40 @@ class Source:
         return self._images_count
 
     @property
-    def video_created(self) -> bool:
+    def daily_video_created(self) -> bool:
         """
         Indicates whether a video has been successfully created from the collected images.
 
         Returns:
             bool: True if a video has been created, otherwise False.
         """
-        return self._video_created
+        return self._daily_video_created
 
-    def set_video_created(self) -> None:
-        """Set the video_created to True"""
-        self._video_created = True
+    @property
+    def monthly_video_created(self) -> bool:
+        """
+        Indicates whether a monthly summary video has been successfully created from the existing daily videos.
 
-    def reset_video_created(self) -> None:
-        """Reset the video_created to False"""
-        self._video_created = False
+        Returns:
+            bool: True if a video has been created, otherwise False.
+        """
+        return self._monthly_video_created
+
+    def set_daily_video_created(self) -> None:
+        """Set the daily_video_created to True"""
+        self._daily_video_created = True
+
+    def reset_daily_video_created(self) -> None:
+        """Reset the daily_video_created to False"""
+        self._daily_video_created = False
+
+    def set_monthly_video_created(self) -> None:
+        """Set the monthly_video_created to True"""
+        self._monthly_video_created = True
+
+    def reset_monthly_video_created(self) -> None:
+        """Reset the monthly_video_created to False"""
+        self._monthly_video_created = False
 
     def increase_images(self) -> None:
         """Increases the count of the images by 1"""
@@ -206,7 +226,9 @@ class Source:
 
             ret, _ = cap.read()
             if not ret:
-                logger.warning(f"Source: {_url} is not a valid url and will be ignored!")
+                logger.warning(
+                    f"Source: {_url} is not a valid url and will be ignored!"
+                )
                 return False
 
             cap.release()
@@ -215,7 +237,7 @@ class Source:
         except Exception as e:
             logger.error(f"An error occurred: {e}")
             return False
-        
+
     @classmethod
     def validate_url(cls, url: str):
         """Verifies the provided url will return bytes content.
@@ -234,7 +256,7 @@ class Source:
             logger.info(f"{url} is a valid source for collecting images")
             return True
         else:
-            logger.warning(F"{url} is NOT a valid source for collecting images")
+            logger.warning(f"{url} is NOT a valid source for collecting images")
             return False
 
     @classmethod
@@ -267,7 +289,11 @@ class Source:
         Returns:
             bytes | None: The frame encoded as a JPEG byte array, or None if unsuccessful.
         """
-        _url = self.get_url_with_yt_dlp(self.url) if "youtube.com/watch?v=" in self.url else self.url
+        _url = (
+            self.get_url_with_yt_dlp(self.url)
+            if "youtube.com/watch?v=" in self.url
+            else self.url
+        )
         try:
             cap = cv2.VideoCapture(_url)
 

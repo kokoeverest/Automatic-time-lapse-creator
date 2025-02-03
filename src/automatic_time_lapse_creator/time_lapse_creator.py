@@ -27,6 +27,8 @@ from .common.constants import (
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
     DEFAULT_DAY_FOR_MONTHLY_VIDEO,
+    DEFAULT_SUNRISE_OFFSET,
+    DEFAULT_SUNSET_OFFSET,
     VideoType,
 )
 from .common.exceptions import (
@@ -61,6 +63,11 @@ class TimeLapseCreator:
         video_fps: int = DEFAULT_VIDEO_FPS,
         video_width: int = DEFAULT_VIDEO_WIDTH,
         video_height: int = DEFAULT_VIDEO_HEIGHT,
+        sunrise_offset_minutes: int = DEFAULT_SUNRISE_OFFSET,
+        sunset_offset_minutes: int = DEFAULT_SUNSET_OFFSET,
+        create_monthly_summary_video: bool = True,
+        day_for_monthly_summary_video: int = DEFAULT_DAY_FOR_MONTHLY_VIDEO,
+        delete_daily_videos_after_monthly_summary_is_created: bool = True,
         quiet_mode: bool = True,
         log_queue: Queue[Any] | None = None,
     ) -> None:
@@ -75,7 +82,12 @@ class TimeLapseCreator:
             log_queue=log_queue, logger_base_path=self.base_path
         )
 
-        self.location = LocationAndTimeManager(city, self.logger)
+        self.location = LocationAndTimeManager(
+            city_name=city,
+            sunrise_offset=sunrise_offset_minutes,
+            sunset_offset=sunset_offset_minutes,
+            logger=self.logger,
+        )
         self.sources: set[Source] = self.validate_collection(sources)
         self.wait_before_next_frame = seconds_between_frames
         self.nighttime_wait_before_next_retry = night_time_retry_seconds
@@ -85,6 +97,9 @@ class TimeLapseCreator:
         self.quiet_mode = quiet_mode
         self.video_queue = None
         self.log_queue = log_queue
+        self._monthly_summary = create_monthly_summary_video
+        self._day_for_monthly_summary = day_for_monthly_summary_video
+        self._delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
         self._test_counter = night_time_retry_seconds
 
     def get_cached_self(self) -> TimeLapseCreator:
@@ -185,7 +200,7 @@ class TimeLapseCreator:
                     and any(
                         source.images_partially_collected for source in self.sources
                     )
-                    and any(not source.video_created for source in self.sources)
+                    and any(not source.daily_video_created for source in self.sources)
                 ):
                     for source in self.sources:
                         video_path = str(
@@ -197,10 +212,10 @@ class TimeLapseCreator:
                             dt.now(tz.utc) > self.location.end_of_daylight
                             and source.images_collected
                             and not source.images_partially_collected
-                            and not source.video_created
+                            and not source.daily_video_created
                         ):
                             if self.create_video(source):
-                                source.set_video_created()
+                                source.set_daily_video_created()
                                 if self.video_queue is not None:
                                     self.video_queue.put(
                                         video_type_response(
@@ -212,10 +227,10 @@ class TimeLapseCreator:
                             dt.now(tz.utc) > self.location.end_of_daylight
                             and source.images_partially_collected
                             and not source.images_collected
-                            and not source.video_created
+                            and not source.daily_video_created
                         ):
                             if self.create_video(source, delete_source_images=False):
-                                source.set_video_created()
+                                source.set_daily_video_created()
                                 if self.video_queue is not None:
                                     self.video_queue.put(
                                         video_type_response(
@@ -224,8 +239,9 @@ class TimeLapseCreator:
                                     )
                                 self.cache_self()
                 else:
-                    if self.is_next_month():
-                        self.process_monthly_summary()
+                    if self._monthly_summary:
+                        if self.is_next_month():
+                            self.process_monthly_summary()
                     sleep(self.nighttime_wait_before_next_retry)
 
                 self._decrease_test_counter()
@@ -360,7 +376,8 @@ class TimeLapseCreator:
         """
         for source in self.sources:
             source.reset_images_counter()
-            source.reset_video_created()
+            source.reset_daily_video_created()
+            source.reset_monthly_video_created()
             source.reset_all_images_collected()
             source.reset_images_partially_collected()
 
@@ -563,7 +580,6 @@ class TimeLapseCreator:
         base_path: str,
         year: str,
         month: str,
-        delete_source_files: bool = False,
         extension: str = MP4_FILE,
     ):
         """
@@ -609,7 +625,7 @@ class TimeLapseCreator:
         ):
             self.logger.info(f"Video created: {shorten(output_video_name)}")
 
-            if delete_source_files:
+            if self._delete_daily_videos:
                 for video_path in video_files:
                     head, _ = os.path.split(video_path)
                     vm.delete_source_media_files(
@@ -631,7 +647,7 @@ class TimeLapseCreator:
 
                 bool
         """
-        if dt.today().day == DEFAULT_DAY_FOR_MONTHLY_VIDEO and 2 < dt.now().hour < 6:
+        if dt.today().day == self._day_for_monthly_summary and 2 < dt.now().hour < 6:
             return True
         if not self.quiet_mode:
             self.logger.info("Not next month")
@@ -643,13 +659,20 @@ class TimeLapseCreator:
 
         for source in self.sources:
             base_path = os.path.join(self.base_path, source.location_name)
-            new_video = self.create_monthly_video(base_path, year, month)
 
-            if new_video and self.video_queue:
-                self.video_queue.put(
-                    video_type_response(new_video, VideoType.MONTHLY.value)
-                )
-        self.logger.info(f"Monthly summaries created for {year}-{month}")
+            if not source.monthly_video_created:
+                new_video = self.create_monthly_video(base_path, year, month)
+
+                if new_video:
+                    source.set_monthly_video_created()
+                    self.logger.info(
+                        f"Monthly summary created for {source.location_name}, {year}-{month}"
+                    )
+
+                    if self.video_queue:
+                        self.video_queue.put(
+                            video_type_response(new_video, VideoType.MONTHLY.value)
+                        )
 
     def get_previous_year_and_month(self):
         """

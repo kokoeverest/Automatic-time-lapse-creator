@@ -73,3 +73,7 @@ FILLED_RECTANGLE_VALUE = -1
 class VideoType(Enum):
     DAILY = "daily"
     MONTHLY = "monthly"
+
+# LocationNadTimeManger defaults
+DEFAULT_SUNSET_OFFSET = 50
+DEFAULT_SUNRISE_OFFSET = 50

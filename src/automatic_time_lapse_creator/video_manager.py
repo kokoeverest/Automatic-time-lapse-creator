@@ -85,7 +85,6 @@ class VideoManager:
                     img_path = os.path.join(path, image_file)
 
                     img = cv2.imread(img_path)
-                    # img = cv2.resize(src=img, dsize=(width, height))
 
                     video_writer.write(img)
 
@@ -173,51 +172,47 @@ class VideoManager:
             bool: Returns True if the video is successfully created, otherwise False.
         """
         video_paths.sort()
-        
+
         if cls.video_exists(output_video_path):
             logger.warning(f"Video exists, skipping... {shorten(output_video_path)}")
             return False
-        video_parent_folder, _ = os.path.split(output_video_path)
 
+        video_parent_folder, _ = os.path.split(output_video_path)
         if not cls.video_exists(video_parent_folder):
             os.mkdir(video_parent_folder)
+
         try:
-            cap = cv2.VideoCapture(video_paths[0])
-            if not cap.isOpened():
-                logger.error(f"Could not open video file: {shorten(video_paths[0])}")
-                return False
-
-            ret, first_frame = cap.read()
-            cap.release()
-
-            if not ret or first_frame is None:
-                logger.error(f"Could not read first frame from video: {shorten(video_paths[0])}")
-                return False
-
-            height, width, _ = first_frame.shape
-            fourcc = cv2.VideoWriter.fourcc(*DEFAULT_VIDEO_CODEC)
-            output_video = cv2.VideoWriter(
-                output_video_path, fourcc, fps, (width, height)
-            )
+            output_video = None
 
             for video_path in video_paths:
                 cap = cv2.VideoCapture(video_path)
                 if not cap.isOpened():
-                    logger.warning(
-                        f"Cannot open video: {shorten(video_path)}. Skipping..."
-                    )
+                    logger.warning(f"Cannot open video: {shorten(video_path)}. Skipping...")
                     continue
 
                 while True:
                     ret, frame = cap.read()
                     if not ret:
                         break
+
+                    if output_video is None:
+                        height, width, _ = frame.shape
+                        fourcc = cv2.VideoWriter.fourcc(*DEFAULT_VIDEO_CODEC)
+                        output_video = cv2.VideoWriter(
+                            output_video_path, fourcc, fps, (width, height)
+                        )
+
                     output_video.write(frame)
 
                 cap.release()
 
-            output_video.release()
-            return True
+            if output_video is not None:
+                output_video.release()
+                return True
+            else:
+                logger.error("No valid videos found to create a summary.")
+                return False
+
         except Exception as exc:
             logger.error(exc, exc_info=True)
             return False
@@ -280,6 +275,5 @@ class VideoManager:
 
         final_image = np.vstack((rectangle, img))
 
-        cv2.imwrite(save_path, final_image)
 
-        return True
+        return cv2.imwrite(save_path, final_image)

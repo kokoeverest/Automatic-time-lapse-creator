@@ -14,11 +14,11 @@ class LocationAndTimeManager:
     while it's daylight. Checks if the current time is within the daylight interval or is it night time. Light offsets
     are added to the sunrise and sunset times so the images would be collected in good light conditions."""
 
-    SUNSET_OFFSET = td(minutes=50)
-    SUNRISE_OFFSET = td(minutes=50)
 
-    def __init__(self, city_name: str, logger: Logger | None = None) -> None:
+    def __init__(self, city_name: str, sunrise_offset: int, sunset_offset: int, logger: Logger | None = None) -> None:
         self.db = database()
+        self.sunrise_offset = td(minutes=sunrise_offset)
+        self.sunset_offset = td(minutes=sunset_offset)
 
         if logger is None:
             self.logger = logging.getLogger(__name__)
@@ -45,8 +45,8 @@ class LocationAndTimeManager:
         before the actual sunrise time.
 
         Returns::
-            datetime - the datetime object subtracted the SUNRISE_OFFSET"""
-        return sunrise(self.city.observer) - self.SUNRISE_OFFSET
+            datetime - the datetime object subtracted the self.sunrise_offset minutes"""
+        return sunrise(self.city.observer) - self.sunrise_offset
 
     @property
     def end_of_daylight(self) -> dt:
@@ -54,8 +54,8 @@ class LocationAndTimeManager:
         after the time of sunset.
 
         Returns::
-            datetime - the datetime object plus the SUNSET_OFFSET"""
-        return sunset(self.city.observer) + self.SUNSET_OFFSET
+            datetime - the datetime object plus the self.sunset_offset minutes"""
+        return sunset(self.city.observer) + self.sunset_offset
 
     @property
     def year(self) -> int:

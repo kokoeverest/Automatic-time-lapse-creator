@@ -16,6 +16,9 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_FPS,
     DEFAULT_VIDEO_HEIGHT,
     DEFAULT_VIDEO_WIDTH,
+    DEFAULT_SUNSET_OFFSET,
+    DEFAULT_SUNRISE_OFFSET,
+    
 )
 from src.automatic_time_lapse_creator.source import Source
 from src.automatic_time_lapse_creator.time_lapse_creator import (
@@ -28,7 +31,7 @@ from src.automatic_time_lapse_creator.common.exceptions import (
     InvalidCollectionException,
 )
 import tests.test_data as td
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 from astral import LocationInfo
 import tests.test_mocks as tm
 
@@ -41,7 +44,11 @@ def sample_empty_time_lapse_creator():
 @pytest.fixture
 def sample_non_empty_time_lapse_creator():
     return TimeLapseCreator(
-        [td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data],
+        [
+            td.sample_source_no_weather_data,
+            td.sample_source2_no_weather_data,
+            td.sample_source3_no_weather_data,
+        ],
         path=os.getcwd(),
         quiet_mode=False,
     )
@@ -53,7 +60,7 @@ fake_non_empty_time_lapse_creator = TimeLapseCreator(
 fake_non_empty_time_lapse_creator.nighttime_wait_before_next_retry = 1
 
 
-def test_initializes_correctly_for_default_location(
+def test_initializes_correctly_with_default_config(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange, Act & Assert
@@ -62,6 +69,10 @@ def test_initializes_correctly_for_default_location(
     assert isinstance(sample_empty_time_lapse_creator.sources, set)
     assert isinstance(sample_empty_time_lapse_creator.location.city, LocationInfo)
     assert isinstance(sample_empty_time_lapse_creator.logger, Logger)
+    assert isinstance(sample_empty_time_lapse_creator.location.sunrise_offset, timedelta)
+    assert isinstance(sample_empty_time_lapse_creator.location.sunset_offset, timedelta)
+    assert sample_empty_time_lapse_creator.location.sunrise_offset.seconds == DEFAULT_SUNRISE_OFFSET * 60
+    assert sample_empty_time_lapse_creator.location.sunset_offset.seconds == DEFAULT_SUNSET_OFFSET * 60
     assert sample_empty_time_lapse_creator.location.city.name == DEFAULT_CITY_NAME
     assert sample_empty_time_lapse_creator.folder_name == dt.today().strftime(
         YYMMDD_FORMAT
@@ -83,8 +94,11 @@ def test_initializes_correctly_for_default_location(
     assert sample_empty_time_lapse_creator.video_height == DEFAULT_VIDEO_HEIGHT
     assert sample_empty_time_lapse_creator.quiet_mode
     assert sample_empty_time_lapse_creator.video_queue is None
+    assert sample_empty_time_lapse_creator.log_queue is None
     assert sample_empty_time_lapse_creator.logger.name == "__root__"
-
+    assert sample_empty_time_lapse_creator._monthly_summary # type: ignore
+    assert sample_empty_time_lapse_creator._day_for_monthly_summary == DEFAULT_DAY_FOR_MONTHLY_VIDEO # type: ignore
+    assert sample_empty_time_lapse_creator._delete_daily_videos # type: ignore
 
 def test_sources_not_empty_returns_false_with_no_sources(
     sample_empty_time_lapse_creator: TimeLapseCreator,
@@ -134,7 +148,9 @@ def test_check_sources_returns_Source_if_a_single_valid_source_is_passed(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange & Act
-    result = sample_empty_time_lapse_creator.check_sources(td.sample_source_no_weather_data)  # type: ignore
+    result = sample_empty_time_lapse_creator.check_sources(
+        td.sample_source_no_weather_data
+    )  # type: ignore
 
     # Assert
     assert isinstance(result, Source)
@@ -169,7 +185,11 @@ def test_add_sources_successfully_adds_a_collection_of_sources(
 ):
     # Arrange & Act
     result = sample_empty_time_lapse_creator.add_sources(
-        {td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data}
+        {
+            td.sample_source_no_weather_data,
+            td.sample_source2_no_weather_data,
+            td.sample_source3_no_weather_data,
+        }
     )
 
     # Assert
@@ -233,7 +253,11 @@ def test_remove_sources_successfully_removes_a_single_source(
 ):
     # Arrange & Act
     sample_empty_time_lapse_creator.add_sources(
-        {td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data}
+        {
+            td.sample_source_no_weather_data,
+            td.sample_source2_no_weather_data,
+            td.sample_source3_no_weather_data,
+        }
     )
 
     # Assert
@@ -248,7 +272,11 @@ def test_remove_sources_successfully_removes_a_collection_of_sources(
 ):
     # Arrange
     sample_empty_time_lapse_creator.add_sources(
-        {td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data}
+        {
+            td.sample_source_no_weather_data,
+            td.sample_source2_no_weather_data,
+            td.sample_source3_no_weather_data,
+        }
     )
 
     # Act & Assert
@@ -342,7 +370,7 @@ def test_reset_all_sources_counters_to_default_values(
     # Arrange
     sample_non_empty_time_lapse_creator.set_sources_all_images_collected()
     for source in sample_non_empty_time_lapse_creator.sources:
-        source.set_video_created()
+        source.set_daily_video_created()
         source.increase_images()
 
     # Act
@@ -350,7 +378,7 @@ def test_reset_all_sources_counters_to_default_values(
 
     # Assert
     for source in sample_non_empty_time_lapse_creator.sources:
-        assert not source.video_created
+        assert not source.daily_video_created
         assert source.images_count == 0
         assert not source.images_collected
         assert not source.images_partially_collected
@@ -372,7 +400,7 @@ def test_create_video_returns_False_if_video_is_not_created(
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             assert not sample_non_empty_time_lapse_creator.create_video(source)
-            assert not source.video_created
+            assert not source.daily_video_created
 
 
 def test_create_video_returns_True_if_video_is_created(
@@ -399,7 +427,7 @@ def test_create_video_returns_True_if_video_is_created(
         for source in sample_non_empty_time_lapse_creator.sources:
             assert len(sample_non_empty_time_lapse_creator.sources) == 3
             assert sample_non_empty_time_lapse_creator.create_video(source)
-            assert not source.video_created
+            assert not source.daily_video_created
 
         assert mock_delete.call_count == 3
         assert mock_logger_info.call_count == 3
@@ -431,7 +459,7 @@ def test_create_video_returns_True_if_video_is_created_and_source_images_are_not
             assert sample_non_empty_time_lapse_creator.create_video(
                 source, delete_source_images=False
             )
-            assert not source.video_created
+            assert not source.daily_video_created
 
         assert mock_logger_info.call_count == 3
         assert mock_delete.call_count == 0
@@ -457,7 +485,7 @@ def test_create_video_returns_True_if_video_exists(
         for source in sample_non_empty_time_lapse_creator.sources:
             assert len(sample_non_empty_time_lapse_creator.sources) == 3
             assert sample_non_empty_time_lapse_creator.create_video(source)
-            assert not source.video_created
+            assert not source.daily_video_created
 
         assert mock_delete.call_count == 3
         assert mock_logger_info.call_count == 0
@@ -540,7 +568,10 @@ def test_collect_images_from_webcams_returns_True_even_if_request_returns_Except
             "src.automatic_time_lapse_creator.time_lapse_creator.Path.mkdir",
             return_value=None,
         ),
-        patch("src.automatic_time_lapse_creator.source.Source.get_frame_bytes", return_value=Exception),
+        patch(
+            "src.automatic_time_lapse_creator.source.Source.get_frame_bytes",
+            return_value=Exception,
+        ),
         patch("builtins.open", mock_file),
         patch.object(
             sample_non_empty_time_lapse_creator.logger, "info", return_value=None
@@ -651,7 +682,7 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
         )
         for source in fake_non_empty_time_lapse_creator.sources:
             mock_create_video.assert_called_once_with(source)
-            assert source.video_created
+            assert source.daily_video_created
 
         # Tear down
         fake_non_empty_time_lapse_creator.reset_test_counter()
@@ -710,7 +741,7 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
             mock_create_video.assert_called_once_with(
                 source, delete_source_images=False
             )
-            assert source.video_created
+            assert source.daily_video_created
 
         # Tear down
         fake_non_empty_time_lapse_creator.reset_test_counter()
@@ -957,7 +988,7 @@ def test_get_video_files_paths_returns_correct_paths(
         ) as mock_valid_folder,
         patch(
             "src.automatic_time_lapse_creator.time_lapse_creator.glob",
-            side_effect=lambda path: [td.sample_video_file1]
+            side_effect=lambda path: [td.sample_video_file1] # type: ignore
             if td.sample_folder_name_01 in path
             else [td.sample_video_file2],
         ) as mock_glob,
@@ -989,7 +1020,7 @@ def test_get_video_files_paths_skips_invalid_folders(
         patch.object(
             sample_non_empty_time_lapse_creator,
             "valid_folder",
-            side_effect=lambda base, folder, y, m: folder == td.sample_folder_name_01,
+            side_effect=lambda base, folder, y, m: folder == td.sample_folder_name_01, # type: ignore
         ) as mock_valid_folder,
         patch(
             "src.automatic_time_lapse_creator.time_lapse_creator.glob",
@@ -1072,7 +1103,7 @@ def test_get_video_files_paths_ignores_empty_video_files(
         assert result == expected_paths
 
 
-def test_create_monthly_video_creates_video(
+def test_create_monthly_video_creates_video_and_keeps_existing_daily_videos(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange
@@ -1092,9 +1123,17 @@ def test_create_monthly_video_creates_video(
             return_value=True,
         ) as mock_create_monthly_summary_video,
         patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.delete_source_media_files",
+            return_value=True,
+        ) as mock_delete_media_files,
+        patch(
             "src.automatic_time_lapse_creator.time_lapse_creator.os.path.join",
             side_effect=os.path.join,
         ) as mock_path_join,
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.os.path.split",
+            return_value= ("", ""),
+        ) as mock_path_split,
         patch(
             "src.automatic_time_lapse_creator.time_lapse_creator.shorten",
             return_value="",
@@ -1103,6 +1142,8 @@ def test_create_monthly_video_creates_video(
             sample_non_empty_time_lapse_creator.logger, "info", return_value=None
         ) as mock_logger,
     ):
+        
+        sample_non_empty_time_lapse_creator._delete_daily_videos = False # type: ignore
         # Act
         result = sample_non_empty_time_lapse_creator.create_monthly_video(
             base_path=td.sample_base_path,
@@ -1123,6 +1164,8 @@ def test_create_monthly_video_creates_video(
             fps=DEFAULT_VIDEO_FPS,
         )
         mock_shorten.assert_called_once_with(output_video_name)
+        assert mock_delete_media_files.call_count == 0
+        assert mock_path_split.call_count == 0
         assert mock_path_join.call_count == 2
         assert result == video_folder_name
         assert mock_logger.call_count == 1
@@ -1204,7 +1247,6 @@ def test_create_monthly_video_deletes_source_files(
             base_path=td.sample_base_path,
             year=td.sample_year,
             month=td.sample_month_january,
-            delete_source_files=True,
         )
 
         # Assert
@@ -1310,6 +1352,43 @@ def test_is_next_month_logs_info(
         mock_logger_info.assert_called_once_with("Not next month")
 
 
+def test_process_monthly_summary_not_executed_when_videos_are_created(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    with (
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "get_previous_year_and_month",
+            return_value=(td.sample_year, td.sample_month_january),
+        ) as mock_get_year_month,
+        patch.object(
+            sample_non_empty_time_lapse_creator,
+            "create_monthly_video",
+        ) as mock_create_video,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "info"
+        ) as mock_logger_info,
+    ):
+        [
+            src.set_monthly_video_created()
+            for src in sample_non_empty_time_lapse_creator.sources
+        ]
+        # Act
+        sample_non_empty_time_lapse_creator.process_monthly_summary()
+
+        # Assert
+        mock_get_year_month.assert_called_once()
+        assert mock_create_video.call_count == 0
+        assert mock_logger_info.call_count == 0
+
+        # Tear down
+        [
+            src.reset_monthly_video_created()
+            for src in sample_non_empty_time_lapse_creator.sources
+        ]
+
+
 def test_process_monthly_summary_creates_videos_and_sends_to_queue(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
@@ -1337,10 +1416,14 @@ def test_process_monthly_summary_creates_videos_and_sends_to_queue(
 
         # Assert
         mock_get_year_month.assert_called_once()
-        assert mock_create_video.call_count == 3
-        assert mock_video_queue.put.call_count == 3
-        mock_logger_info.assert_called_once_with(
-            f"Monthly summaries created for {td.sample_year}-{td.sample_month_january}"
+        assert mock_create_video.call_count == len(
+            sample_non_empty_time_lapse_creator.sources
+        )
+        assert mock_video_queue.put.call_count == len(
+            sample_non_empty_time_lapse_creator.sources
+        )
+        assert mock_logger_info.call_count == len(
+            sample_non_empty_time_lapse_creator.sources
         )
     for src in sample_non_empty_time_lapse_creator.sources:
         mock_create_video.assert_any_call(
@@ -1350,6 +1433,13 @@ def test_process_monthly_summary_creates_videos_and_sends_to_queue(
             td.sample_year,
             td.sample_month_january,
         )
+        assert src.monthly_video_created
+    
+    # Tear down
+    [
+        src.reset_monthly_video_created()
+        for src in sample_non_empty_time_lapse_creator.sources
+    ]
 
 
 def test_process_monthly_summary_no_sources(
@@ -1363,7 +1453,7 @@ def test_process_monthly_summary_no_sources(
         sample_empty_time_lapse_creator.process_monthly_summary()
 
         # Assert
-        mock_logger_info.assert_called_once()
+        mock_logger_info.assert_not_called()
 
 
 def test_process_monthly_summary_no_video_queue(
@@ -1391,6 +1481,7 @@ def test_process_monthly_summary_no_video_queue(
         # Assert
         mock_get_year_month.assert_called_once()
         for src in sample_non_empty_time_lapse_creator.sources:
+            assert src.monthly_video_created
             mock_create_video.assert_any_call(
                 os.path.join(
                     sample_non_empty_time_lapse_creator.base_path, src.location_name
@@ -1398,9 +1489,15 @@ def test_process_monthly_summary_no_video_queue(
                 td.sample_year,
                 td.sample_month_january,
             )
-        mock_logger_info.assert_called_once_with(
-            f"Monthly summaries created for {td.sample_year}-{td.sample_month_january}"
+        assert mock_logger_info.call_count == len(
+            sample_non_empty_time_lapse_creator.sources
         )
+
+        # Tear down
+        [
+            src.reset_monthly_video_created()
+            for src in sample_non_empty_time_lapse_creator.sources
+        ]
 
 
 def test_get_previous_year_and_month_returns_tuple_with_correct_values(

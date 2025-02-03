@@ -38,3 +38,6 @@ invalid_json_content = '{"key": "value"'
 mock_secrets_file = "mock_secrets.json"
 
 sample_folder_path = os.path.join("path", "to", sample_folder_name_01)
+
+sample_date_time_text = "2025-01-01 12:00:00"
+sample_weather_data_text = "Temp: 5.0C | Wind: 3.2m/s"
