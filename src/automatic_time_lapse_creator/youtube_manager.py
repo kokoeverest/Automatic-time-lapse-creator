@@ -118,6 +118,24 @@ class YouTubeAuth:
 
 
 class YouTubeUpload:
+    """Handles uploading videos to YouTube using the YouTube Data API.
+
+    This class manages finding video files, setting metadata, and uploading videos
+    to an authenticated YouTube account. It also allows retrieving the user's
+    YouTube channel ID.
+
+    Attributes::
+        source_directory: str - The directory containing the videos to be uploaded.
+        youtube_description: str - The description for uploaded videos.
+        youtube_title: str - The title for uploaded videos, truncated if necessary.
+        youtube_client: YouTubeAuth - The authenticated YouTube API client.
+        logger: logging.Logger - The logger instance for logging events and errors.
+        input_file_extensions: Iterable[str] - The allowed video file extensions.
+        youtube_category_id: str - The category ID for uploaded videos.
+        youtube_keywords: Iterable[str] - Tags associated with uploaded videos.
+        privacy_status: str - The privacy status of uploaded videos (e.g., public, private).
+    """
+
     def __init__(
         self,
         source_directory: str,
@@ -157,7 +175,14 @@ class YouTubeUpload:
         self.privacy_status = privacy_status
 
     def find_input_files(self) -> list[str]:
-        """"""
+        """Searches for video files in the specified directory.
+
+        This method scans the `source_directory` for video files that match
+        the allowed extensions.
+
+        Returns:
+            list[str] - A list of file paths for videos found in the directory.
+        """
         video_files = [
             os.path.join(self.source_directory, f)
             for f in os.listdir(self.source_directory)
@@ -165,13 +190,20 @@ class YouTubeUpload:
         ]
         if not video_files:
             self.logger.error("No video files found in current directory to upload.")
-
-        self.logger.info(f"Found {len(video_files)} video files to upload.")
+        else:
+            self.logger.info(f"Found {len(video_files)} video files to upload.")
 
         return video_files
 
     def get_channel_id(self) -> str | None:
-        """Get the authenticated user's channel ID"""
+        """Retrieves the authenticated user's YouTube channel ID.
+
+        This method queries the YouTube Data API to get the channel ID of the
+        authenticated user.
+
+        Returns:
+            str | None - The channel ID if found, otherwise None.
+        """
         request = self.youtube.service.channels().list(part="snippet", mine=True)
         response = request.execute()
 
@@ -182,7 +214,18 @@ class YouTubeUpload:
             return None
 
     def shorten_title(self, title: str, max_length: int = MAX_TITLE_LENGTH) -> str:
-        """"""
+        """Truncates a video title to ensure it does not exceed YouTube's character limit.
+
+        If the title exceeds `max_length`, it is truncated at the nearest word boundary
+        and an ellipsis ("...") is added.
+
+        Args:
+            title: str - The original video title.
+            max_length: int - The maximum allowed length for the title. Defaults to `MAX_TITLE_LENGTH`.
+
+        Returns:
+            str - The truncated title.
+        """
         if len(title) <= max_length:
             return title
 
@@ -201,7 +244,19 @@ class YouTubeUpload:
         youtube_title: str,
         youtube_description: str,
     ) -> str:
-        """"""
+        """Uploads a video file to YouTube.
+
+        This method sends a video file to YouTube using the YouTube Data API,
+        setting its title, description, category, and privacy status.
+
+        Args:
+            video_file: str - The path to the video file.
+            youtube_title: str - The title of the video.
+            youtube_description: str - The description of the video.
+
+        Returns:
+            str - The YouTube video ID of the uploaded video.
+        """
         self.logger.info(f"Uploading video {shorten(video_file)} to YouTube...")
         body: dict[str, dict[str, str | Iterable[str]]] = {
             "snippet": {
@@ -233,7 +288,16 @@ class YouTubeUpload:
         return youtube_video_id
 
     def process(self) -> dict[str, str]:
-        """"""
+        """Finds video files and uploads them to YouTube.
+
+        This method scans the `source_directory` for video files, uploads them,
+        and logs any errors encountered. It returns the details of the first
+        successfully uploaded video.
+
+        Returns:
+            dict[str, str] - A dictionary containing the uploaded video's title and ID.
+                If no videos are uploaded, returns an empty dictionary.
+        """
         video_files = self.find_input_files()
         uploaded_videos: list[dict[str, str]] = []
         emtpty_dict: dict[str, str] = {}

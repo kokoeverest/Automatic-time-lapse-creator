@@ -33,6 +33,7 @@ def test_validate_secrets_file_invalid_json(mock_logger: MagicMock):
                 mock_logger, td.mock_secrets_file
             )
             assert result == "YouTube client secrets file is not valid JSON"
+            mock_logger.assert_called_once()
 
 
 def test_validate_secrets_file_missing_file(mock_logger: MagicMock):
