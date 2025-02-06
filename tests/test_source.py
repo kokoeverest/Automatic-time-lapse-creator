@@ -28,7 +28,7 @@ def source_valid_video_stream():
 def test_source_initializes_correctly_with_default_config():
     # Arrange, Act & Assert
     with (
-        patch("src.automatic_time_lapse_creator.source.logger") as mock_logger,
+        patch("src.automatic_time_lapse_creator.source.Source.logger") as mock_logger,
         patch(
             "src.automatic_time_lapse_creator.source.Source.validate_url",
             return_value=True,
@@ -55,7 +55,7 @@ def test_source_initializes_correctly_with_default_config():
 def test_source_initializes_correctly_with_weather_data_provider():
     # Arrange, Act
     with (
-        patch("src.automatic_time_lapse_creator.source.logger.info") as mock_logger,
+        patch("src.automatic_time_lapse_creator.source.Source.logger.info") as mock_logger,
         patch(
             "src.automatic_time_lapse_creator.source.Source.validate_url",
             return_value=True,
@@ -78,7 +78,7 @@ def test_source_initializes_correctly_with_weather_data_provider():
 def test_source_initializes_correctly_for_video_stream():
     # Arrange, Act
     with (
-        patch("src.automatic_time_lapse_creator.source.logger.info") as mock_logger,
+        patch("src.automatic_time_lapse_creator.source.Source.logger.info") as mock_logger,
         patch(
             "src.automatic_time_lapse_creator.source.Source.validate_stream_url",
             return_value=True,
@@ -95,13 +95,13 @@ def test_source_initializes_correctly_for_video_stream():
     assert actual_result.is_valid_stream
     assert not actual_result.has_weather_data
     assert not actual_result.weather_data_provider
-    assert mock_logger.call_count == 1
+    assert mock_logger.call_count == 0
 
 
 def test_source_sets_is_valid_stream_to_False_for_invalid_video_stream():
     # Arrange, Act
     with (
-        patch("src.automatic_time_lapse_creator.source.logger.info") as mock_logger,
+        patch("src.automatic_time_lapse_creator.source.Source.logger.info") as mock_logger,
         patch(
             "src.automatic_time_lapse_creator.source.Source.validate_stream_url",
             return_value=False,
@@ -118,7 +118,7 @@ def test_source_sets_is_valid_stream_to_False_for_invalid_video_stream():
     assert not actual_result.is_valid_stream
     assert not actual_result.has_weather_data
     assert not actual_result.weather_data_provider
-    assert mock_logger.call_count == 1
+    assert mock_logger.call_count == 0
 
 
 def test_set_video_created_changes_video_created_to_True(sample_source: Source):
@@ -235,7 +235,7 @@ def test_validate_stream_url_returns_False_if_url_is_invalid_stream():
 
     with (
         patch(
-            "src.automatic_time_lapse_creator.source.logger.warning", return_value=None
+            "src.automatic_time_lapse_creator.source.Source.logger.warning", return_value=None
         ) as mock_logger,
         patch(
             "cv2.VideoCapture",
@@ -265,7 +265,7 @@ def test_validate_stream_url_returns_False_if_Exception_occured():
 
     with (
         patch(
-            "src.automatic_time_lapse_creator.source.logger.error", return_value=None
+            "src.automatic_time_lapse_creator.source.Source.logger.error", return_value=None
         ) as mock_logger,
         patch(
             "cv2.VideoCapture",
@@ -291,7 +291,7 @@ def test_validate_url_returns_False_if_Exception_occured():
     # Arrange
     with (
         patch(
-            "src.automatic_time_lapse_creator.source.logger.error", return_value=None
+            "src.automatic_time_lapse_creator.source.Source.logger.error", return_value=None
         ) as mock_logger,
         patch("requests.get", return_value=Exception),
     ):
@@ -307,7 +307,7 @@ def test_validate_url_returns_False_if_returned_content_is_not_bytes():
     # Arrange
     with (
         patch(
-            "src.automatic_time_lapse_creator.source.logger.warning", return_value=None
+            "src.automatic_time_lapse_creator.source.Source.logger.warning", return_value=None
         ) as mock_logger,
         patch("requests.get", return_value=Mock(spec=Response)) as mock_response,
     ):
@@ -327,7 +327,7 @@ def test_validate_url_returns_True_if_returned_content_is_bytes():
     mock_response.content = b"some_content"
     with (
         patch(
-            "src.automatic_time_lapse_creator.source.logger.info", return_value=None
+            "src.automatic_time_lapse_creator.source.Source.logger.info", return_value=None
         ) as mock_logger,
         patch("requests.get", return_value=mock_response),
     ):

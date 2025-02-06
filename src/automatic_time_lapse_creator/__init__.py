@@ -30,8 +30,6 @@ def configure_logger(
     if logger_base_path is None:
         logger_base_path = os.getcwd()
 
-    Path(f"{logger_base_path}/{LOGS_DIR}").mkdir(exist_ok=True)
-    filename = Path(f"{logger_base_path}/{LOGS_DIR}/{LOG_FILE}")
     date_fmt = f"{YYMMDD_FORMAT} {HHMMSS_COLON_FORMAT}"
 
     formatter = logging.Formatter(fmt=LOGGING_FORMAT, datefmt=date_fmt)
@@ -42,6 +40,9 @@ def configure_logger(
     if log_queue:
         handler = QueueHandler(log_queue)
     else:
+        Path(f"{logger_base_path}/{LOGS_DIR}").mkdir(exist_ok=True, parents=True)
+        filename = Path(f"{logger_base_path}/{LOGS_DIR}/{LOG_FILE}")
+        
         handler = TimedRotatingFileHandler(
             filename=filename, when=LOG_INTERVAL, backupCount=BACKUP_FILES_COUNT
         )

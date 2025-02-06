@@ -74,6 +74,9 @@ class VideoType(Enum):
     DAILY = "daily"
     MONTHLY = "monthly"
 
-# LocationNadTimeManger defaults
+# LocationAndTimeManager defaults
 DEFAULT_SUNSET_OFFSET = 50
 DEFAULT_SUNRISE_OFFSET = 50
+
+# WeatherStationInfo defaults
+OLD_TIMESTAMP_HOURS = 5

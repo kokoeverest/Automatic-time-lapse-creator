@@ -1,7 +1,9 @@
+import logging
 from typing import Any
 from .weather_station_info import WeatherStationInfo
 
 class Source:
+    logger: logging.Logger
     location_name: str
     url: str
     url_is_video_stream: bool

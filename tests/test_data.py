@@ -36,8 +36,26 @@ valid_json_content = '{"key": "value"}'
 invalid_json_content = '{"key": "value"'
 
 mock_secrets_file = "mock_secrets.json"
-
 sample_folder_path = os.path.join("path", "to", sample_folder_name_01)
 
 sample_date_time_text = "2025-01-01 12:00:00"
 sample_weather_data_text = "Temp: 5.0C | Wind: 3.2m/s"
+
+# video details
+sample_video_title = "Sample Video Title"
+sample_video_id = "video123"
+sample_chunk_size = 5242880
+
+# YouTube mocks
+mock_channel_id = "UC1234567890"
+mock_channel_response = {"items": [{"id": mock_channel_id}]}
+mock_video_response = {
+    "items": [
+        {
+            "snippet": {"title": sample_video_title},
+            "id": {"videoId": sample_video_id},
+        }
+    ]
+}
+mock_empty_response: dict[str, list[str]] = {"items": []}
+mock_mediaFileUpload_response = {"id": sample_video_id}

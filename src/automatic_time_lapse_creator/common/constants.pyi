@@ -67,6 +67,9 @@ class VideoType(Enum):
     DAILY: Enum
     MONTHLY: Enum
 
-# LocationNadTimeManger defaults
+# LocationAndTimeManager defaults
 DEFAULT_SUNSET_OFFSET: int
 DEFAULT_SUNRISE_OFFSET: int
+
+# WeatherStationInfo defaults
+OLD_TIMESTAMP_HOURS: int

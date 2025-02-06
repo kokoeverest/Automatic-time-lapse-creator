@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 
 class WeatherStationInfo(ABC):
+    url: str
+    temp_format: str
+    wind_speed_format: str
     def __init__(
         self, url: str, temperature_format: str = ..., wind_speed_format: str = ...
     ) -> None: ...

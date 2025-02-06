@@ -8,8 +8,6 @@ import subprocess
 import requests
 import logging
 
-logger = logging.getLogger("Source")
-
 
 class Source:
     """
@@ -45,6 +43,7 @@ class Source:
         _images_partially_collected: bool - Flag indicating whether images were
             only partially collected due to interruptions.
     """
+    logger = logging.getLogger("Source")
 
     def __init__(
         self,
@@ -68,14 +67,14 @@ class Source:
         self._has_weather_data = weather_data_on_images
 
         if self._has_weather_data and weather_data_provider is not None:
-            logger.warning(
+            self.logger.warning(
                 "Weather data on images is set to True!\nWeather data provider will be ignored to avoid duplicate data on images!"
             )
             self.weather_data_provider = None
         else:
             self.weather_data_provider = weather_data_provider
-            if not self.has_weather_data:
-                logger.info(f"Weather provider set for {self.location_name}")
+            if not self.has_weather_data and self.weather_data_provider is not None:
+                self.logger.info(f"Weather provider set for {self.location_name}")
 
         self._daily_video_created: bool = False
         self._monthly_video_created: bool = False
@@ -226,7 +225,7 @@ class Source:
 
             ret, _ = cap.read()
             if not ret:
-                logger.warning(
+                cls.logger.warning(
                     f"Source: {_url} is not a valid url and will be ignored!"
                 )
                 return False
@@ -235,7 +234,7 @@ class Source:
             return True
 
         except Exception as e:
-            logger.error(f"An error occurred: {e}")
+            cls.logger.error(f"An error occurred: {e}")
             return False
 
     @classmethod
@@ -250,13 +249,13 @@ class Source:
             response = requests.get(url, timeout=15)
             response.raise_for_status()
         except Exception as exc:
-            logger.error(f"Something went wrong during check of url {url}! ({exc})")
+            cls.logger.error(f"Something went wrong during check of url {url}! Maybe it points to a video stream?\n({exc})")
             return False
         if isinstance(response.content, bytes):
-            logger.info(f"{url} is a valid source for collecting images")
+            cls.logger.info(f"{url} is a valid source for collecting images")
             return True
         else:
-            logger.warning(f"{url} is NOT a valid source for collecting images")
+            cls.logger.warning(f"{url} is NOT a valid source for collecting images")
             return False
 
     @classmethod
@@ -299,21 +298,21 @@ class Source:
 
             ret, frame = cap.read()
             if not ret:
-                logger.warning(
+                self.logger.warning(
                     f"Failed to retrieve a frame from {self.location_name} video stream."
                 )
                 return None
 
             success, buffer = cv2.imencode(".jpg", frame)
             if not success:
-                logger.warning("Failed to encode frame to JPEG format.")
+                self.logger.warning("Failed to encode frame to JPEG format.")
                 return None
 
             cap.release()
             return buffer.tobytes()
 
         except Exception as e:
-            logger.error(f"{self.location_name}: {e}")
+            self.logger.error(f"{self.location_name}: {e}")
             raise e
 
     def fetch_image_from_static_web_cam(self) -> bytes | Any:
@@ -334,6 +333,6 @@ class Source:
                     f"Status code {response.status_code} is not {OK_STATUS_CODE} for url {self.url}"
                 )
         except Exception as exc:
-            logger.error(f"{self.location_name}: {exc}")
+            self.logger.error(f"{self.location_name}: {exc}")
             raise exc
         return response.content

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any
+from .common.constants import OLD_TIMESTAMP_HOURS
 
 import requests
 
@@ -8,10 +9,10 @@ import requests
 class WeatherStationInfo(ABC):
     """
     Abstract base class for retrieving weather data from a weather station.
-    
+
     The temperature and wind speed formats are set to Celsius (C) and m/s by default and can be
     changed at __init__ .
-    
+
     #### Note that the degrees symbol ° is not supported by the cv2 font and will be visualised as ?? on the images!
 
     Abstract method get_data() should be implemented to set the values of the properties:
@@ -89,13 +90,13 @@ class WeatherStationInfo(ABC):
         """Sets the wind direction, ensuring it is stored as a float, str or None if it's invalid"""
         if isinstance(value, str) and 0 < len(value) <= 3 and value.isalpha():
             self._wind_direction = value
-
-        _val = self._parse_float(value)
-
-        if _val is not None and 0 <= _val <= 360:
-            self._wind_direction = _val
         else:
-            self._wind_direction = None
+            _val = self._parse_float(value)
+
+            if _val is not None and 0 <= _val <= 360:
+                self._wind_direction = _val
+            else:
+                self._wind_direction = None
 
     @staticmethod
     def _parse_float(value: float | str | None) -> float | None:
@@ -124,13 +125,11 @@ class WeatherStationInfo(ABC):
         )
 
         if isinstance(self.wind_direction, str):
-            wind_dir = self.wind_direction
+            wind_dir_text = self.wind_direction
         elif isinstance(self.wind_direction, float):
-            wind_dir = self._get_wind_direction(self.wind_direction)
+            wind_dir_text = self._get_wind_direction(self.wind_direction)
         else:
-            wind_dir = None
-
-        wind_dir_text = f"{wind_dir}" if self.wind_direction is not None else "-"
+            wind_dir_text = "-"
 
         return f"Temp: {temp_text} | Wind: {wind_avg_text} {wind_dir_text} (Gust: {wind_gust_text})"
 
@@ -172,7 +171,7 @@ class MeteoRocks(WeatherStationInfo):
             time_stamp = datetime.fromtimestamp(float(stamp))
             last_record = datetime.now() - time_stamp
 
-            if last_record < timedelta(hours=5):
+            if last_record < timedelta(hours=OLD_TIMESTAMP_HOURS):
                 self.temperature = data.get("temp")
                 self.wind_speed_avg = data.get("windspeed_average")
                 self.wind_speed_gust = data.get("windspeed_gust")
