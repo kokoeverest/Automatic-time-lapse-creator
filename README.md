@@ -1,7 +1,7 @@
 # Automatic time lapse creator
 
 > ### A Python package for extracting images from a web cam url and converting these images into a timelapse. The process is intended to be automatic, so the only parameters that need to be provided are:
-> - the image resourse url/urls pointing to an image *(not video!)*
+> - the image resourse url/urls pointing to an image or a valid video stream 
 > - the path on your computer where the images will be stored *(default is os.getcwd())*
 > - the location of the city for which the daylight will be calculated *(default is Sofia, Bulgaria)*
 
@@ -16,6 +16,8 @@ read/resize the jpeg files and build a time lapse mp4 video
 > - Logging - the builtin python looging tool for creating comprehensive 
 logs of the program execution
 > - Pytest, unittest.mock - testing and mocking objects in isolation
+> - yt-dlp - for getting the correct video stream url from a live youtube stream
+> - google data api v3 - for uploading the videos to a youtube channel (optional)
 
 ### Installation
 The latest release is available for installation via pip:
@@ -27,8 +29,12 @@ and can be installed via pip:
 ```pip install -i https://test.pypi.org/simple/ automatic-time-lapse-creator=='the_version_you_want'```
 
 > ### Main flow and automation:
+> The execute() method is sufficient for images collection during the day, creating a video from them and storing the video on the file system.
+> If a video_queue is provided to the execute() method the video path will be put into the queue so it can be processed in another way.
 > When the execution of the TimeLapseCreator object starts, it will check if it's daylight at the provided location. Daylight is calculated automatically using the Astral library so there will be few or no images collected during the night. After the collection of images finishes for the day the VideoManager creates a video from the collected images for each of the provided sources and deletes all the images for the day. In case of an interruption of the collection of images during the day (for example: power outage - the program stops and then it's started again), the video will still be created but the daily images won't be deleted. In this case you can inspect them and create a video manually from the pictures that are worth it.
 > During the night the program will not collect any images - they will be collected when there is daylight - the smart power of the Astral library ;)
+> In the beginning of a new month by default a monthly summary video will be created from all the videos from the previous month. Optionally the source
+videos and folders may not be deleted (they will be deleted by default!).
 
 > ### Known issues
 > - Images are randomly saved into folders: [#5](https://github.com/kokoeverest/Automatic-time-lapse-creator/issues/5) "Cache doesn't work as expected"

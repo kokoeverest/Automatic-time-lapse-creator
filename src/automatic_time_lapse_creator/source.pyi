@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+from queue import Queue
 from .weather_station_info import WeatherStationInfo
 
 class Source:
@@ -12,6 +13,7 @@ class Source:
         self,
         location_name: str,
         url: str,
+        log_queue: Queue[Any] | None = ...,
         is_video_stream: bool = ...,
         weather_data_on_images: bool = ...,
         weather_data_provider: WeatherStationInfo | None = ...,

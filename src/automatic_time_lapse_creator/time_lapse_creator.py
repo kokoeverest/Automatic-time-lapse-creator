@@ -41,16 +41,46 @@ from .common.utils import (
     dash_sep_strings,
     video_type_response,
 )
-from . import configure_logger
+from .common.logger import configure_logger
 
 
 class TimeLapseCreator:
     """
-    For convenience the TimeLapseCreator can be instantiated with all iterable collections, except for dict().
-    Internally the self.sources is manipulated as a set, ensuring that there will be no duplicate sources added by mistake.
-    #### Note: for testing purposes the while loop in execute() is set to break when the self._test_counter == 0.
-    #### You should not set the nighttime_retry_seconds to 1 when instantiating a new TimeLapseCreator because
-    #### it will stop after the first iteration
+    The TimeLapseCreator is responsible for managing the collection of images from various sources
+    and generating time-lapse videos on a daily and monthly basis.
+
+    This class ensures that all sources are managed as a set to prevent duplicate entries.
+    It provides flexibility in configuring various parameters, such as capture intervals,
+    video resolution, logging behavior, and monthly summary settings.
+
+    **Note:**
+    - For testing purposes, the while loop in `execute()` is set to break when `self._test_counter == 0`.
+    - The `night_time_retry_seconds` parameter should not be set to 1 when instantiating a new TimeLapseCreator,
+      as it will cause execution to stop after the first iteration.
+    - The `quiet_mode` parameter is set to `True` by default to suppress excessive logging. If set to `False`,
+      log messages will be generated for every call to `self.location.is_daylight()` during the night and
+      for every image taken during the day.
+
+    Attributes:
+        sources: set[Source] - A collection of unique sources from which images will be captured.
+        city: str - The name of the city used for daylight calculations.
+        base_path: str - The root directory where time-lapse images and videos are stored.
+        folder_name: str - The name of the current day's folder for image storage.
+        wait_before_next_frame: int - Interval in seconds between consecutive image captures.
+        nighttime_wait_before_next_retry: int - Interval in seconds between retries during nighttime.
+        video_fps: int - Frames per second for the generated videos.
+        video_width: int - Width of the output videos in pixels.
+        video_height: int - Height of the output videos in pixels.
+        sunrise_offset_minutes: int - Minutes to offset the calculated sunrise time.
+        sunset_offset_minutes: int - Minutes to offset the calculated sunset time.
+        quiet_mode: bool - Whether to suppress frequent log messages.
+        create_monthly_summary_video: bool - Whether to generate a monthly summary video.
+        day_for_monthly_summary_video: int - The day of the month when the summary video should be created.
+        delete_daily_videos_after_monthly_summary_is_created: bool - Whether to delete daily videos after the monthly summary is generated.
+        log_queue: Queue[Any] | None - A queue for handling log messages across processes.
+        video_queue: Queue[Any] | None - A queue for managing video creation and upload tasks.
+        location: LocationAndTimeManager - Handles daylight calculations and time-based operations.
+        logger: Logger - Logger instance for handling logging.
     """
 
     def __init__(
@@ -71,10 +101,6 @@ class TimeLapseCreator:
         quiet_mode: bool = True,
         log_queue: Queue[Any] | None = None,
     ) -> None:
-        """Quiet_mode is set to True by default which will suppress the log messages on every call
-        to self.location.is_daylight() during the night and also on every image taken during the day.
-        Switching it to True will generate a lot of log messages!
-        """
         self.base_path = os.path.join(os.getcwd(), path)
         self.folder_name = dt.today().strftime(YYMMDD_FORMAT)
 
@@ -295,7 +321,7 @@ class TimeLapseCreator:
                             self.cache_self()
 
                     except Exception as e:
-                        self.logger.error(e)
+                        # self.logger.error(e)
                         continue
                 sleep(self.wait_before_next_frame)
 
@@ -310,6 +336,7 @@ class TimeLapseCreator:
             return False
 
     def is_it_next_day(self) -> None:
+        """Checks if the next day have started and changes the self.folder_name accordingly"""
         old_date = dt.strptime(self.folder_name, YYMMDD_FORMAT)
         new_date = dt.today()
 
@@ -324,15 +351,16 @@ class TimeLapseCreator:
             )
 
     def create_video(self, source: Source, delete_source_images: bool = True) -> bool:
-        """Creates a video from the source collected images. If delete_source_images is True
-        the source image files will be deleted after the video is created
+        """
+        Creates a video from the source collected images. If delete_source_images is True
+        the source image files will be deleted after the video is created.
 
         Args::
 
-            source: Source - the source from which collected images the video will be created
+            source: Source - the source's collected images from which the video will be created
 
-            delete_source_images: bool - if the source images should be deleted as well"""
-
+            delete_source_images: bool - if the source images should be deleted as well
+        """
         input_folder = str(
             Path(f"{self.base_path}/{source.location_name}/{self.folder_name}")
         )
@@ -527,14 +555,14 @@ class TimeLapseCreator:
         based on the year and month.
 
         Args:
-            *args (str): A sequence of strings representing:
+            *args: str - A sequence of strings representing:
                 - base: The base directory path.
                 - folder_name: The name of the folder to validate.
                 - year: The year used to validate the folder's name.
                 - month: The month used to validate the folder's name.
 
         Returns:
-            bool: Returns True if the folder exists and matches the criteria; otherwise, False.
+            bool - Returns True if the folder exists and matches the criteria; otherwise, False.
         """
         base, folder_name, year, month = args
         if not os.path.isdir(os.path.join(base, folder_name)):
@@ -557,7 +585,7 @@ class TimeLapseCreator:
             month: str - The month used to validate subfolder names and video file prefixes.
 
         Returns:
-            list[str]: A list of file paths to the video files found in valid subfolders.
+            list[str] - A list of file paths to the video files found in valid subfolders.
         """
         folders = os.listdir(base_folder)
         video_files_paths: list[str] = []
@@ -598,7 +626,7 @@ class TimeLapseCreator:
             extension: str - The file extension of the video files to process. Defaults to MP4_FILE.
 
         Returns:
-            str | None: Returns the path to the folder containing the created monthly summary video if
+            str | None - Returns the path to the folder containing the created monthly summary video if
                 successful, otherwise None.
         """
         yy_mm_format = dash_sep_strings(year, month)

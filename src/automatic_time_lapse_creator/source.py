@@ -1,12 +1,13 @@
+from queue import Queue
 from typing import Any
-
+from .common.logger import configure_logger
 from .common.constants import OK_STATUS_CODE
 from .common.exceptions import InvalidStatusCodeException
 from .weather_station_info import WeatherStationInfo
 import cv2
 import subprocess
 import requests
-import logging
+from logging import Logger
 
 
 class Source:
@@ -28,9 +29,8 @@ class Source:
         weather_data_on_images: bool - Set this to True if the images already have weather data
         on them
 
-        weather_data_provider: (WeatherStationInfo | None) - An optional provider
-            for retrieving weather data to overlay on images. Will be ignored if the
-            weather_data_on_images is set to True in order to avoid duplicate data.
+        weather_data_provider: WeatherStationInfo | None - An optional provider for retrieving weather data to overlay on images.
+        #### *weather_data_provider will be ignored if the weather_data_on_images is set to True in order to avoid duplicate data.*
 
         _is_valid_url: bool - Whether the provided URL is a valid for collecting images from.
         _is_valid_stream: bool - Whether the provided URL is a valid video stream.
@@ -43,12 +43,12 @@ class Source:
         _images_partially_collected: bool - Flag indicating whether images were
             only partially collected due to interruptions.
     """
-    logger = logging.getLogger("Source")
 
     def __init__(
         self,
         location_name: str,
         url: str,
+        log_queue: Queue[Any] | None = None,
         is_video_stream: bool = False,
         weather_data_on_images: bool = False,
         weather_data_provider: WeatherStationInfo | None = None,
@@ -56,13 +56,14 @@ class Source:
         self.location_name = location_name
         self.url = url
         self.url_is_video_stream = is_video_stream
+        self.logger = configure_logger(logger_name="Source", log_queue=log_queue)
 
         if self.url_is_video_stream:
             self._is_valid_url = False
-            self._is_valid_stream = self.validate_stream_url(url)
+            self._is_valid_stream = self.validate_stream_url(url, self.logger)
         else:
             self._is_valid_stream = False
-            self._is_valid_url = self.validate_url(url)
+            self._is_valid_url = self.validate_url(url, self.logger)
 
         self._has_weather_data = weather_data_on_images
 
@@ -205,7 +206,7 @@ class Source:
         self._images_partially_collected = False
 
     @classmethod
-    def validate_stream_url(cls, url: str):
+    def validate_stream_url(cls, url: str, logger: Logger):
         """
         Validates if the given URL is a valid video stream.
 
@@ -213,7 +214,7 @@ class Source:
         using `yt-dlp`. Then, OpenCV tries to open the stream and check if frames can be read.
 
         Args:
-            url (str): The URL of the video stream.
+            url: str - The URL of the video stream.
 
         Returns:
             bool: True if the URL is a valid video stream, otherwise False.
@@ -225,20 +226,21 @@ class Source:
 
             ret, _ = cap.read()
             if not ret:
-                cls.logger.warning(
+                logger.warning(
                     f"Source: {_url} is not a valid url and will be ignored!"
                 )
                 return False
 
             cap.release()
+            logger.info(f"{url} is a valid stream for collecting images")
             return True
 
         except Exception as e:
-            cls.logger.error(f"An error occurred: {e}")
+            logger.error(f"An error occurred: {e}")
             return False
 
     @classmethod
-    def validate_url(cls, url: str):
+    def validate_url(cls, url: str, logger: Logger):
         """Verifies the provided url will return bytes content.
 
         Returns::
@@ -249,13 +251,13 @@ class Source:
             response = requests.get(url, timeout=15)
             response.raise_for_status()
         except Exception as exc:
-            cls.logger.error(f"Something went wrong during check of url {url}! Maybe it points to a video stream?\n({exc})")
+            logger.error(f"Something went wrong during check of url {url}! Maybe it points to a video stream?\n({exc})")
             return False
         if isinstance(response.content, bytes):
-            cls.logger.info(f"{url} is a valid source for collecting images")
+            logger.info(f"{url} is a valid source for collecting images")
             return True
         else:
-            cls.logger.warning(f"{url} is NOT a valid source for collecting images")
+            logger.warning(f"{url} is NOT a valid source for collecting images")
             return False
 
     @classmethod
@@ -316,7 +318,7 @@ class Source:
             raise e
 
     def fetch_image_from_static_web_cam(self) -> bytes | Any:
-        """Verifies the request status code is 200.
+        """Verifies the request status code is 200  and returns the response content as bytes.
 
         Raises::
 

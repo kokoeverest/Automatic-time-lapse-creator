@@ -591,7 +591,7 @@ def test_collect_images_from_webcams_returns_True_even_if_request_returns_Except
         # Act & Assert
         assert sample_non_empty_time_lapse_creator.collect_images_from_webcams()
         assert mock_logger_info.call_count == 2
-        assert mock_logger_error.call_count == 3
+        assert mock_logger_error.call_count == 0
 
 
 def test_execute_sleeps_if_images_are_not_collected(
