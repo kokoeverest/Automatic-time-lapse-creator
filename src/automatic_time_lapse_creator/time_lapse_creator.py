@@ -320,8 +320,7 @@ class TimeLapseCreator:
                             source.set_images_partially_collected()
                             self.cache_self()
 
-                    except Exception as e:
-                        # self.logger.error(e)
+                    except Exception:
                         continue
                 sleep(self.wait_before_next_frame)
 

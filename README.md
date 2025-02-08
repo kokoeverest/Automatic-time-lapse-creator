@@ -1,7 +1,7 @@
 # Automatic time lapse creator
 
 > ### A Python package for extracting images from a web cam url and converting these images into a timelapse. The process is intended to be automatic, so the only parameters that need to be provided are:
-> - the image resourse url/urls pointing to an image or a valid video stream 
+> - the resourse url/urls pointing to an image or a valid video stream 
 > - the path on your computer where the images will be stored *(default is os.getcwd())*
 > - the location of the city for which the daylight will be calculated *(default is Sofia, Bulgaria)*
 
@@ -26,7 +26,7 @@ The latest release is available for installation via pip:
 The latest releases under development are available on the TestPyPi web page:
 [TestPyPi/automatic-time-lapse-creator](https://test.pypi.org/project/automatic-time-lapse-creator/#history)
 and can be installed via pip:
-```pip install -i https://test.pypi.org/simple/ automatic-time-lapse-creator=='the_version_you_want'```
+```pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple automatic-time-lapse-creator=='the_version_you_want'```
 
 > ### Main flow and automation:
 > The execute() method is sufficient for images collection during the day, creating a video from them and storing the video on the file system.

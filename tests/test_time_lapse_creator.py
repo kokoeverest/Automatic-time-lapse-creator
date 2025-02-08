@@ -150,7 +150,7 @@ def test_check_sources_returns_Source_if_a_single_valid_source_is_passed(
     # Arrange & Act
     result = sample_empty_time_lapse_creator.check_sources(
         td.sample_source_no_weather_data
-    )  # type: ignore
+    )
 
     # Assert
     assert isinstance(result, Source)
@@ -301,6 +301,7 @@ def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found(
             "src.automatic_time_lapse_creator.time_lapse_creator.create_log_message",
             return_value="",
         ) as mock_util,
+        patch.object(Source, "validate_url", return_value=True),
     ):
         result = sample_non_empty_time_lapse_creator.remove_sources(
             td.non_existing_source
@@ -325,6 +326,7 @@ def test_remove_sources_doesnt_remove_a_source_if_source_is_not_found_in_a_colle
             "src.automatic_time_lapse_creator.time_lapse_creator.create_log_message",
             return_value="",
         ) as mock_util,
+        patch.object(Source, "validate_url", return_value=True),
     ):
         result = sample_non_empty_time_lapse_creator.remove_sources(
             [td.sample_source_no_weather_data, td.non_existing_source]

@@ -1,3 +1,4 @@
+from queue import Queue
 import pytest
 import tests.test_data as td
 import tests.test_mocks as tm
@@ -6,8 +7,9 @@ from src.automatic_time_lapse_creator.common.constants import (
     YOUTUBE_URL_PREFIX,
     OK_STATUS_CODE,
 )
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 from requests import Response
+from logging import Logger
 
 
 @pytest.fixture
@@ -25,16 +27,24 @@ def source_valid_video_stream():
     return tm.mock_source_valid_video_stream()
 
 
-def test_source_initializes_correctly_with_default_config():
+@pytest.fixture
+def mock_logger():
+    mock_logger = MagicMock(spec=Logger)
+    yield mock_logger
+    mock_logger.reset_mock()
+
+mock_log_queue = Mock(spec=Queue)
+
+def test_source_initializes_correctly_with_default_config(mock_logger: Mock):
     # Arrange, Act & Assert
     with (
-        patch("src.automatic_time_lapse_creator.source.Source.logger") as mock_logger,
+        patch("src.automatic_time_lapse_creator.source.configure_logger", return_value=mock_logger),
         patch(
             "src.automatic_time_lapse_creator.source.Source.validate_url",
             return_value=True,
         ) as mock_validate,
     ):
-        sample_source = Source(td.valid_source_name, td.valid_url)
+        sample_source = Source(td.valid_source_name, td.valid_url, log_queue=mock_log_queue)
         assert isinstance(sample_source, Source)
         assert sample_source.location_name == td.valid_source_name
         assert sample_source.url == td.valid_url
@@ -49,13 +59,17 @@ def test_source_initializes_correctly_with_default_config():
         assert not sample_source.weather_data_provider
         assert mock_logger.call_count == 0
 
-        mock_validate.assert_called_with(sample_source.url)
+        mock_validate.assert_called_with(sample_source.url, mock_logger)
 
 
-def test_source_initializes_correctly_with_weather_data_provider():
+def test_source_initializes_correctly_with_weather_data_provider(mock_logger: Logger):
     # Arrange, Act
     with (
-        patch("src.automatic_time_lapse_creator.source.Source.logger.info") as mock_logger,
+        patch(
+            "src.automatic_time_lapse_creator.source.configure_logger",
+            return_value=mock_logger,
+        ),
+        patch.object(mock_logger, "info") as mock_logger,
         patch(
             "src.automatic_time_lapse_creator.source.Source.validate_url",
             return_value=True,
@@ -65,6 +79,7 @@ def test_source_initializes_correctly_with_weather_data_provider():
             location_name=td.valid_source_name,
             url=td.valid_url,
             weather_data_provider=tm.mock_source_with_weather_info_provider(),
+            log_queue=mock_log_queue,
         )
 
     # Assert
@@ -75,10 +90,14 @@ def test_source_initializes_correctly_with_weather_data_provider():
     assert mock_logger.call_count == 1
 
 
-def test_source_initializes_correctly_for_video_stream():
+def test_source_initializes_correctly_for_video_stream(mock_logger: Logger):
     # Arrange, Act
     with (
-        patch("src.automatic_time_lapse_creator.source.Source.logger.info") as mock_logger,
+        patch(
+            "src.automatic_time_lapse_creator.source.configure_logger",
+            return_value=mock_logger,
+        ),
+        patch.object(mock_logger, "info") as mock_logger,
         patch(
             "src.automatic_time_lapse_creator.source.Source.validate_stream_url",
             return_value=True,
@@ -88,6 +107,7 @@ def test_source_initializes_correctly_for_video_stream():
             location_name=td.valid_source_name,
             url=td.valid_url,
             is_video_stream=True,
+            log_queue=mock_log_queue,
         )
 
     # Assert
@@ -98,10 +118,14 @@ def test_source_initializes_correctly_for_video_stream():
     assert mock_logger.call_count == 0
 
 
-def test_source_sets_is_valid_stream_to_False_for_invalid_video_stream():
+def test_source_sets_is_valid_stream_to_False_for_invalid_video_stream(mock_logger: Logger):
     # Arrange, Act
     with (
-        patch("src.automatic_time_lapse_creator.source.Source.logger.info") as mock_logger,
+        patch(
+            "src.automatic_time_lapse_creator.source.configure_logger",
+            return_value=mock_logger,
+        ),
+        patch.object(mock_logger, "info") as mock_logger,
         patch(
             "src.automatic_time_lapse_creator.source.Source.validate_stream_url",
             return_value=False,
@@ -111,6 +135,7 @@ def test_source_sets_is_valid_stream_to_False_for_invalid_video_stream():
             location_name=td.valid_source_name,
             url=td.valid_url,
             is_video_stream=True,
+            log_queue=mock_log_queue,
         )
 
     # Assert
@@ -210,33 +235,38 @@ def test_reset_images_partially_collected_resets_images_partially_collected_to_F
     assert not sample_source.images_partially_collected
 
 
-def test_validate_stream_url_returns_True_if_url_is_valid_stream():
+def test_validate_stream_url_returns_True_if_url_is_valid_stream(mock_logger: Mock):
     # Arrange
     with (
-        patch("cv2.VideoCapture", return_value=tm.mock_capture) as mock_cap,
+        patch(
+            "cv2.VideoCapture",
+        ) as mock_cap,
         patch(
             "src.automatic_time_lapse_creator.source.Source.get_url_with_yt_dlp",
             return_value="",
         ),
     ):
-        mock_cap.read.return_value = (True, tm.mock_MatLike)
-        mock_cap.release.return_value = None
+        mock_cap_instance = mock_cap.return_value
+        mock_cap_instance.read.return_value = (True, tm.mock_MatLike)
+        mock_cap_instance.release.return_value = None
 
-    # Act
-    actual_result = Source.validate_stream_url(td.valid_url)
+        # Act
+        actual_result = Source.validate_stream_url("fake_stream_url", mock_logger)
 
-    # Assert
-    assert actual_result
+        # Assert
+        mock_cap_instance.read.assert_called()
+        mock_cap_instance.release.assert_called()
+        mock_logger.warning.assert_not_called()
+        assert actual_result
 
 
-def test_validate_stream_url_returns_False_if_url_is_invalid_stream():
+def test_validate_stream_url_returns_False_if_url_is_invalid_stream(
+    mock_logger: Mock,
+):
     # Arrange
     invalid_url_return = "mock_invalid_url"
 
     with (
-        patch(
-            "src.automatic_time_lapse_creator.source.Source.logger.warning", return_value=None
-        ) as mock_logger,
         patch(
             "cv2.VideoCapture",
         ) as mock_cap,
@@ -250,23 +280,20 @@ def test_validate_stream_url_returns_False_if_url_is_invalid_stream():
         mock_cap_instance.read.return_value = (False, None)
 
         # Act
-        actual_result = Source.validate_stream_url(YOUTUBE_URL_PREFIX)
+        actual_result = Source.validate_stream_url(YOUTUBE_URL_PREFIX, mock_logger)
 
         # Assert
         assert not actual_result
-        mock_logger.assert_called_once_with(
+        mock_logger.warning.assert_called_once_with(
             f"Source: {invalid_url_return} is not a valid url and will be ignored!"
         )
 
 
-def test_validate_stream_url_returns_False_if_Exception_occured():
+def test_validate_stream_url_returns_False_if_Exception_occured(mock_logger: Mock):
     # Arrange
     invalid_url_return = "mock_invalid_url"
 
     with (
-        patch(
-            "src.automatic_time_lapse_creator.source.Source.logger.error", return_value=None
-        ) as mock_logger,
         patch(
             "cv2.VideoCapture",
         ) as mock_cap,
@@ -280,63 +307,54 @@ def test_validate_stream_url_returns_False_if_Exception_occured():
         mock_cap_instance.read.return_value = Exception
 
         # Act
-        actual_result = Source.validate_stream_url(YOUTUBE_URL_PREFIX)
+        actual_result = Source.validate_stream_url(YOUTUBE_URL_PREFIX, mock_logger)
 
         # Assert
         assert not actual_result
-        mock_logger.assert_called_once()
+        mock_logger.error.assert_called_once()
 
 
-def test_validate_url_returns_False_if_Exception_occured():
+def test_validate_url_returns_False_if_Exception_occured(mock_logger: Mock):
     # Arrange
-    with (
-        patch(
-            "src.automatic_time_lapse_creator.source.Source.logger.error", return_value=None
-        ) as mock_logger,
-        patch("requests.get", return_value=Exception),
-    ):
+    with patch("requests.get", side_effect=Exception):
         # Act
-        actual_result = Source.validate_url(YOUTUBE_URL_PREFIX)
+        actual_result = Source.validate_url(YOUTUBE_URL_PREFIX, mock_logger)
 
         # Assert
         assert not actual_result
-        mock_logger.assert_called_once()
+        mock_logger.error.assert_called_once()
 
 
-def test_validate_url_returns_False_if_returned_content_is_not_bytes():
+def test_validate_url_returns_False_if_returned_content_is_not_bytes(
+    mock_logger: Mock,
+):
     # Arrange
     with (
-        patch(
-            "src.automatic_time_lapse_creator.source.Source.logger.warning", return_value=None
-        ) as mock_logger,
         patch("requests.get", return_value=Mock(spec=Response)) as mock_response,
     ):
         mock_response.content = "<html>"
         # Act
-        actual_result = Source.validate_url(YOUTUBE_URL_PREFIX)
+        actual_result = Source.validate_url(YOUTUBE_URL_PREFIX, mock_logger)
 
         # Assert
         assert not actual_result
-        mock_logger.assert_called_once()
+        mock_logger.warning.assert_called_once()
 
 
-def test_validate_url_returns_True_if_returned_content_is_bytes():
+def test_validate_url_returns_True_if_returned_content_is_bytes(mock_logger: Mock):
     # Arrange
     mock_response = Mock(spec=Response)
     mock_response.status_code = OK_STATUS_CODE
     mock_response.content = b"some_content"
     with (
-        patch(
-            "src.automatic_time_lapse_creator.source.Source.logger.info", return_value=None
-        ) as mock_logger,
-        patch("requests.get", return_value=mock_response),
+        patch("requests.get", return_value=mock_response)
     ):
         # Act
-        actual_result = Source.validate_url(YOUTUBE_URL_PREFIX)
+        actual_result = Source.validate_url(YOUTUBE_URL_PREFIX, mock_logger)
 
         # Assert
         assert actual_result
-        mock_logger.assert_called_once()
+        mock_logger.info.assert_called_once()
 
 
 def test_get_frame_bytes_calls_correct_method_for_static_webcam_url(
