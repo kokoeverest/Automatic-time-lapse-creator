@@ -3,9 +3,10 @@ from pathlib import Path
 import logging
 import os
 from .common.constants import CACHE_DIR, CACHE_FILE_PREFIX, PICKLE_FILE
+from .common.utils import shorten
 
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 class CacheManager:
@@ -16,6 +17,7 @@ class CacheManager:
     @classmethod
     def write(
         cls,
+        logger: logging.Logger,
         time_lapse_creator: object,
         location: str,
         path_prefix: str,
@@ -30,16 +32,16 @@ class CacheManager:
         with current_path.open("wb") as file:
             pickle.dump(time_lapse_creator, file)
         if not quiet:
-            logger.info(f"State cached in {current_path}")
+            logger.info(f"State cached in {shorten(str(current_path))}")
 
     @classmethod
-    def get(cls, location: str, path_prefix: str) -> object:
+    def get(cls, logger: logging.Logger, location: str, path_prefix: str) -> object:
         """Retrieves the pickled object in the file. If the file is empty or if it is not found
         it will return an Exception"""
         current_path = Path(
             f"{path_prefix}/{CACHE_DIR}/{CACHE_FILE_PREFIX}{location}{PICKLE_FILE}"
         )
-        logger.debug(f"Getting old creator state from {current_path}")
+        logger.debug(f"Getting old creator state from {shorten(str(current_path))}")
         if current_path.exists():
             logger.debug("Success!")
             with current_path.open("rb") as file:
@@ -49,12 +51,14 @@ class CacheManager:
             raise FileNotFoundError()
 
     @classmethod
-    def clear_cache(cls, location: str, path_prefix: str) -> None:
+    def clear_cache(
+        cls, logger: logging.Logger, location: str, path_prefix: str
+    ) -> None:
         """Deletes the cache file for the current TimeLapseCreator given its location"""
         current_path = Path(
             f"{path_prefix}/{CACHE_DIR}/{CACHE_FILE_PREFIX}{location}{PICKLE_FILE}"
         )
-        logger.debug(f"Clearing cache file {current_path}")
+        logger.debug(f"Clearing cache file {shorten(str(current_path))}")
         if current_path.exists():
             os.remove(current_path)
             logger.debug("Cache file deleted!")

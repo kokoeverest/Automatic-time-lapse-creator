@@ -36,9 +36,16 @@ dependencies = [
     "requests>=2.32.3",
     "tzdata>=2024.2",
     "urllib3>=2.2.3",
+    "yt-dlp>=2025.1.26",
+    "google-api-core>=2.24.0",
+    "google-api-python-client>=2.156.0",
+    "google-auth>=2.37.0",
+    "google-auth-httplib2>=0.2.0",      
+    "google-auth-oauthlib>=1.2.1",      
+    "googleapis-common-protos>=1.66.0", 
 ]
 description = "automatic_time_lapse_creator is a Python program for scraping images from a web cam url and converting them into a timelapse" 
-keywords = ["requests", "astral", "opencv", "opencv-python", "timelapse", "video", "mp4", "webcam"]
+keywords = ["requests", "astral", "opencv", "opencv-python", "timelapse", "video", "mp4", "webcam", "youtube", "upload", "automation"]
 readme = "README.md"
 requires-python = ">=3.10"
 

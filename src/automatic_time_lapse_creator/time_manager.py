@@ -3,12 +3,10 @@ from astral.sun import sunrise, sunset
 from astral import LocationInfo
 from datetime import datetime as dt, timedelta as td, timezone
 import logging
+from logging import Logger
 from .common.exceptions import (
     UnknownLocationException,
 )
-
-
-logger = logging.getLogger(__name__)
 
 
 class LocationAndTimeManager:
@@ -16,24 +14,29 @@ class LocationAndTimeManager:
     while it's daylight. Checks if the current time is within the daylight interval or is it night time. Light offsets
     are added to the sunrise and sunset times so the images would be collected in good light conditions."""
 
-    SUNSET_OFFSET = td(minutes=60)
-    SUNRISE_OFFSET = td(minutes=40)
 
-    def __init__(self, city_name: str) -> None:
+    def __init__(self, city_name: str, sunrise_offset: int, sunset_offset: int, logger: Logger | None = None) -> None:
         self.db = database()
+        self.sunrise_offset = td(minutes=sunrise_offset)
+        self.sunset_offset = td(minutes=sunset_offset)
+
+        if logger is None:
+            self.logger = logging.getLogger(__name__)
+        else:
+            self.logger = logger
 
         try:
             _city = lookup(city_name, self.db)
         except KeyError:
             UNKNOWN_LOCATION_MESSAGE = "Location could not be found.\nTry to use a major city name in your area."
-            logger.error(UNKNOWN_LOCATION_MESSAGE, exc_info=True)
+            self.logger.error(UNKNOWN_LOCATION_MESSAGE, exc_info=True)
             raise UnknownLocationException(UNKNOWN_LOCATION_MESSAGE)
 
         if isinstance(_city, LocationInfo):
             self.city = _city
         else:
             NOT_IMPLEMENTED_MESSAGE = f"Sunset and sunrise for {_city} not implemented yet. Use a major city name in the needed timezone."
-            logger.warning(NOT_IMPLEMENTED_MESSAGE, exc_info=True)
+            self.logger.warning(NOT_IMPLEMENTED_MESSAGE, exc_info=True)
             raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
     @property
@@ -42,8 +45,8 @@ class LocationAndTimeManager:
         before the actual sunrise time.
 
         Returns::
-            datetime - the datetime object subtracted the SUNRISE_OFFSET"""
-        return sunrise(self.city.observer) - self.SUNRISE_OFFSET
+            datetime - the datetime object subtracted the self.sunrise_offset minutes"""
+        return sunrise(self.city.observer) - self.sunrise_offset
 
     @property
     def end_of_daylight(self) -> dt:
@@ -51,8 +54,8 @@ class LocationAndTimeManager:
         after the time of sunset.
 
         Returns::
-            datetime - the datetime object plus the SUNSET_OFFSET"""
-        return sunset(self.city.observer) + self.SUNSET_OFFSET
+            datetime - the datetime object plus the self.sunset_offset minutes"""
+        return sunset(self.city.observer) + self.sunset_offset
 
     @property
     def year(self) -> int:

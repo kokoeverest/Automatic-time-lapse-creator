@@ -1,4 +1,6 @@
+from __future__ import annotations
 from .cache_manager import CacheManager as CacheManager
+from queue import Queue
 from .common.constants import (
     DEFAULT_CITY_NAME as DEFAULT_CITY_NAME,
     DEFAULT_NIGHTTIME_RETRY_SECONDS as DEFAULT_NIGHTTIME_RETRY_SECONDS,
@@ -28,8 +30,6 @@ from .time_manager import LocationAndTimeManager as LocationAndTimeManager
 from logging import Logger
 from typing import Any, Iterable
 
-logger: Logger
-
 class TimeLapseCreator:
     base_path: str
     folder_name: str
@@ -41,9 +41,12 @@ class TimeLapseCreator:
     video_width: int
     video_height: int
     quiet_mode: bool
+    video_queue: Queue[Any | None] | None = ...
+    log_queue: Queue[Any] | None = ...
+    logger: Logger
     def __init__(
         self,
-        sources: Iterable[Source] = [],
+        sources: Iterable[Source] = ...,
         city: str = ...,
         path: str = ...,
         seconds_between_frames: int = ...,
@@ -52,18 +55,27 @@ class TimeLapseCreator:
         video_width: int = ...,
         video_height: int = ...,
         quiet_mode: bool = True,
+        log_queue: Queue[Any] | None = ...,
+        create_monthly_summary_video: bool = ...,
+        day_for_monthly_summary_video: int = ...,
+        delete_daily_videos_after_monthly_summary_is_created: bool = ...,
+        sunrise_offset_minutes: int = ...,
+        sunset_offset_minutes: int = ...,
     ) -> None: ...
     def get_cached_self(self) -> TimeLapseCreator: ...
     def cache_self(self) -> None: ...
     def clear_cache(self) -> None: ...
-    def execute(self) -> None: ...
+    def execute(
+        self,
+        video_queue: Queue[Any] | None = ...,
+        log_queue: Queue[Any] | None = ...,
+    ) -> None: ...
     def collect_images_from_webcams(self) -> bool: ...
     def is_it_next_day(self) -> None: ...
     def create_video(
         self, source: Source, delete_source_images: bool = True
     ) -> bool: ...
     def verify_sources_not_empty(self) -> None: ...
-    def verify_request(self, source: Source) -> bytes | Any: ...
     def reset_images_partially_collected(self) -> None: ...
     def reset_all_sources_counters_to_default_values(self) -> None: ...
     def set_sources_all_images_collected(self) -> None: ...
@@ -77,3 +89,19 @@ class TimeLapseCreator:
     @classmethod
     def validate_collection(cls, sources: Iterable[Source]) -> set[Source]: ...
     def reset_test_counter(self) -> None: ...
+    @classmethod
+    def valid_folder(cls, *args: str) -> bool: ...
+    def get_video_files_paths(
+        self, base_folder: str, year: str, month: str
+    ) -> list[str]: ...
+    def create_monthly_video(
+        self,
+        base_path: str,
+        year: str,
+        month: str,
+        delete_source_files: bool = ...,
+        extension: str = ...,
+    ) -> str | None: ...
+    def is_next_month(self) -> bool: ...
+    def process_monthly_summary(self) -> None: ...
+    def get_previous_year_and_month(self) -> str: ...

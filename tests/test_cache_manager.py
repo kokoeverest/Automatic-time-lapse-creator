@@ -12,7 +12,7 @@ import tests.test_data as td
 
 @pytest.fixture
 def sample_non_empty_time_lapse_creator():
-    return TimeLapseCreator([td.sample_source1, td.sample_source2, td.sample_source3])
+    return TimeLapseCreator([td.sample_source_no_weather_data, td.sample_source2_no_weather_data, td.sample_source3_no_weather_data])
 
 
 def test_write_returns_none_after_writing_to_file(
@@ -28,14 +28,14 @@ def test_write_returns_none_after_writing_to_file(
             return_value=None,
         ),
         patch("src.automatic_time_lapse_creator.cache_manager.Path.open", mock_file),
-        patch(
-            "src.automatic_time_lapse_creator.cache_manager.logger.info",
-            return_value=None,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "info", return_value=None
         ) as mock_logger,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             assert not CacheManager.write(
-                sample_non_empty_time_lapse_creator,
+                logger=sample_non_empty_time_lapse_creator.logger,
+                time_lapse_creator=sample_non_empty_time_lapse_creator,
                 location=source.location_name,
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
                 quiet=False,
@@ -47,7 +47,7 @@ def test_get_returns_TimeLapsCreator_object(
     sample_non_empty_time_lapse_creator: TimeLapseCreator,
 ):
     # Arrange
-    mock_creator = TimeLapseCreator([td.sample_source1])
+    mock_creator = TimeLapseCreator([td.sample_source_no_weather_data])
     mock_file = mock_open()
 
     # Act & Assert
@@ -61,13 +61,14 @@ def test_get_returns_TimeLapsCreator_object(
             "src.automatic_time_lapse_creator.cache_manager.pickle.load",
             return_value=mock_creator,
         ),
-        patch(
-            "src.automatic_time_lapse_creator.cache_manager.logger.debug",
-            return_value=None,
+        patch("src.automatic_time_lapse_creator.cache_manager.Path.open", mock_file),
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "debug", return_value=None
         ) as mock_logger,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             result = CacheManager.get(
+                logger=sample_non_empty_time_lapse_creator.logger,
                 location=source.location_name,
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
             )
@@ -86,14 +87,14 @@ def test_get_returns_FileNotFoundError_if_the_file_doesnt_exist(
             "src.automatic_time_lapse_creator.cache_manager.Path.exists",
             return_value=False,
         ),
-        patch(
-            "src.automatic_time_lapse_creator.cache_manager.logger",
-            return_value=None,
+        patch.object(
+            sample_non_empty_time_lapse_creator, "logger", return_value=None
         ) as mock_logger,
     ):
         with pytest.raises(FileNotFoundError):
             for source in sample_non_empty_time_lapse_creator.sources:
                 result = CacheManager.get(
+                    logger=sample_non_empty_time_lapse_creator.logger,
                     location=source.location_name,
                     path_prefix=sample_non_empty_time_lapse_creator.base_path,
                 )
@@ -116,13 +117,13 @@ def test_clear_cache_logs_warning_if_file_not_found(
             "src.automatic_time_lapse_creator.cache_manager.os.remove",
             return_value=None,
         ) as mock_remove,
-        patch(
-            "src.automatic_time_lapse_creator.cache_manager.logger",
-            return_value=None,
+        patch.object(
+            sample_non_empty_time_lapse_creator, "logger", return_value=None
         ) as mock_logger,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             result = CacheManager.clear_cache(
+                logger=sample_non_empty_time_lapse_creator.logger,
                 location=source.location_name,
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
             )
@@ -149,13 +150,13 @@ def test_clear_cache_removes_the_file(
             "src.automatic_time_lapse_creator.cache_manager.os.remove",
             return_value=None,
         ) as mock_remove,
-        patch(
-            "src.automatic_time_lapse_creator.cache_manager.logger.debug",
-            return_value=None,
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "debug", return_value=None
         ) as mock_logger,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
             result = CacheManager.clear_cache(
+                logger=sample_non_empty_time_lapse_creator.logger,
                 location=source.location_name,
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
             )

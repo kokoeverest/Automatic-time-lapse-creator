@@ -1,7 +1,8 @@
 from datetime import datetime
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from astral import LocationInfo
+from logging import Logger
 from src.automatic_time_lapse_creator.time_manager import (
     LocationAndTimeManager,
 )
@@ -10,33 +11,57 @@ from src.automatic_time_lapse_creator.common.exceptions import (
 )
 from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_CITY_NAME,
+    DEFAULT_SUNSET_OFFSET,
+    DEFAULT_SUNRISE_OFFSET,
 )
 import tests.test_data as td
 import tests.test_mocks as tm
 
 
+logger = MagicMock(spec=Logger)
+
+
 @pytest.fixture
 def sample_LocationAndTimeManager():
-    return LocationAndTimeManager(DEFAULT_CITY_NAME)
+    return LocationAndTimeManager(
+        city_name=DEFAULT_CITY_NAME,
+        sunrise_offset=DEFAULT_SUNRISE_OFFSET,
+        sunset_offset=DEFAULT_SUNSET_OFFSET,
+        logger=logger,
+    )
 
 
-def test_LocationAndTimeManager_raises_UnknownLocationException_if_city_is_not_found():
+def test_LocationAndTimeManager_raises_UnknownLocationException_if_city_is_not_found(
+    sample_LocationAndTimeManager: LocationAndTimeManager,
+):
     # Arrange, Act & Assert
-    with patch(
-        "src.automatic_time_lapse_creator.time_manager.logger.error", return_value=None
+    with patch.object(
+        sample_LocationAndTimeManager.logger, "error", return_value=None
     ) as mock_logger:
         with pytest.raises(UnknownLocationException):
-            LocationAndTimeManager(td.invalid_city_name)
+            LocationAndTimeManager(
+                city_name=td.invalid_city_name,
+                sunrise_offset=DEFAULT_SUNRISE_OFFSET,
+                sunset_offset=DEFAULT_SUNSET_OFFSET,
+                logger=logger,
+            )
         assert mock_logger.call_count == 1
 
 
-def test_LocationAndTimeManager_raises_NotImplementedError_if_city_is_a_GroupInfo_object():
+def test_LocationAndTimeManager_raises_NotImplementedError_if_city_is_a_GroupInfo_object(
+    sample_LocationAndTimeManager: LocationAndTimeManager,
+):
     # Arrange, Act & Assert
-    with patch(
-        "src.automatic_time_lapse_creator.time_manager.logger.warning", return_value=None
+    with patch.object(
+        sample_LocationAndTimeManager.logger, "warning", return_value=None
     ) as mock_logger:
         with pytest.raises(NotImplementedError):
-            LocationAndTimeManager(td.group_name)
+            LocationAndTimeManager(
+                city_name=td.group_name,
+                sunrise_offset=DEFAULT_SUNRISE_OFFSET,
+                sunset_offset=DEFAULT_SUNSET_OFFSET,
+                logger=logger,
+            )
         assert mock_logger.call_count == 1
 
 
