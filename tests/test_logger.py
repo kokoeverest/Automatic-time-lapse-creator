@@ -9,6 +9,9 @@ from src.automatic_time_lapse_creator.common.logger import configure_logger
 
 def test_configure_logger_creates_logger_with_default_settings():
     # Arrange
+    logger = logging.getLogger("__root__")
+    logger.handlers.clear()
+
     with (
         patch("logging.basicConfig"),
         patch("pathlib.Path.mkdir"),

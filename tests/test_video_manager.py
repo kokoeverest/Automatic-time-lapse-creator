@@ -488,8 +488,8 @@ def test_create_monthly_summary_video_skips_invalid_videos2(
         )
 
     assert result
-    mock_logger.warning.assert_any_call(f"Cannot open video: {shorten("video1.mp4")}. Skipping...")
-    mock_logger.warning.assert_any_call(f"Cannot open video: {shorten("video3.mp4")}. Skipping...")
+    mock_logger.warning.assert_any_call(f"Cannot open video: {shorten('video1.mp4')}. Skipping...")
+    mock_logger.warning.assert_any_call(f"Cannot open video: {shorten('video3.mp4')}. Skipping...")
     mock_writer.assert_called_once()
     mock_video_writer_instance.release.assert_called_once()
 
