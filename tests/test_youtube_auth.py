@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, mock_open, patch
 import pytest
 import tests.test_data as td
 from src.automatic_time_lapse_creator.youtube_manager import YouTubeAuth
+from src.automatic_time_lapse_creator.common.constants import AuthMethod
 
 
 @pytest.fixture
@@ -57,7 +58,7 @@ def test_authenticate_youtube_with_valid_token(mock_logger: MagicMock):
             return_value="YouTubeService",
         ),
     ):
-        result = YouTubeAuth.authenticate_youtube(mock_logger, td.mock_secrets_file)
+        result = YouTubeAuth.authenticate_youtube(mock_logger, td.mock_secrets_file, AuthMethod.MANUAL)
         assert result == "YouTubeService"
 
 
@@ -76,5 +77,5 @@ def test_authenticate_youtube_with_new_auth(mock_logger: MagicMock):
             return_value="YouTubeService",
         ),
     ):
-        result = YouTubeAuth.authenticate_youtube(mock_logger, td.mock_secrets_file)
+        result = YouTubeAuth.authenticate_youtube(mock_logger, td.mock_secrets_file, AuthMethod.MANUAL)
         assert result == "YouTubeService"
