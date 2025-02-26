@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import override
 
 class WeatherStationInfo(ABC):
     url: str
@@ -29,5 +28,4 @@ class WeatherStationInfo(ABC):
     def __str__(self) -> str: ...
 
 class MeteoRocks(WeatherStationInfo):
-    @override
     def get_data(self) -> None: ...

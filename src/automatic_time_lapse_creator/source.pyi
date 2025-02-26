@@ -1,5 +1,4 @@
 from logging import Logger
-from typing import override
 from .weather_station_info import WeatherStationInfo
 from abc import ABC, abstractmethod
 
@@ -46,15 +45,11 @@ class Source(ABC):
     def validate_url(cls, url: str) -> bool: ...
 
 class ImageSource(Source):
-    @override
     def validate_url(self, url: str) -> bool: ...
-    @override
     def get_frame_bytes(self) -> bytes | None: ...
 
 class StreamSource(Source):
     @staticmethod
     def get_url_with_yt_dlp(url: str) -> str: ...
-    @override
     def validate_url(self, url: str) -> bool: ...
-    @override
     def get_frame_bytes(self) -> bytes | None: ...

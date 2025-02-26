@@ -1,4 +1,3 @@
-from typing import override
 from abc import ABC, abstractmethod
 import cv2
 import subprocess
@@ -197,7 +196,6 @@ class Source(ABC):
 
 class ImageSource(Source):
     """Represents a static webcam source for capturing image frames."""
-    @override
     def validate_url(self, url: str) -> bool:
         """Verifies the provided url will return bytes content.
 
@@ -220,7 +218,6 @@ class ImageSource(Source):
             self.logger.warning(f"{url} is NOT a valid source for collecting images")
             return False
 
-    @override
     def get_frame_bytes(self) -> bytes | None:
         """Verifies the request status code is 200  and returns the response content as bytes.
 
@@ -255,7 +252,6 @@ class StreamSource(Source):
         video_url = result.stdout.strip()
         return video_url
 
-    @override
     def validate_url(self, url: str) -> bool:
         """
         Validates if the given URL is a valid video stream.
@@ -289,7 +285,6 @@ class StreamSource(Source):
             self.logger.error(f"An error occurred: {e}")
             return False
 
-    @override
     def get_frame_bytes(self) -> bytes | None:
         """
         Scrapes the latest frame from a video stream URL and returns it as bytes.
