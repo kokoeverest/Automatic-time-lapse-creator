@@ -1,7 +1,7 @@
 import os
 from unittest.mock import patch
-from src.automatic_time_lapse_creator.source import Source
-from src.automatic_time_lapse_creator.common.constants import MP4_FILE
+from src.automatic_time_lapse_creator.source import ImageSource
+from src.automatic_time_lapse_creator.common.constants import MP4_FILE, VideoPrivacyStatus
 
 invalid_city_name = "Logator"
 group_name = "Europe"
@@ -9,20 +9,20 @@ valid_source_name = "aleko"
 valid_url = "https://home-solutions.bg/cams/aleko2.jpg?1705293967111"
 empty_url = "empty url"
 
-with patch.object(Source, "validate_url", return_value=True):
-    sample_source_no_weather_data = Source(valid_source_name, valid_url)
-    duplicate_source = Source(valid_source_name, valid_url)
+with patch.object(ImageSource, "validate_url", return_value=True):
+    sample_source_no_weather_data = ImageSource(valid_source_name, valid_url)
+    duplicate_source = ImageSource(valid_source_name, valid_url)
 
-    sample_source2_no_weather_data = Source(
+    sample_source2_no_weather_data = ImageSource(
         "markudjik", "https://media.borovets-bg.com/cams/channel?channel=31"
     )
-    sample_source3_no_weather_data = Source(
+    sample_source3_no_weather_data = ImageSource(
         "plevenhut", "https://meter.ac/gs/nodes/N160/snap.jpg?1705436803718"
     )
 
-with patch.object(Source, "validate_url", return_value=False):
-    non_existing_source = Source(invalid_city_name, empty_url)
-    sample_source_with_empty_url = Source("fake", empty_url)
+with patch.object(ImageSource, "validate_url", return_value=False):
+    non_existing_source = ImageSource(invalid_city_name, empty_url)
+    sample_source_with_empty_url = ImageSource("fake", empty_url)
 
 empty_dict = {}
 
@@ -64,3 +64,18 @@ mock_video_response = {
 }
 mock_empty_response: dict[str, list[str]] = {"items": []}
 mock_mediaFileUpload_response = {"id": sample_video_id}
+
+mock_video_list_response: dict[str, list[dict[str, str | dict[str, str]]]] = {
+    "items": [
+        {
+            "id": sample_video_id,
+            "snippet": {
+                "title": sample_video_title
+            },
+            "status": {
+                "uploadStatus": "uploaded",
+                "privacyStatus": VideoPrivacyStatus.PUBLIC.value
+            }
+        }
+    ]
+}

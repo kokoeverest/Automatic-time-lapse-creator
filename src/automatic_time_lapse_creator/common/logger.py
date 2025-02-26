@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 from .constants import (
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_LOGGING_FORMATTER,
     YYMMDD_FORMAT,
     HHMMSS_COLON_FORMAT,
     LOG_FILE,
@@ -17,7 +19,7 @@ from .constants import (
 )
 
 
-def configure_logger(
+def configure_root_logger(
     log_queue: Queue[Any] | None = None,
     logger_name: str = "__root__",
     logger_base_path: str | None = None,
@@ -58,4 +60,23 @@ def configure_logger(
     urllib3_logger = logging.getLogger("urllib3")
     urllib3_logger.setLevel(logging.INFO)
 
+    return logger
+
+
+def configure_child_logger(logger_name: str, logger: Logger | None):
+
+    if logger is None:
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(DEFAULT_LOG_LEVEL)
+    
+    if not logger.hasHandlers():
+        _log_handler = logging.StreamHandler()
+
+        _log_handler.setFormatter(DEFAULT_LOGGING_FORMATTER)
+        logger.addHandler(_log_handler)
+    
+    # Suppress DEBUG logs from urllib3
+    urllib3_logger = logging.getLogger("urllib3")
+    urllib3_logger.setLevel(logging.INFO)
+    
     return logger
