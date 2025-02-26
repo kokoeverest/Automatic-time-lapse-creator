@@ -1,5 +1,5 @@
 from logging import Logger
-from typing_extensions import override
+from typing import override
 from .weather_station_info import WeatherStationInfo
 from abc import ABC, abstractmethod
 

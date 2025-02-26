@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing_extensions import override
+from typing import override
 
 class WeatherStationInfo(ABC):
     url: str

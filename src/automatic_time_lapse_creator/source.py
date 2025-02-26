@@ -1,4 +1,4 @@
-from typing_extensions import override
+from typing import override
 from abc import ABC, abstractmethod
 import cv2
 import subprocess

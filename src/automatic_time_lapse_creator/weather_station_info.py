@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Any
-from typing_extensions import override
+from typing import Any, override
 from .common.constants import OLD_TIMESTAMP_HOURS
 
 import requests
