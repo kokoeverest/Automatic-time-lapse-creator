@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any
+from typing_extensions import override
 from .common.constants import OLD_TIMESTAMP_HOURS
 
 import requests
@@ -160,6 +161,7 @@ class WeatherStationInfo(ABC):
 
 
 class MeteoRocks(WeatherStationInfo):
+    @override
     def get_data(self) -> None:
         """Fetches weather data from the meteo.rocks API and updates internal properties."""
         try:

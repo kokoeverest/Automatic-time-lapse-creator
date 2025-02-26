@@ -1,20 +1,18 @@
 import logging
 
-# logger: logging.Logger
 
 class CacheManager:
-    @classmethod
+    @staticmethod
     def write(
-        cls,
         logger: logging.Logger,
         time_lapse_creator: object,
         location: str,
         path_prefix: str,
         quiet: bool = ...,
     ) -> None: ...
-    @classmethod
-    def get(cls, logger: logging.Logger, location: str, path_prefix: str) -> object: ...
-    @classmethod
+    @staticmethod
+    def get(logger: logging.Logger, location: str, path_prefix: str) -> object: ...
+    @staticmethod
     def clear_cache(
-        cls, logger: logging.Logger, location: str, path_prefix: str
+        logger: logging.Logger, location: str, path_prefix: str
     ) -> None: ...

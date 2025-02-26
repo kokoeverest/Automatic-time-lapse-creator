@@ -6,7 +6,6 @@ from .common.constants import CACHE_DIR, CACHE_FILE_PREFIX, PICKLE_FILE
 from .common.utils import shorten
 
 
-# logger = logging.getLogger(__name__)
 
 
 class CacheManager:
@@ -14,9 +13,8 @@ class CacheManager:
     is saved (pickled) in a file and the filename has a prefix *cache_* and ends with
     the *location_name* attribute of the TimeLapseCreator"""
 
-    @classmethod
+    @staticmethod
     def write(
-        cls,
         logger: logging.Logger,
         time_lapse_creator: object,
         location: str,
@@ -34,8 +32,8 @@ class CacheManager:
         if not quiet:
             logger.info(f"State cached in {shorten(str(current_path))}")
 
-    @classmethod
-    def get(cls, logger: logging.Logger, location: str, path_prefix: str) -> object:
+    @staticmethod
+    def get(logger: logging.Logger, location: str, path_prefix: str) -> object:
         """Retrieves the pickled object in the file. If the file is empty or if it is not found
         it will return an Exception"""
         current_path = Path(
@@ -50,9 +48,9 @@ class CacheManager:
             logger.warning("Getting old creator state failed!")
             raise FileNotFoundError()
 
-    @classmethod
+    @staticmethod
     def clear_cache(
-        cls, logger: logging.Logger, location: str, path_prefix: str
+        logger: logging.Logger, location: str, path_prefix: str
     ) -> None:
         """Deletes the cache file for the current TimeLapseCreator given its location"""
         current_path = Path(
