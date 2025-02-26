@@ -18,8 +18,8 @@ class VideoManager:
     Contains three static methods for creating the video, deleting the image files
     and checking if a video file exists."""
 
-    @classmethod
-    def video_exists(cls, path: str | Path) -> bool:
+    @staticmethod
+    def video_exists(path: str | Path) -> bool:
         """Checks if a file exists at the specified path.
 
         Args::
@@ -32,9 +32,8 @@ class VideoManager:
 
         return os.path.exists(path)
 
-    @classmethod
+    @staticmethod
     def create_timelapse(
-        cls,
         logger: Logger,
         path: str,
         output_video: str,
@@ -99,9 +98,8 @@ class VideoManager:
             logger.info(f"Folder contained no images {shorten(path)}")
             return False
 
-    @classmethod
+    @staticmethod
     def delete_source_media_files(
-        cls,
         logger: Logger,
         path: str | Path,
         extension: str = JPG_FILE,
@@ -217,9 +215,8 @@ class VideoManager:
             logger.error(exc, exc_info=True)
             return False
 
-    @classmethod
+    @staticmethod
     def save_image_with_weather_overlay(
-        cls,
         image_bytes: bytes,
         save_path: str,
         width: int,

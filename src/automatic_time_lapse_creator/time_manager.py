@@ -1,7 +1,7 @@
 from astral.geocoder import database, lookup
 from astral.sun import sunrise, sunset
 from astral import LocationInfo
-from datetime import datetime as dt, timedelta as td, timezone
+from datetime import datetime as dt, timedelta as td
 import logging
 from logging import Logger
 from .common.exceptions import (
@@ -46,7 +46,7 @@ class LocationAndTimeManager:
 
         Returns::
             datetime - the datetime object subtracted the self.sunrise_offset minutes"""
-        return sunrise(self.city.observer) - self.sunrise_offset
+        return sunrise(self.city.observer, tzinfo=self.city.tzinfo) - self.sunrise_offset # type: ignore
 
     @property
     def end_of_daylight(self) -> dt:
@@ -55,7 +55,7 @@ class LocationAndTimeManager:
 
         Returns::
             datetime - the datetime object plus the self.sunset_offset minutes"""
-        return sunset(self.city.observer) + self.sunset_offset
+        return sunset(self.city.observer, tzinfo=self.city.tzinfo) + self.sunset_offset # type: ignore
 
     @property
     def year(self) -> int:
@@ -77,6 +77,15 @@ class LocationAndTimeManager:
 
         int - current day"""
         return dt.today().day
+    
+    @property
+    def time_now(self):
+        """Returns the current date and time taking into account the timezone of the self.city
+
+        Returns:
+            datetime: the datetime object representing the current time
+        """
+        return dt.now(tz=self.city.tzinfo) # type: ignore
 
     def is_daylight(self) -> bool:
         """Checks if it's daylight at the specified location according to the start and end of daylight.
@@ -84,4 +93,4 @@ class LocationAndTimeManager:
         Returns::
 
            bool - if the current time of day is between the start of daylight and end of daylight or not."""
-        return self.start_of_daylight < dt.now(timezone.utc) < self.end_of_daylight
+        return self.start_of_daylight < self.time_now < self.end_of_daylight

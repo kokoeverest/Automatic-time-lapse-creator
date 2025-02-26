@@ -19,7 +19,7 @@ BACKUP_FILES_COUNT: int = 7
 LOGS_DIR: str = ".logs"
 LOG_INTERVAL: str = "midnight"
 LOGGING_FORMAT: str = "[ %(asctime)s ] %(levelname)8s : %(name)14s - %(message)s"
-LOG_START: str = "[ 2025-01-25 06:58:30 AM ]     INFO :"
+LOG_START: str = "[ 2025-01-25 06:58:30 ]     INFO :"
 LOG_START_INT: int = len(LOG_START)
 
 # Date and time formatting
@@ -38,8 +38,14 @@ DEFAULT_CITY_NAME: str = "Sofia"
 DEFAULT_SECONDS_BETWEEN_FRAMES: int = 60
 DEFAULT_NIGHTTIME_RETRY_SECONDS: int = 60
 DEFAULT_VIDEO_FPS: int = 30
-DEFAULT_VIDEO_WIDTH: int = 640
-DEFAULT_VIDEO_HEIGHT: int = 360
+VIDEO_WIDTH_360p: int = 640
+VIDEO_HEIGHT_360p: int = 360
+VIDEO_WIDTH_480p: int = int(VIDEO_WIDTH_360p * 1.334)
+VIDEO_HEIGHT_480p: int = int(VIDEO_HEIGHT_360p * 1.334)
+VIDEO_WIDTH_720p: int = VIDEO_WIDTH_360p * 2
+VIDEO_HEIGHT_720p: int = VIDEO_HEIGHT_360p * 2
+VIDEO_WIDTH_1080p: int = VIDEO_WIDTH_360p * 3
+VIDEO_HEIGHT_1080p: int = VIDEO_HEIGHT_360p * 3
 DEFAULT_DAY_FOR_MONTHLY_VIDEO: int = 3
 
 # youtube_manager defaults
@@ -58,6 +64,11 @@ class VideoPrivacyStatus(Enum):
     PUBLIC = "public"
     PRIVATE = "private"
     UNLISTED = "unlisted"
+
+
+class AuthMethod(Enum):
+    MANUAL = "manual"
+    EMAIL = "email"
 
 
 # Video defaults

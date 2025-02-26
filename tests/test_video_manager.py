@@ -12,8 +12,8 @@ from src.automatic_time_lapse_creator.common.constants import (
     YYMMDD_FORMAT,
     MP4_FILE,
     JPG_FILE,
-    DEFAULT_VIDEO_WIDTH,
-    DEFAULT_VIDEO_HEIGHT,
+    VIDEO_WIDTH_360p,
+    VIDEO_HEIGHT_360p,
     DEFAULT_VIDEO_FPS,
 )
 from datetime import datetime
@@ -305,7 +305,7 @@ def test_save_image_with_weather_overlay_saves_image_successfully():
             "cv2.imdecode", return_value=np.zeros((100, 100, 3), dtype=np.uint8)
         ) as mock_imdecode,
         patch(
-            "cv2.resize", return_value=np.zeros((DEFAULT_VIDEO_HEIGHT, DEFAULT_VIDEO_WIDTH, 3), dtype=np.uint8)
+            "cv2.resize", return_value=np.zeros((VIDEO_HEIGHT_360p, VIDEO_WIDTH_360p, 3), dtype=np.uint8)
         ) as mock_resize,
         patch("cv2.getTextSize", return_value=((100, 20), 10)) as mock_text_size,
         patch("cv2.putText") as mock_put_text,
@@ -315,8 +315,8 @@ def test_save_image_with_weather_overlay_saves_image_successfully():
         result = vm.save_image_with_weather_overlay(
             tm.mock_bytes,
             tm.mock_save_file_path,
-            DEFAULT_VIDEO_WIDTH,
-            DEFAULT_VIDEO_HEIGHT,
+            VIDEO_WIDTH_360p,
+            VIDEO_HEIGHT_360p,
             td.sample_date_time_text,
             td.sample_weather_data_text,
         )
@@ -337,7 +337,7 @@ def test_save_image_with_weather_overlay_handles_invalid_image():
     with patch("cv2.imdecode", return_value=None) as mock_imdecode:
         # Act
         result = vm.save_image_with_weather_overlay(
-            invalid_bytes, tm.mock_save_file_path, DEFAULT_VIDEO_WIDTH, DEFAULT_VIDEO_HEIGHT
+            invalid_bytes, tm.mock_save_file_path, VIDEO_WIDTH_360p, VIDEO_HEIGHT_360p
         )
 
         # Assert
@@ -351,7 +351,7 @@ def test_save_image_with_weather_overlay_handles_no_weather_data():
 
     with (
         patch("cv2.imdecode", return_value=np.zeros((100, 100, 3), dtype=np.uint8)),
-        patch("cv2.resize", return_value=np.zeros((DEFAULT_VIDEO_HEIGHT, DEFAULT_VIDEO_WIDTH, 3), dtype=np.uint8)),
+        patch("cv2.resize", return_value=np.zeros((VIDEO_HEIGHT_360p, VIDEO_WIDTH_360p, 3), dtype=np.uint8)),
         patch("cv2.getTextSize", return_value=((100, 20), 10)),
         patch("cv2.putText"),
         patch("cv2.imwrite", return_value=True) as mock_imwrite,
@@ -360,8 +360,8 @@ def test_save_image_with_weather_overlay_handles_no_weather_data():
         result = vm.save_image_with_weather_overlay(
             tm.mock_bytes,
             tm.mock_save_file_path,
-            DEFAULT_VIDEO_WIDTH,
-            DEFAULT_VIDEO_HEIGHT,
+            VIDEO_WIDTH_360p,
+            VIDEO_HEIGHT_360p,
             td.sample_date_time_text,
             weather_data_text,
         )
@@ -377,7 +377,7 @@ def test_save_image_with_weather_overlay_fails_to_save():
 
     with (
         patch("cv2.imdecode", return_value=np.zeros((100, 100, 3), dtype=np.uint8)),
-        patch("cv2.resize", return_value=np.zeros((DEFAULT_VIDEO_HEIGHT, DEFAULT_VIDEO_WIDTH, 3), dtype=np.uint8)),
+        patch("cv2.resize", return_value=np.zeros((VIDEO_HEIGHT_360p, VIDEO_WIDTH_360p, 3), dtype=np.uint8)),
         patch("cv2.getTextSize", return_value=((100, 20), 10)),
         patch("cv2.putText"),
         patch("cv2.imwrite", return_value=False) as mock_imwrite,
@@ -386,8 +386,8 @@ def test_save_image_with_weather_overlay_fails_to_save():
         result = vm.save_image_with_weather_overlay(
             tm.mock_bytes,
             tm.mock_save_file_path,
-            DEFAULT_VIDEO_WIDTH,
-            DEFAULT_VIDEO_HEIGHT,
+            VIDEO_WIDTH_360p,
+            VIDEO_HEIGHT_360p,
             td.sample_date_time_text,
             td.sample_weather_data_text,
         )

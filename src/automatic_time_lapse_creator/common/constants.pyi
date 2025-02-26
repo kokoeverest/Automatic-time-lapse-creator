@@ -35,8 +35,15 @@ DEFAULT_CITY_NAME: str
 DEFAULT_SECONDS_BETWEEN_FRAMES: int
 DEFAULT_NIGHTTIME_RETRY_SECONDS: int
 DEFAULT_VIDEO_FPS: int
-DEFAULT_VIDEO_WIDTH: int
-DEFAULT_VIDEO_HEIGHT: int
+VIDEO_WIDTH_360p: int
+VIDEO_HEIGHT_360p: int
+VIDEO_WIDTH_480p: int
+VIDEO_HEIGHT_480p: int
+VIDEO_WIDTH_720p: int
+VIDEO_HEIGHT_720p: int
+VIDEO_WIDTH_1080p: int
+VIDEO_HEIGHT_1080p: int
+
 DEFAULT_DAY_FOR_MONTHLY_VIDEO: int
 
 # youtube_manager defaults
@@ -54,6 +61,10 @@ class VideoPrivacyStatus(Enum):
     PUBLIC: Enum
     PRIVATE: Enum
     UNLISTED: Enum
+
+class AuthMethod(Enum):
+    MANUAL = Enum
+    EMAIL = Enum
 
 # Video defaults
 DEFAULT_VIDEO_CODEC: str

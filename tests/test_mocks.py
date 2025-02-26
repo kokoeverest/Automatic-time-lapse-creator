@@ -3,8 +3,8 @@ from src.automatic_time_lapse_creator.common.constants import (
     JPG_FILE,
     MP4_FILE,
     DEFAULT_VIDEO_FPS,
-    DEFAULT_VIDEO_HEIGHT,
-    DEFAULT_VIDEO_WIDTH,
+    VIDEO_HEIGHT_360p,
+    VIDEO_WIDTH_360p,
     DEFAULT_DAY_FOR_MONTHLY_VIDEO
 )
 from src.automatic_time_lapse_creator.youtube_manager import YouTubeAuth
@@ -51,8 +51,8 @@ mock_MatLike = mock_mat_like()
 mock_path_to_images_folder = os.path.join("fake", "folder", "path")
 mock_output_video_name = f"fake_video{MP4_FILE}"
 mock_video_frames_per_second = DEFAULT_VIDEO_FPS
-mock_video_width = DEFAULT_VIDEO_WIDTH
-mock_video_height = DEFAULT_VIDEO_HEIGHT
+mock_video_width = VIDEO_WIDTH_360p
+mock_video_height = VIDEO_HEIGHT_360p
 
 mock_Size = ((185, 12), 1)
 

@@ -24,11 +24,12 @@ from .common.constants import (
     DEFAULT_NIGHTTIME_RETRY_SECONDS,
     DEFAULT_SECONDS_BETWEEN_FRAMES,
     DEFAULT_VIDEO_FPS,
-    DEFAULT_VIDEO_HEIGHT,
-    DEFAULT_VIDEO_WIDTH,
+    VIDEO_HEIGHT_360p,
+    VIDEO_WIDTH_360p,
     DEFAULT_DAY_FOR_MONTHLY_VIDEO,
     DEFAULT_SUNRISE_OFFSET,
     DEFAULT_SUNSET_OFFSET,
+    LOG_START_INT,
     VideoType,
 )
 from .common.exceptions import (
@@ -41,7 +42,7 @@ from .common.utils import (
     dash_sep_strings,
     video_type_response,
 )
-from .common.logger import configure_logger
+from .common.logger import configure_root_logger
 
 
 class TimeLapseCreator:
@@ -88,11 +89,11 @@ class TimeLapseCreator:
         sources: Iterable[Source] = [],
         city: str = DEFAULT_CITY_NAME,
         path: str = DEFAULT_PATH_STRING,
-        seconds_between_frames: int = DEFAULT_SECONDS_BETWEEN_FRAMES,
+        seconds_between_frames: float = DEFAULT_SECONDS_BETWEEN_FRAMES,
         night_time_retry_seconds: int = DEFAULT_NIGHTTIME_RETRY_SECONDS,
         video_fps: int = DEFAULT_VIDEO_FPS,
-        video_width: int = DEFAULT_VIDEO_WIDTH,
-        video_height: int = DEFAULT_VIDEO_HEIGHT,
+        video_width: int = VIDEO_WIDTH_360p,
+        video_height: int = VIDEO_HEIGHT_360p,
         sunrise_offset_minutes: int = DEFAULT_SUNRISE_OFFSET,
         sunset_offset_minutes: int = DEFAULT_SUNSET_OFFSET,
         create_monthly_summary_video: bool = True,
@@ -104,7 +105,7 @@ class TimeLapseCreator:
         self.base_path = os.path.join(os.getcwd(), path)
         self.folder_name = dt.today().strftime(YYMMDD_FORMAT)
 
-        self.logger = configure_logger(
+        self.logger = configure_root_logger(
             log_queue=log_queue, logger_base_path=self.base_path
         )
 
@@ -211,7 +212,7 @@ class TimeLapseCreator:
         if log_queue:
             self.log_queue = log_queue
             _, tail = os.path.split(self.base_path)
-            self.logger = configure_logger(log_queue, tail)
+            self.logger = configure_root_logger(log_queue, tail)
         try:
             self.logger.info("Program starts!")
             self = self.get_cached_self()
@@ -298,9 +299,9 @@ class TimeLapseCreator:
                             if source.weather_data_provider:
                                 source.weather_data_provider.get_data()
 
-                            file_name = dt.now().strftime(HHMMSS_UNDERSCORE_FORMAT)
+                            file_name = self.location.time_now.strftime(HHMMSS_UNDERSCORE_FORMAT)
                             current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
-                            dt_text = f"{self.folder_name} {dt.now().strftime(HHMMSS_COLON_FORMAT)}"
+                            dt_text = f"{self.folder_name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}"
 
                             Path(current_path).mkdir(parents=True, exist_ok=True)
                             full_path = Path(f"{current_path}/{file_name}{JPG_FILE}")
@@ -330,14 +331,14 @@ class TimeLapseCreator:
             return True
         else:
             if not self.quiet_mode:
-                self.logger.info(f"Not daylight yet @{self.location.city.name}")
+                self.logger.info(f"Not daylight yet @{self.location.city.name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}")
             self.is_it_next_day()
             return False
 
     def is_it_next_day(self) -> None:
         """Checks if the next day have started and changes the self.folder_name accordingly"""
         old_date = dt.strptime(self.folder_name, YYMMDD_FORMAT)
-        new_date = dt.today()
+        new_date = self.location.time_now
 
         if (
             new_date.year > old_date.year
@@ -346,7 +347,9 @@ class TimeLapseCreator:
         ):
             self.folder_name = new_date.strftime(YYMMDD_FORMAT)
             self.logger.info(
-                f"New day starts!\nSunrise: {self.location.start_of_daylight} UTC; Sunset: {self.location.end_of_daylight} UTC"
+                f"New day starts! Images will be collected between:\n"
+                f"{LOG_START_INT * ' '}Start time: {self.location.start_of_daylight.strftime(HHMMSS_COLON_FORMAT)}  -->"
+                f"  End time: {self.location.end_of_daylight.strftime(HHMMSS_COLON_FORMAT)}\n"
             )
 
     def create_video(self, source: Source, delete_source_images: bool = True) -> bool:
@@ -545,8 +548,8 @@ class TimeLapseCreator:
         """
         self._test_counter = self.nighttime_wait_before_next_retry
 
-    @classmethod
-    def valid_folder(cls, *args: str):
+    @staticmethod
+    def valid_folder(*args: str):
         """
         Validates a folder based on the provided arguments.
 

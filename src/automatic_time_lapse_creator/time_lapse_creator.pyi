@@ -7,8 +7,8 @@ from .common.constants import (
     DEFAULT_PATH_STRING as DEFAULT_PATH_STRING,
     DEFAULT_SECONDS_BETWEEN_FRAMES as DEFAULT_SECONDS_BETWEEN_FRAMES,
     DEFAULT_VIDEO_FPS as DEFAULT_VIDEO_FPS,
-    DEFAULT_VIDEO_HEIGHT as DEFAULT_VIDEO_HEIGHT,
-    DEFAULT_VIDEO_WIDTH as DEFAULT_VIDEO_WIDTH,
+    VIDEO_HEIGHT_360p as VIDEO_HEIGHT_360p,
+    VIDEO_WIDTH_360p as VIDEO_WIDTH_360p,
     HHMMSS_COLON_FORMAT as HHMMSS_COLON_FORMAT,
     HHMMSS_UNDERSCORE_FORMAT as HHMMSS_UNDERSCORE_FORMAT,
     JPG_FILE as JPG_FILE,
@@ -35,7 +35,7 @@ class TimeLapseCreator:
     folder_name: str
     location: LocationAndTimeManager
     sources: set[Source]
-    wait_before_next_frame: int
+    wait_before_next_frame: float
     nighttime_wait_before_next_retry: int
     video_fps: int
     video_width: int
@@ -49,7 +49,7 @@ class TimeLapseCreator:
         sources: Iterable[Source] = ...,
         city: str = ...,
         path: str = ...,
-        seconds_between_frames: int = ...,
+        seconds_between_frames: float = ...,
         night_time_retry_seconds: int = ...,
         video_fps: int = ...,
         video_width: int = ...,
@@ -89,8 +89,8 @@ class TimeLapseCreator:
     @classmethod
     def validate_collection(cls, sources: Iterable[Source]) -> set[Source]: ...
     def reset_test_counter(self) -> None: ...
-    @classmethod
-    def valid_folder(cls, *args: str) -> bool: ...
+    @staticmethod
+    def valid_folder(*args: str) -> bool: ...
     def get_video_files_paths(
         self, base_folder: str, year: str, month: str
     ) -> list[str]: ...

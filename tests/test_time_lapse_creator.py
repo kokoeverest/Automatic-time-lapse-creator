@@ -14,8 +14,8 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_NIGHTTIME_RETRY_SECONDS,
     DEFAULT_SECONDS_BETWEEN_FRAMES,
     DEFAULT_VIDEO_FPS,
-    DEFAULT_VIDEO_HEIGHT,
-    DEFAULT_VIDEO_WIDTH,
+    VIDEO_HEIGHT_360p,
+    VIDEO_WIDTH_360p,
     DEFAULT_SUNSET_OFFSET,
     DEFAULT_SUNRISE_OFFSET,
     
@@ -90,8 +90,8 @@ def test_initializes_correctly_with_default_config(
         == DEFAULT_NIGHTTIME_RETRY_SECONDS
     )
     assert sample_empty_time_lapse_creator.video_fps == DEFAULT_VIDEO_FPS
-    assert sample_empty_time_lapse_creator.video_width == DEFAULT_VIDEO_WIDTH
-    assert sample_empty_time_lapse_creator.video_height == DEFAULT_VIDEO_HEIGHT
+    assert sample_empty_time_lapse_creator.video_width == VIDEO_WIDTH_360p
+    assert sample_empty_time_lapse_creator.video_height == VIDEO_HEIGHT_360p
     assert sample_empty_time_lapse_creator.quiet_mode
     assert sample_empty_time_lapse_creator.video_queue is None
     assert sample_empty_time_lapse_creator.log_queue is None
@@ -544,7 +544,7 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "cache_self", tm.mock_None
         )
-        sample_non_empty_time_lapse_creator.wait_before_next_frame = 1
+        sample_non_empty_time_lapse_creator.wait_before_next_frame = 0.1
 
         # Act & Assert
         assert sample_non_empty_time_lapse_creator.collect_images_from_webcams()
@@ -588,7 +588,7 @@ def test_collect_images_from_webcams_returns_True_even_if_request_returns_Except
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "cache_self", lambda: None
         )
-        sample_non_empty_time_lapse_creator.wait_before_next_frame = 1
+        sample_non_empty_time_lapse_creator.wait_before_next_frame = 0.1
 
         # Act & Assert
         assert sample_non_empty_time_lapse_creator.collect_images_from_webcams()
@@ -865,9 +865,10 @@ def test_is_it_next_day_does_not_change_anything_if_it_is_the_same_day(
 
     # Act & Assert
 
-    with patch("src.automatic_time_lapse_creator.time_lapse_creator.dt") as mock_today:
+    with (patch("src.automatic_time_lapse_creator.time_lapse_creator.dt") as mock_today,
+          patch("src.automatic_time_lapse_creator.time_manager.dt") as mock_now):
         mock_today.strptime.return_value = tm.MockDatetime.fake_today
-        mock_today.today.return_value = tm.MockDatetime.fake_today
+        mock_now.now.return_value = tm.MockDatetime.fake_today
         sample_non_empty_time_lapse_creator.is_it_next_day()
 
         assert old_date == tm.MockDatetime.fake_today
