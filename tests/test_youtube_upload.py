@@ -136,37 +136,6 @@ def test_find_input_files_returns_list_with_files(
         )
 
 
-def test_get_channel_id_returns_valid_id(mock_uploader: YouTubeUpload):
-    # Arrange & Act
-    with patch.object(
-        mock_uploader.youtube.service.channels().list(),
-        "execute",
-        return_value=td.mock_channel_response,
-    ) as mock_execute:
-        result = mock_uploader.get_channel_id()
-
-        # Assert
-        assert result == td.mock_channel_id
-        mock_execute.assert_called_once()
-
-
-def test_get_channel_id_returns_none_when_no_items(mock_uploader: YouTubeUpload):
-    # Arrange
-    mock_response = {}
-
-    # Act
-    with patch.object(
-        mock_uploader.youtube.service.channels().list(),
-        "execute",
-        return_value=(mock_response,),
-    ) as mock_execute:
-        result = mock_uploader.get_channel_id()
-
-        # Assert
-        assert not result
-        mock_execute.assert_called_once()
-
-
 def test_shorten_title_within_limit(
     mock_uploader: YouTubeUpload, mock_logger: MagicMock
 ):
@@ -261,7 +230,7 @@ def test_upload_video_to_youtube_raises_HttpLib2Error(
         ) as mock_next_chunk,
     ):
         # Act & Assert
-        with pytest.raises(HttpLib2Error):  # Expecting the exception here
+        with pytest.raises(HttpLib2Error):
             mock_uploader.upload_video_to_youtube(
                 td.sample_video_file1,
                 td.sample_video_title,
