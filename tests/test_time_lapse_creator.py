@@ -100,6 +100,65 @@ def test_initializes_correctly_with_default_config(
     assert sample_empty_time_lapse_creator._day_for_monthly_summary == DEFAULT_DAY_FOR_MONTHLY_VIDEO # type: ignore
     assert sample_empty_time_lapse_creator._delete_daily_videos # type: ignore
 
+def test_validate_raises_TypeError_for_invalid_type(sample_empty_time_lapse_creator: TimeLapseCreator):
+    # Arrange
+    invalid_value = "invalid_type"
+
+    # Act & Assert
+    with pytest.raises(TypeError):
+        sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", invalid_value) # type: ignore
+
+
+def test_validate_returns_value_within_range(sample_empty_time_lapse_creator: TimeLapseCreator):
+    # Arrange
+    valid_value = 150  # Within range for sunrise_offset_minutes
+
+    # Act
+    result = sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", valid_value) # type: ignore
+
+    # Assert
+    assert result == valid_value
+
+
+def test_validate_logs_warning_for_out_of_range_value(sample_empty_time_lapse_creator: TimeLapseCreator):
+    # Arrange
+    out_of_range_value = 500  # Out of range for sunrise_offset_minutes
+
+    # Act & Assert
+    with patch.object(sample_empty_time_lapse_creator.logger, "warning", return_value=None) as mock_warning:
+        result = sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", out_of_range_value) # type: ignore
+        mock_warning.assert_called_once_with(
+            f"sunrise_offset_minutes must be in range(1, 301)! Setting to default: {DEFAULT_SUNRISE_OFFSET}"
+        )
+        assert result == DEFAULT_SUNRISE_OFFSET
+
+
+def test_validate_raises_KeyError_for_invalid_attr_name(sample_empty_time_lapse_creator: TimeLapseCreator):
+    # Arrange
+    invalid_attr_name = "invalid_attr"
+
+    # Act & Assert
+    with pytest.raises(KeyError):
+        sample_empty_time_lapse_creator._validate(invalid_attr_name, 100) # type: ignore
+
+
+def test_validate_handles_all_valid_attributes(sample_empty_time_lapse_creator: TimeLapseCreator):
+    # Arrange
+    valid_attributes = {
+        "sunrise_offset_minutes": 100,
+        "sunset_offset_minutes": 100,
+        "seconds_between_frames": 300,
+        "night_time_retry_seconds": 300,
+        "video_fps": 30,
+        "video_width": 1280,
+        "video_height": 720,
+    }
+
+    # Act & Assert
+    for attr_name, attr_value in valid_attributes.items():
+        result = sample_empty_time_lapse_creator._validate(attr_name, attr_value) # type: ignore
+        assert result == attr_value
+
 def test_sources_not_empty_returns_false_with_no_sources(
     sample_empty_time_lapse_creator: TimeLapseCreator,
 ):
@@ -544,7 +603,7 @@ def test_collect_images_from_webcams_returns_True_if_daylight_and_all_images_col
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "cache_self", tm.mock_None
         )
-        sample_non_empty_time_lapse_creator.wait_before_next_frame = 0.1
+        sample_non_empty_time_lapse_creator.wait_before_next_frame = 0
 
         # Act & Assert
         assert sample_non_empty_time_lapse_creator.collect_images_from_webcams()
@@ -588,7 +647,7 @@ def test_collect_images_from_webcams_returns_True_even_if_request_returns_Except
         monkeypatch.setattr(
             sample_non_empty_time_lapse_creator, "cache_self", lambda: None
         )
-        sample_non_empty_time_lapse_creator.wait_before_next_frame = 0.1
+        sample_non_empty_time_lapse_creator.wait_before_next_frame = 0
 
         # Act & Assert
         assert sample_non_empty_time_lapse_creator.collect_images_from_webcams()
@@ -657,7 +716,7 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
             return_value=True,
         ),
         patch(
-            "src.automatic_time_lapse_creator.time_lapse_creator.dt"
+            "src.automatic_time_lapse_creator.time_manager.dt"
         ) as mock_datetime,
         patch(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.create_video",
@@ -710,7 +769,7 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
             return_value=True,
         ) as mock_collect,
         patch(
-            "src.automatic_time_lapse_creator.time_lapse_creator.dt"
+            "src.automatic_time_lapse_creator.time_manager.dt"
         ) as mock_datetime,
         patch(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.create_video",
