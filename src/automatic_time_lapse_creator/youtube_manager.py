@@ -6,7 +6,7 @@ import logging
 import pickle
 import smtplib
 
-from typing import Iterable, Any
+from typing import Iterable, Any, Generator
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -415,7 +415,7 @@ class YouTubeChannelManager:
         authenticated user's channel.
 
         Returns:
-            list[dict[str, str]] | None - A list, containing the videos as dict[str, str] if found, otherwise None.
+            Generator[dict[str, str]] | None - A Generator, containing the videos as dict[str, str] if found, otherwise None.
         """
         try:
             self.logger.info("Fetching channel details")
@@ -426,12 +426,13 @@ class YouTubeChannelManager:
             )
 
             video_ids = [item["id"]["videoId"] for item in response.get("items", [])]
-            return self.get_video_details(video_ids)
+
+            return self.get_video_details(video_ids) if len(video_ids) > 0 else None
 
         except Exception:
             self.logger.error("Something went wrong", exc_info=True)
 
-    def get_video_details(self, video_ids: list[str]) -> list[dict[str, str]]:
+    def get_video_details(self, video_ids: list[str]) -> Generator[dict[str, str]]:
         """
         Fetches detailed information about a list of videos given their IDs.
 
@@ -442,7 +443,7 @@ class YouTubeChannelManager:
             video_ids (list[str]): A list of video IDs to retrieve details for.
 
         Returns::
-            list[dict[str, str]]: A list of dictionaries, where each dictionary contains:
+            Generator[dict[str, str]]: A Generator of dictionaries, where each dictionary contains:
                 - "id": The unique ID of the video.
                 - "title": The video's title.
                 - "uploadStatus": The upload status of the video (e.g., "uploaded").
@@ -455,7 +456,7 @@ class YouTubeChannelManager:
         )
         videos = response.get("items", [])
 
-        return [
+        return (
             {
                 "id": video["id"],
                 "title": video["snippet"]["title"],
@@ -463,15 +464,15 @@ class YouTubeChannelManager:
                 "privacyStatus": video["status"]["privacyStatus"],
             }
             for video in videos
-        ]
+        )
     
     @staticmethod
-    def filter_pending_videos(videos: list[dict[str, str]]):
+    def filter_pending_videos(videos: Iterable[dict[str, str]]):
         """Returns the videos with uploadStatus: "uploaded" which is the status of the pending
         videos (failed to upload)
 
         Args:
-            videos (list[dict[str, str]]): the collection of videos returned by get_video_details()
+            videos (Iterable[dict[str, str]]): the collection of videos returned by get_video_details()
 
         Returns:
             list[dict[str, str]]: the collection containing only the filtered videos

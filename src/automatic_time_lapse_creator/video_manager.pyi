@@ -1,6 +1,8 @@
 from pathlib import Path
 from logging import Logger
 
+from .text_box import TextBox
+
 
 class VideoManager:
     @staticmethod
@@ -35,4 +37,6 @@ class VideoManager:
         height: int,
         date_time_text: str = ...,
         weather_data_text: str | None = ...,
+        text_box_position: type[TextBox] | None = ...,
+        text_box_transparency: float = ...,
     ) -> bool: ...
