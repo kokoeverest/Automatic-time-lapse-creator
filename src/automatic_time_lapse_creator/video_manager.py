@@ -1,5 +1,5 @@
-from glob import glob
 from pathlib import Path
+from typing import Generator
 import cv2
 import os
 import numpy as np
@@ -7,10 +7,9 @@ from logging import Logger
 from .common.constants import (
     JPG_FILE,
     DEFAULT_VIDEO_CODEC,
-    BLACK_BACKGROUND,
-    WHITE_TEXT,
 )
 from .common.utils import shorten
+from .text_box import TextBox
 
 
 class VideoManager:
@@ -35,7 +34,7 @@ class VideoManager:
     @staticmethod
     def create_timelapse(
         logger: Logger,
-        path: str,
+        path: str | Path,
         output_video: str,
         fps: int,
     ) -> bool:
@@ -60,25 +59,28 @@ class VideoManager:
             False - in case of Exception during the creation of the video
 
         Note: the source image files are not modified or deleted in any case."""
-        logger.info(f"Creating video from images in {shorten(path)}")
-        image_files = sorted(glob(f"{path}/*{JPG_FILE}"))
+        path = Path(path)
+        logger.info(f"Creating video from images in {shorten(str(path))}")
+        image_files = map(str, path.glob(f"*{JPG_FILE}"))
+        first_element = next(image_files, None)
 
-        if len(image_files) > 0:
+        if first_element is not None:
             try:
                 # Read the first image to determine the correct height
-                first_image = cv2.imread(image_files[0])
+                first_image = cv2.imread(first_element)
                 if first_image is None:
                     logger.error(
-                        f"Could not read first image: {shorten(image_files[0])}"
+                        f"Could not read first image: {shorten(first_element)}"
                     )
                     return False
 
                 height, width, _ = first_image.shape
 
-                fourcc = cv2.VideoWriter.fourcc(*"mp4v")
+                fourcc = cv2.VideoWriter.fourcc(*DEFAULT_VIDEO_CODEC)
                 video_writer = cv2.VideoWriter(
                     output_video, fourcc, fps, (width, height)
                 )
+                video_writer.write(first_image)
 
                 for image_file in image_files:
                     img_path = os.path.join(path, image_file)
@@ -95,7 +97,7 @@ class VideoManager:
                 logger.error(exc, exc_info=True)
                 return False
         else:
-            logger.info(f"Folder contained no images {shorten(path)}")
+            logger.info(f"Folder contained no images {shorten(str(path))}")
             return False
 
     @staticmethod
@@ -122,9 +124,17 @@ class VideoManager:
         """
         path = Path(path)
         try:
-            media_files = glob(f"{path}/*{extension}")
-            logger.info(f"Deleting {len(media_files)} files from {shorten(str(path))}")
-            [os.remove(file) for file in media_files]
+            media_files: list[str] | Generator[Path] | None = path.glob(f"*{extension}")
+            
+            if not media_files:
+                media_files = []
+
+            files_count = 0
+            for file in media_files:
+                os.remove(file)
+                files_count += 1
+
+            logger.info(f"Deleted {files_count} files from {shorten(str(path))}")
             if delete_folder:
                 files = os.listdir(path)
                 if len(files) == 0:
@@ -223,6 +233,8 @@ class VideoManager:
         height: int,
         date_time_text: str = "",
         weather_data_text: str | None = None,
+        text_box_position: type[TextBox] | None = None,
+        text_box_transparency: float = TextBox.TRANSPARENCY_MID,
     ):
         """
         Saves an image from bytes data with an additional overlay containing weather information at the top.
@@ -234,6 +246,7 @@ class VideoManager:
             height: int - Height of the final image (excluding overlay).
             date_time_text: str - The timestamp to be displayed (YYYY-MM-DD H:M:S).
             weather_data_text: str | None - The text for weather data, defaults to None.
+            text_box_position: type[TextBox] | None - the position of the text box on the image.
         """
 
         image_array = np.frombuffer(image_bytes, dtype=np.uint8)
@@ -243,34 +256,14 @@ class VideoManager:
             return False
         img = cv2.resize(img, (width, height))
 
-        rectangle_text = date_time_text if weather_data_text is None else f"{date_time_text} | {weather_data_text}"
+        rectangle_text = date_time_text if not weather_data_text else f"{date_time_text} | {weather_data_text}"
+        
+        final_image = None
+        if text_box_position is not None:
+            text_box = text_box_position(text=rectangle_text, img_width=width, img_height=height, box_transparency=text_box_transparency)
+            final_image = text_box.position(img)
 
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_thickness = max(1, int(height * 0.004))
-        font_scale = width * 0.0007
-        text_size = cv2.getTextSize(rectangle_text, font, font_scale, font_thickness)[0]
-
-        rectangle_height = int(text_size[1] * 2.5)
-        rectangle_width = width
-        rectangle = np.full(
-            (rectangle_height, rectangle_width, 3), BLACK_BACKGROUND, dtype=np.uint8
-        )
-
-        text_x = int(width * 0.02)
-        text_y = int(rectangle_height * 0.7)
-
-        cv2.putText(
-            rectangle,
-            rectangle_text,
-            (text_x, text_y),
-            font,
-            font_scale,
-            WHITE_TEXT,
-            font_thickness,
-            lineType=cv2.LINE_AA,
-        )
-
-        final_image = np.vstack((rectangle, img))
-
-
-        return cv2.imwrite(save_path, final_image)
+        if final_image is not None:
+            return cv2.imwrite(save_path, final_image)
+        else:
+            return cv2.imwrite(save_path, img)

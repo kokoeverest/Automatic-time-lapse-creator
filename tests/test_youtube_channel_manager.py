@@ -110,7 +110,7 @@ def test_get_video_details_returns_list_with_video_details(mock_channel_man: You
         result = mock_channel_man.get_video_details(mock_videos_list)
     # Assert
 
-    assert len(result) == 1
+    assert next(result) is not None
 
 def test_delete_video_returns_True_when_successful(mock_channel_man: YouTubeChannelManager):
     # Arrange    

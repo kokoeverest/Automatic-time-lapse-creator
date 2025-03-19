@@ -46,6 +46,7 @@ class Source(ABC):
         logger: Logger | None = None,
         weather_data_on_images: bool = False,
         weather_data_provider: WeatherStationInfo | None = None,
+        owner: str | None = None,
     ) -> None:
         self.location_name = location_name
         self.url = url
@@ -66,7 +67,7 @@ class Source(ABC):
             self.weather_data_provider = weather_data_provider
             if not self.has_weather_data and self.weather_data_provider is not None:
                 self.logger.info(f"Weather provider set for {self.location_name}")
-
+        self.owner = owner
         self._daily_video_created: bool = False
         self._monthly_video_created: bool = False
         self._images_count: int = 0

@@ -44,9 +44,10 @@ def mock_mat_like():
 
     return mat_like
 
+def mock_images_iterator():
+    return (mock_jpg_file(x) for x in range(1, 11))
 
 mock_image = mock_jpg_file()
-mock_images_list = [mock_jpg_file(x) for x in range(1, 11)]
 mock_MatLike = mock_mat_like()
 mock_path_to_images_folder = os.path.join("fake", "folder", "path")
 mock_output_video_name = f"fake_video{MP4_FILE}"

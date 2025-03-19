@@ -1,10 +1,11 @@
 from __future__ import annotations
 import os
-from datetime import datetime as dt, timezone as tz, timedelta as td
+from datetime import datetime as dt, timedelta as td
 from time import sleep
 from pathlib import Path
 from queue import Queue
-from typing import Any, Iterable
+from typing import Any, Iterable, NamedTuple
+from glob import glob
 from .cache_manager import CacheManager
 from .source import Source
 from .video_manager import (
@@ -35,7 +36,6 @@ from .common.constants import (
 from .common.exceptions import (
     InvalidCollectionException,
 )
-from glob import glob
 from .common.utils import (
     create_log_message,
     shorten,
@@ -43,6 +43,7 @@ from .common.utils import (
     video_type_response,
 )
 from .common.logger import configure_root_logger
+from .text_box import TextBox, TopOutsideTextBox
 
 
 class TimeLapseCreator:
@@ -74,6 +75,9 @@ class TimeLapseCreator:
         video_height: int - Height of the output videos in pixels.
         sunrise_offset_minutes: int - Minutes to offset the calculated sunrise time.
         sunset_offset_minutes: int - Minutes to offset the calculated sunset time.
+        text_box_position: type[box.TextBox] | None - the class for positioning of the text box containing 
+        the image's time of day and weather data text, defaults to TopOutsideTextBox
+        text_box_transparency: float - the transparency of the text box (only if it's inside the image), defaults to box.TextBox.TRANSPARENCY_MID,
         quiet_mode: bool - Whether to suppress frequent log messages.
         create_monthly_summary_video: bool - Whether to generate a monthly summary video.
         day_for_monthly_summary_video: int - The day of the month when the summary video should be created.
@@ -89,13 +93,15 @@ class TimeLapseCreator:
         sources: Iterable[Source] = [],
         city: str = DEFAULT_CITY_NAME,
         path: str = DEFAULT_PATH_STRING,
-        seconds_between_frames: float = DEFAULT_SECONDS_BETWEEN_FRAMES,
+        seconds_between_frames: int = DEFAULT_SECONDS_BETWEEN_FRAMES,
         night_time_retry_seconds: int = DEFAULT_NIGHTTIME_RETRY_SECONDS,
         video_fps: int = DEFAULT_VIDEO_FPS,
         video_width: int = VIDEO_WIDTH_360p,
         video_height: int = VIDEO_HEIGHT_360p,
         sunrise_offset_minutes: int = DEFAULT_SUNRISE_OFFSET,
         sunset_offset_minutes: int = DEFAULT_SUNSET_OFFSET,
+        text_box_position: type[TextBox] | None = TopOutsideTextBox,
+        text_box_transparency: float = TextBox.TRANSPARENCY_MID,
         create_monthly_summary_video: bool = True,
         day_for_monthly_summary_video: int = DEFAULT_DAY_FOR_MONTHLY_VIDEO,
         delete_daily_videos_after_monthly_summary_is_created: bool = True,
@@ -111,16 +117,18 @@ class TimeLapseCreator:
 
         self.location = LocationAndTimeManager(
             city_name=city,
-            sunrise_offset=sunrise_offset_minutes,
-            sunset_offset=sunset_offset_minutes,
+            sunrise_offset=self._validate("sunrise_offset_minutes", sunrise_offset_minutes),
+            sunset_offset=self._validate("sunset_offset_minutes", sunset_offset_minutes),
             logger=self.logger,
         )
         self.sources: set[Source] = self.validate_collection(sources)
-        self.wait_before_next_frame = seconds_between_frames
-        self.nighttime_wait_before_next_retry = night_time_retry_seconds
-        self.video_fps = video_fps
-        self.video_width = video_width
-        self.video_height = video_height
+        self.wait_before_next_frame = self._validate("seconds_between_frames", seconds_between_frames)
+        self.nighttime_wait_before_next_retry = self._validate("night_time_retry_seconds", night_time_retry_seconds)
+        self.video_fps = self._validate("video_fps", video_fps)
+        self.video_width = self._validate("video_width", video_width)
+        self.video_height = self._validate("video_height", video_height)
+        self.text_box_position = text_box_position
+        self.text_box_transparency = text_box_transparency
         self.quiet_mode = quiet_mode
         self.video_queue = None
         self.log_queue = log_queue
@@ -128,6 +136,45 @@ class TimeLapseCreator:
         self._day_for_monthly_summary = day_for_monthly_summary_video
         self._delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
         self._test_counter = night_time_retry_seconds
+
+    def _validate(self, attr_name: str, attr_value: int):
+        """
+        Validates the attribute value based on predefined rules.
+
+        This method checks if the provided attribute value is of the correct type and within the allowed range.
+        If the value is not of the correct type, a TypeError is raised. If the value is out of range, a warning
+        is logged, and the attribute value is set to its default value.
+
+        Args:
+            attr_name: str - The name of the attribute to validate.
+            attr_value: int - The value of the attribute to validate.
+
+        Returns:
+            int - The validated attribute value, either the original value if valid or the default value if out of range.
+
+        Raises:
+            TypeError: If the attribute value is not of the expected type.
+        """
+        Attr = NamedTuple("Attr", [("type", type), ("range", range), ("default", int)])
+
+        attrs: dict[str, Attr] = {
+            "sunrise_offset_minutes" : Attr(int, range(1, 301), DEFAULT_SUNRISE_OFFSET),
+            "sunset_offset_minutes" : Attr(int, range(1, 301), DEFAULT_SUNSET_OFFSET),
+            "seconds_between_frames" : Attr(int, range(1, 601), DEFAULT_SECONDS_BETWEEN_FRAMES),
+            "night_time_retry_seconds" : Attr(int, range(1, 601), DEFAULT_NIGHTTIME_RETRY_SECONDS),
+            "video_fps" : Attr(int, range(1, 61), DEFAULT_VIDEO_FPS),
+            "video_width" : Attr(int, range(640, 1921), VIDEO_WIDTH_360p),
+            "video_height" : Attr(int, range(360, 1081), VIDEO_HEIGHT_360p),
+        }
+
+        if not isinstance(attr_value, attrs[attr_name].type):
+            raise TypeError(f"{attr_name} must be of type {attrs[attr_name].type}")
+        
+        if attr_value not in attrs[attr_name].range:
+            self.logger.warning(f"{attr_name} must be in {attrs[attr_name].range}! Setting to default: {attrs[attr_name].default}")
+            attr_value = attrs[attr_name].default
+        
+        return attr_value
 
     def get_cached_self(self) -> TimeLapseCreator:
         """Retrieve the state of the object from the cache. If the retrieved TimeLapseCreator is older
@@ -236,7 +283,7 @@ class TimeLapseCreator:
                             )
                         )
                         if (
-                            dt.now(tz.utc) > self.location.end_of_daylight
+                            self.location.time_now > self.location.end_of_daylight
                             and source.images_collected
                             and not source.images_partially_collected
                             and not source.daily_video_created
@@ -251,7 +298,7 @@ class TimeLapseCreator:
                                     )
                                 self.cache_self()
                         elif (
-                            dt.now(tz.utc) > self.location.end_of_daylight
+                            self.location.time_now > self.location.end_of_daylight
                             and source.images_partially_collected
                             and not source.images_collected
                             and not source.daily_video_created
@@ -315,6 +362,8 @@ class TimeLapseCreator:
                                 weather_data_text=str(source.weather_data_provider)
                                 if source.weather_data_provider
                                 else None,
+                                text_box_position=self.text_box_position,
+                                text_box_transparency=self.text_box_transparency
                             )
 
                             source.increase_images()
@@ -349,7 +398,7 @@ class TimeLapseCreator:
             self.logger.info(
                 f"New day starts! Images will be collected between:\n"
                 f"{LOG_START_INT * ' '}Start time: {self.location.start_of_daylight.strftime(HHMMSS_COLON_FORMAT)}  -->"
-                f"  End time: {self.location.end_of_daylight.strftime(HHMMSS_COLON_FORMAT)}\n"
+                f"  End time: {self.location.end_of_daylight.strftime(HHMMSS_COLON_FORMAT)}"
             )
 
     def create_video(self, source: Source, delete_source_images: bool = True) -> bool:

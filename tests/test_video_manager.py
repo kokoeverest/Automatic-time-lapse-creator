@@ -1,6 +1,7 @@
 from logging import Logger
 import os
 from pathlib import Path
+from typing import Any, Generator
 from unittest.mock import patch, MagicMock
 import numpy as np
 import pytest
@@ -22,7 +23,8 @@ import tests.test_data as td
 from cv2 import VideoWriter
 
 cwd = os.getcwd()
-
+empty_list: list[Any] = []
+emtpy_generetor: Generator[str, Any, None] = (x for x in empty_list)
 
 @pytest.fixture
 def mock_logger():
@@ -61,14 +63,14 @@ def test_create_time_lapse_returns_False_when_images_folder_contains_no_images(
 ):
     # Arrange, Act & Assert
 
-    with patch("src.automatic_time_lapse_creator.video_manager.glob", return_value=[]):
+    with patch("src.automatic_time_lapse_creator.video_manager.Path.glob", return_value=emtpy_generetor):
         assert not vm.create_timelapse(
             logger=mock_logger,
             path=tm.mock_path_to_images_folder,
             output_video=tm.mock_output_video_name,
             fps=tm.mock_video_frames_per_second,
         )
-    assert mock_logger.info.call_count == 2
+        assert mock_logger.info.call_count == 2
 
 
 def test_create_timelapse_success(mock_logger: MagicMock):
@@ -78,8 +80,8 @@ def test_create_timelapse_success(mock_logger: MagicMock):
     # Act
     with (
         patch(
-            "src.automatic_time_lapse_creator.video_manager.glob",
-            return_value=tm.mock_images_list,
+            "src.automatic_time_lapse_creator.video_manager.Path.glob",
+            return_value=tm.mock_images_iterator(),
         ) as mock_glob,
         patch("cv2.VideoWriter", return_value=mock_writer),
         patch("cv2.imread", return_value=tm.mock_MatLike),
@@ -92,20 +94,20 @@ def test_create_timelapse_success(mock_logger: MagicMock):
             fps=tm.mock_video_frames_per_second,
         )
 
-    # Assert
-    assert result
-    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
-    assert mock_writer.write.call_count == 10
-    mock_writer.release.assert_called_once()
-    assert mock_logger.info.call_count == 2
+        # Assert
+        assert result
+        mock_glob.assert_called_once_with(f"*{JPG_FILE}")
+        assert mock_writer.write.call_count == 10
+        mock_writer.release.assert_called_once()
+        assert mock_logger.info.call_count == 2
 
 
 def test_create_timelapse_returns_False_if_first_image_is_None(mock_logger: MagicMock):
     # Arrange & Act
     with (
         patch(
-            "src.automatic_time_lapse_creator.video_manager.glob",
-            return_value=tm.mock_images_list,
+            "src.automatic_time_lapse_creator.video_manager.Path.glob",
+            return_value=tm.mock_images_iterator(),
         ) as mock_glob,
         patch("cv2.imread", return_value=None),
     ):
@@ -116,19 +118,19 @@ def test_create_timelapse_returns_False_if_first_image_is_None(mock_logger: Magi
             fps=tm.mock_video_frames_per_second,
         )
 
-    # Assert
-    assert not result
-    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
-    mock_logger.info.assert_called_once()
-    mock_logger.error.assert_called_once()
+        # Assert
+        assert not result
+        mock_glob.assert_called_once_with(f"*{JPG_FILE}")
+        mock_logger.info.assert_called_once()
+        mock_logger.error.assert_called_once()
 
 
 def test_create_timelapse_returns_False_if_exception_occurs(mock_logger: MagicMock):
     # Arrange & Act
     with (
         patch(
-            "src.automatic_time_lapse_creator.video_manager.glob",
-            return_value=tm.mock_images_list,
+            "src.automatic_time_lapse_creator.video_manager.Path.glob",
+            return_value=tm.mock_images_iterator(),
         ) as mock_glob,
         patch("cv2.VideoWriter", return_value=Exception),
     ):
@@ -139,19 +141,19 @@ def test_create_timelapse_returns_False_if_exception_occurs(mock_logger: MagicMo
             fps=tm.mock_video_frames_per_second,
         )
 
-    # Assert
-    assert not result
-    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
-    mock_logger.info.assert_called_once()
-    mock_logger.error.assert_called_once()
+        # Assert
+        assert not result
+        mock_glob.assert_called_once_with(f"*{JPG_FILE}")
+        mock_logger.info.assert_called_once()
+        mock_logger.error.assert_called_once()
 
 
 def test_delete_source_media_files_returns_True_on_success(mock_logger: MagicMock):
     # Arrange & Act
     with (
         patch(
-            "src.automatic_time_lapse_creator.video_manager.glob",
-            return_value=tm.mock_images_list,
+            "src.automatic_time_lapse_creator.video_manager.Path.glob",
+            return_value=tm.mock_images_iterator(),
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",
@@ -162,19 +164,19 @@ def test_delete_source_media_files_returns_True_on_success(mock_logger: MagicMoc
             logger=mock_logger, path=tm.mock_path_to_images_folder
         )
 
-    # Assert
-    assert result
-    assert mock_remove.call_count == 10
-    mock_glob.assert_called_once_with(os.path.join(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}"))
-    mock_logger.info.assert_called_once()
+        # Assert
+        assert result
+        assert mock_remove.call_count == 10
+        mock_glob.assert_called_once_with(os.path.join(f"*{JPG_FILE}"))
+        mock_logger.info.assert_called_once()
 
 
 def test_delete_source_media_files_returns_True_and_warns_if_folder_is_not_empty(mock_logger: MagicMock):
     # Arrange & Act
     with (
         patch(
-            "src.automatic_time_lapse_creator.video_manager.glob",
-            return_value=tm.mock_images_list,
+            "src.automatic_time_lapse_creator.video_manager.Path.glob",
+            return_value=tm.mock_images_iterator(),
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",
@@ -189,15 +191,15 @@ def test_delete_source_media_files_returns_True_and_warns_if_folder_is_not_empty
             logger=mock_logger, path=tm.mock_path_to_images_folder, delete_folder=True
         )
 
-    # Assert
-    assert result
-    assert mock_remove.call_count == 10
-    mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
-    mock_glob.assert_called_once_with(
-        os.path.join(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
-    )
-    mock_logger.warning.assert_called_once()
-    mock_logger.info.assert_called_once()
+        # Assert
+        assert result
+        assert mock_remove.call_count == 10
+        mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
+        mock_glob.assert_called_once_with(
+            os.path.join(f"*{JPG_FILE}")
+        )
+        mock_logger.warning.assert_called_once()
+        mock_logger.info.assert_called_once()
 
 
 def test_delete_source_media_files_returns_True_if_folder_is_removed(
@@ -206,8 +208,8 @@ def test_delete_source_media_files_returns_True_if_folder_is_removed(
     # Arrange & Act
     with (
         patch(
-            "src.automatic_time_lapse_creator.video_manager.glob",
-            return_value=tm.mock_images_list,
+            "src.automatic_time_lapse_creator.video_manager.Path.glob",
+            return_value=tm.mock_images_iterator(),
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",
@@ -226,15 +228,15 @@ def test_delete_source_media_files_returns_True_if_folder_is_removed(
             logger=mock_logger, path=tm.mock_path_to_images_folder, delete_folder=True
         )
 
-    # Assert
-    assert result
-    assert mock_remove.call_count == 10
-    mock_rmdir.assert_called_once()
-    mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
-    mock_glob.assert_called_once_with(
-        os.path.join(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
-    )
-    assert mock_logger.info.call_count == 2
+        # Assert
+        assert result
+        assert mock_remove.call_count == 10
+        mock_rmdir.assert_called_once()
+        mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
+        mock_glob.assert_called_once_with(
+            os.path.join(f"*{JPG_FILE}")
+        )
+        assert mock_logger.info.call_count == 2
 
 
 def test_delete_source_media_files_returns_True_in_case_of_PermissionError(
@@ -243,8 +245,8 @@ def test_delete_source_media_files_returns_True_in_case_of_PermissionError(
     # Arrange & Act
     with (
         patch(
-            "src.automatic_time_lapse_creator.video_manager.glob",
-            return_value=tm.mock_images_list,
+            "src.automatic_time_lapse_creator.video_manager.Path.glob",
+            return_value=tm.mock_images_iterator(),
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",
@@ -263,28 +265,26 @@ def test_delete_source_media_files_returns_True_in_case_of_PermissionError(
             logger=mock_logger, path=tm.mock_path_to_images_folder, delete_folder=True
         )
 
-    # Assert
-    assert result
-    assert mock_remove.call_count == 10
-    mock_rmdir.assert_called_once()
-    mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
-    mock_glob.assert_called_once_with(
-        os.path.join(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
-    )
-    assert mock_logger.info.call_count == 1
-    assert mock_logger.error.call_count == 1
+        # Assert
+        assert result
+        assert mock_remove.call_count == 10
+        mock_rmdir.assert_called_once()
+        mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
+        mock_glob.assert_called_once_with(f"*{JPG_FILE}")
+        assert mock_logger.info.call_count == 1
+        assert mock_logger.error.call_count == 1
 
 
 def test_delete_source_media_files_returns_False_on_Exception(mock_logger: MagicMock):
     # Arrange & Act
     with (
         patch(
-            "src.automatic_time_lapse_creator.video_manager.glob",
-            return_value=Exception,
+            "src.automatic_time_lapse_creator.video_manager.Path.glob",
+            side_effect=Exception,
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",
-            return_value=Exception,
+            side_effect=Exception,
         ) as mock_remove,
     ):
         result = vm.delete_source_media_files(
@@ -294,7 +294,7 @@ def test_delete_source_media_files_returns_False_on_Exception(mock_logger: Magic
     # Assert
     assert not result
     assert mock_remove.call_count == 0
-    mock_glob.assert_called_once_with(f"{tm.mock_path_to_images_folder}/*{JPG_FILE}")
+    mock_glob.assert_called_once_with(f"*{JPG_FILE}")
     mock_logger.error.assert_called_once()
 
 
@@ -307,8 +307,6 @@ def test_save_image_with_weather_overlay_saves_image_successfully():
         patch(
             "cv2.resize", return_value=np.zeros((VIDEO_HEIGHT_360p, VIDEO_WIDTH_360p, 3), dtype=np.uint8)
         ) as mock_resize,
-        patch("cv2.getTextSize", return_value=((100, 20), 10)) as mock_text_size,
-        patch("cv2.putText") as mock_put_text,
         patch("cv2.imwrite", return_value=True) as mock_imwrite,
     ):
         # Act
@@ -325,8 +323,6 @@ def test_save_image_with_weather_overlay_saves_image_successfully():
         assert result
         mock_imdecode.assert_called_once()
         mock_resize.assert_called_once()
-        mock_text_size.assert_called_once()
-        mock_put_text.assert_called_once()
         mock_imwrite.assert_called_once()
 
 
@@ -536,3 +532,8 @@ def test_create_monthly_summary_video_handles_exceptions(
 
     assert not result
     mock_logger.error.assert_called_once()
+
+def test_create_monthly_summary_video_skips_if_output_exists(mock_logger: MagicMock, mock_video_paths: list[str]):
+    # Act & Assert
+    with patch("src.automatic_time_lapse_creator.video_manager.os.path.exists", return_value=True):
+        assert not vm.create_monthly_summary_video(mock_logger, mock_video_paths, "output.mp4", mock_logger)

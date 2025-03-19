@@ -7,6 +7,7 @@ class Source(ABC):
     location_name: str
     url: str
     weather_data_provider: WeatherStationInfo | None
+    owner: str | None
     def __init__(
         self,
         location_name: str,
@@ -14,6 +15,7 @@ class Source(ABC):
         logger: Logger | None = ...,
         weather_data_on_images: bool = ...,
         weather_data_provider: WeatherStationInfo | None = ...,
+        owner: str | None = ...,
     ) -> None: ...
     @property
     def has_weather_data(self) -> bool: ...
