@@ -41,9 +41,11 @@ class TimeLapseCreator:
     video_fps: int
     video_width: int
     video_height: int
+    delete_collected_daily_images: bool = ...
+    delete_daily_videos_after_monthly_summary_is_created: bool = True
     text_box_position: type[box.TextBox] | None = ...
     text_box_transparency: float = ...
-    quiet_mode: bool
+    quiet_mode: bool = True
     video_queue: Queue[Any | None] | None = ...
     log_queue: Queue[Any] | None = ...
     logger: Logger
@@ -63,6 +65,7 @@ class TimeLapseCreator:
         log_queue: Queue[Any] | None = ...,
         create_monthly_summary_video: bool = ...,
         day_for_monthly_summary_video: int = ...,
+        delete_collected_daily_images: bool = ...,
         delete_daily_videos_after_monthly_summary_is_created: bool = ...,
         sunrise_offset_minutes: int = ...,
         sunset_offset_minutes: int = ...,

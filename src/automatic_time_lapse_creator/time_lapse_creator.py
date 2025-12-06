@@ -104,6 +104,7 @@ class TimeLapseCreator:
         text_box_transparency: float = TextBox.TRANSPARENCY_MID,
         create_monthly_summary_video: bool = True,
         day_for_monthly_summary_video: int = DEFAULT_DAY_FOR_MONTHLY_VIDEO,
+        delete_collected_daily_images: bool = True,
         delete_daily_videos_after_monthly_summary_is_created: bool = True,
         quiet_mode: bool = True,
         log_queue: Queue[Any] | None = None,
@@ -132,6 +133,7 @@ class TimeLapseCreator:
         self.quiet_mode = quiet_mode
         self.video_queue = None
         self.log_queue = log_queue
+        self.delete_collected_daily_images = delete_collected_daily_images
         self._monthly_summary = create_monthly_summary_video
         self._day_for_monthly_summary = day_for_monthly_summary_video
         self._delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
@@ -288,7 +290,7 @@ class TimeLapseCreator:
                             and not source.images_partially_collected
                             and not source.daily_video_created
                         ):
-                            if self.create_video(source):
+                            if self.create_video(source, self.delete_collected_daily_images):
                                 source.set_daily_video_created()
                                 if self.video_queue is not None:
                                     self.video_queue.put(

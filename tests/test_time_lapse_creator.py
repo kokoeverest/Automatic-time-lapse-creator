@@ -742,7 +742,7 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
             fake_non_empty_time_lapse_creator.sources
         )
         for source in fake_non_empty_time_lapse_creator.sources:
-            mock_create_video.assert_called_once_with(source)
+            mock_create_video.assert_called_once_with(source, fake_non_empty_time_lapse_creator.delete_collected_daily_images)
             assert source.daily_video_created
 
         # Tear down
@@ -789,7 +789,9 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
 
         for source in fake_non_empty_time_lapse_creator.sources:
             source.set_images_partially_collected()
-
+            # TODO: this behavior should be controlled inside the method according to the 
+            # images - partially collected or collected fully
+        fake_non_empty_time_lapse_creator.delete_collected_daily_images = False
         fake_non_empty_time_lapse_creator.execute()
         assert mock_logger_info.call_count == 1
         assert mock_cache.call_count == 1
@@ -800,7 +802,7 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
         )
         for source in fake_non_empty_time_lapse_creator.sources:
             mock_create_video.assert_called_once_with(
-                source, delete_source_images=False
+                source, delete_source_images=fake_non_empty_time_lapse_creator.delete_collected_daily_images
             )
             assert source.daily_video_created
 

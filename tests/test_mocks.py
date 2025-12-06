@@ -44,8 +44,9 @@ def mock_mat_like():
 
     return mat_like
 
-def mock_images_iterator():
-    return (mock_jpg_file(x) for x in range(1, 11))
+def mock_images_list():
+    """Mock list containing 10 fake files"""
+    return list(mock_jpg_file(x) for x in range(1, 11))
 
 mock_image = mock_jpg_file()
 mock_MatLike = mock_mat_like()

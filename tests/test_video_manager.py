@@ -81,7 +81,7 @@ def test_create_timelapse_success(mock_logger: MagicMock):
     with (
         patch(
             "src.automatic_time_lapse_creator.video_manager.Path.glob",
-            return_value=tm.mock_images_iterator(),
+            return_value=tm.mock_images_list(),
         ) as mock_glob,
         patch("cv2.VideoWriter", return_value=mock_writer),
         patch("cv2.imread", return_value=tm.mock_MatLike),
@@ -107,7 +107,7 @@ def test_create_timelapse_returns_False_if_first_image_is_None(mock_logger: Magi
     with (
         patch(
             "src.automatic_time_lapse_creator.video_manager.Path.glob",
-            return_value=tm.mock_images_iterator(),
+            return_value=tm.mock_images_list(),
         ) as mock_glob,
         patch("cv2.imread", return_value=None),
     ):
@@ -130,7 +130,7 @@ def test_create_timelapse_returns_False_if_exception_occurs(mock_logger: MagicMo
     with (
         patch(
             "src.automatic_time_lapse_creator.video_manager.Path.glob",
-            return_value=tm.mock_images_iterator(),
+            return_value=tm.mock_images_list(),
         ) as mock_glob,
         patch("cv2.VideoWriter", return_value=Exception),
     ):
@@ -153,7 +153,7 @@ def test_delete_source_media_files_returns_True_on_success(mock_logger: MagicMoc
     with (
         patch(
             "src.automatic_time_lapse_creator.video_manager.Path.glob",
-            return_value=tm.mock_images_iterator(),
+            return_value=tm.mock_images_list(),
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",
@@ -176,7 +176,7 @@ def test_delete_source_media_files_returns_True_and_warns_if_folder_is_not_empty
     with (
         patch(
             "src.automatic_time_lapse_creator.video_manager.Path.glob",
-            return_value=tm.mock_images_iterator(),
+            return_value=tm.mock_images_list(),
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",
@@ -209,7 +209,7 @@ def test_delete_source_media_files_returns_True_if_folder_is_removed(
     with (
         patch(
             "src.automatic_time_lapse_creator.video_manager.Path.glob",
-            return_value=tm.mock_images_iterator(),
+            return_value=tm.mock_images_list(),
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",
@@ -246,7 +246,7 @@ def test_delete_source_media_files_returns_True_in_case_of_PermissionError(
     with (
         patch(
             "src.automatic_time_lapse_creator.video_manager.Path.glob",
-            return_value=tm.mock_images_iterator(),
+            return_value=tm.mock_images_list(),
         ) as mock_glob,
         patch(
             "src.automatic_time_lapse_creator.video_manager.os.remove",

@@ -268,14 +268,14 @@ class StreamSource(Source):
         """
         _url = self.get_url_with_yt_dlp(url) if "youtube.com/watch?v=" in url else url
 
+        cap = cv2.VideoCapture(_url)
         try:
-            cap = cv2.VideoCapture(_url)
-
             ret, _ = cap.read()
             if not ret:
                 self.logger.warning(
                     f"{self.location_name}: {_url} is not a valid url and will be ignored!"
                 )
+                cap.release()
                 return False
 
             cap.release()
@@ -283,7 +283,8 @@ class StreamSource(Source):
             return True
 
         except Exception as e:
-            self.logger.error(f"An error occurred: {e}")
+            self.logger.error(f"An error occurred while validating stream url: {e}")
+            cap.release()
             return False
 
     def get_frame_bytes(self) -> bytes | None:
@@ -298,19 +299,20 @@ class StreamSource(Source):
             if "youtube.com/watch?v=" in self.url
             else self.url
         )
+        cap = cv2.VideoCapture(_url)
         try:
-            cap = cv2.VideoCapture(_url)
-
             ret, frame = cap.read()
             if not ret:
                 self.logger.warning(
                     f"Failed to retrieve a frame from {self.location_name} video stream."
                 )
+                cap.release()
                 return None
 
             success, buffer = cv2.imencode(".jpg", frame)
             if not success:
                 self.logger.warning("Failed to encode frame to JPEG format.")
+                cap.release()
                 return None
 
             cap.release()
@@ -318,4 +320,5 @@ class StreamSource(Source):
 
         except Exception as e:
             self.logger.error(f"{self.location_name}: {e}")
+            cap.release()
             raise e
