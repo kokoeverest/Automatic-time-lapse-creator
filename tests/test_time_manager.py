@@ -11,8 +11,8 @@ from src.automatic_time_lapse_creator.common.exceptions import (
 )
 from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_CITY_NAME,
-    DEFAULT_SUNSET_OFFSET,
-    DEFAULT_SUNRISE_OFFSET,
+    DEFAULT_SUNSET_OFFSET_MINUTES,
+    DEFAULT_SUNRISE_OFFSET_MINUTES,
 )
 import tests.test_data as td
 import tests.test_mocks as tm
@@ -25,8 +25,8 @@ logger = MagicMock(spec=Logger)
 def sample_LocationAndTimeManager():
     return LocationAndTimeManager(
         city_name=DEFAULT_CITY_NAME,
-        sunrise_offset=DEFAULT_SUNRISE_OFFSET,
-        sunset_offset=DEFAULT_SUNSET_OFFSET,
+        sunrise_offset=DEFAULT_SUNRISE_OFFSET_MINUTES,
+        sunset_offset=DEFAULT_SUNSET_OFFSET_MINUTES,
         logger=logger,
     )
 
@@ -41,8 +41,8 @@ def test_LocationAndTimeManager_raises_UnknownLocationException_if_city_is_not_f
         with pytest.raises(UnknownLocationException):
             LocationAndTimeManager(
                 city_name=td.invalid_city_name,
-                sunrise_offset=DEFAULT_SUNRISE_OFFSET,
-                sunset_offset=DEFAULT_SUNSET_OFFSET,
+                sunrise_offset=DEFAULT_SUNRISE_OFFSET_MINUTES,
+                sunset_offset=DEFAULT_SUNSET_OFFSET_MINUTES,
                 logger=logger,
             )
         assert mock_logger.call_count == 1
@@ -58,8 +58,8 @@ def test_LocationAndTimeManager_raises_NotImplementedError_if_city_is_a_GroupInf
         with pytest.raises(NotImplementedError):
             LocationAndTimeManager(
                 city_name=td.group_name,
-                sunrise_offset=DEFAULT_SUNRISE_OFFSET,
-                sunset_offset=DEFAULT_SUNSET_OFFSET,
+                sunrise_offset=DEFAULT_SUNRISE_OFFSET_MINUTES,
+                sunset_offset=DEFAULT_SUNSET_OFFSET_MINUTES,
                 logger=logger,
             )
         assert mock_logger.call_count == 1

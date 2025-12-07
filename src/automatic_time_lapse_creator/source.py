@@ -71,6 +71,7 @@ class Source(ABC):
         self._daily_video_created: bool = False
         self._monthly_video_created: bool = False
         self._images_count: int = 0
+        self._daily_videos_count: int = 0
         self._all_images_collected: bool = False
         self._images_partially_collected: bool = False
 
@@ -125,6 +126,17 @@ class Source(ABC):
             int: The total number of images collected.
         """
         return self._images_count
+    
+    @property
+    def daily_videos_count(self) -> int:
+        """
+        Retrieves the number of daily videos collected from this source 
+        and used for creation of a monthly summary video.
+
+        Returns:
+            int: The total number of videos collected.
+        """
+        return self._daily_videos_count
 
     @property
     def daily_video_created(self) -> bool:
@@ -169,6 +181,14 @@ class Source(ABC):
     def reset_images_counter(self) -> None:
         """Resets the images count to 0"""
         self._images_count = 0
+
+    def set_videos_count(self, count: int) -> None:
+        """Set the count of the daily videos to the specified count"""
+        self._daily_videos_count = count
+
+    def reset_daily_videos_counter(self) -> None:
+        """Resets the daily videos count to 0"""
+        self._daily_videos_count = 0
 
     def set_all_images_collected(self) -> None:
         """Sets the self._all_images_collected to True"""

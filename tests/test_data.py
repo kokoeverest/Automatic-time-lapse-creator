@@ -25,6 +25,7 @@ with patch.object(ImageSource, "validate_url", return_value=False):
     sample_source_with_empty_url = ImageSource("fake", empty_url)
 
 empty_dict = {}
+sample_count = 40
 
 sample_base_path = os.path.join("base", "path")
 sample_folder_name_01 = "2020-01-01"

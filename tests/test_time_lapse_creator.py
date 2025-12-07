@@ -16,8 +16,8 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_FPS,
     VIDEO_HEIGHT_360p,
     VIDEO_WIDTH_360p,
-    DEFAULT_SUNSET_OFFSET,
-    DEFAULT_SUNRISE_OFFSET,
+    DEFAULT_SUNSET_OFFSET_MINUTES,
+    DEFAULT_SUNRISE_OFFSET_MINUTES,
     
 )
 from src.automatic_time_lapse_creator.source import Source
@@ -69,10 +69,10 @@ def test_initializes_correctly_with_default_config(
     assert isinstance(sample_empty_time_lapse_creator.sources, set)
     assert isinstance(sample_empty_time_lapse_creator.location.city, LocationInfo)
     assert isinstance(sample_empty_time_lapse_creator.logger, Logger)
-    assert isinstance(sample_empty_time_lapse_creator.location.sunrise_offset, timedelta)
-    assert isinstance(sample_empty_time_lapse_creator.location.sunset_offset, timedelta)
-    assert sample_empty_time_lapse_creator.location.sunrise_offset.seconds == DEFAULT_SUNRISE_OFFSET * 60
-    assert sample_empty_time_lapse_creator.location.sunset_offset.seconds == DEFAULT_SUNSET_OFFSET * 60
+    assert isinstance(sample_empty_time_lapse_creator.location.sunrise_offset_minutes, timedelta)
+    assert isinstance(sample_empty_time_lapse_creator.location.sunset_offset_minutes, timedelta)
+    assert sample_empty_time_lapse_creator.location.sunrise_offset_minutes.seconds == DEFAULT_SUNRISE_OFFSET_MINUTES * 60
+    assert sample_empty_time_lapse_creator.location.sunset_offset_minutes.seconds == DEFAULT_SUNSET_OFFSET_MINUTES * 60
     assert sample_empty_time_lapse_creator.location.city.name == DEFAULT_CITY_NAME
     assert sample_empty_time_lapse_creator.folder_name == dt.today().strftime(
         YYMMDD_FORMAT
@@ -128,9 +128,9 @@ def test_validate_logs_warning_for_out_of_range_value(sample_empty_time_lapse_cr
     with patch.object(sample_empty_time_lapse_creator.logger, "warning", return_value=None) as mock_warning:
         result = sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", out_of_range_value) # type: ignore
         mock_warning.assert_called_once_with(
-            f"sunrise_offset_minutes must be in range(1, 301)! Setting to default: {DEFAULT_SUNRISE_OFFSET}"
+            f"sunrise_offset_minutes must be in range(1, 301)! Setting to default: {DEFAULT_SUNRISE_OFFSET_MINUTES}"
         )
-        assert result == DEFAULT_SUNRISE_OFFSET
+        assert result == DEFAULT_SUNRISE_OFFSET_MINUTES
 
 
 def test_validate_raises_KeyError_for_invalid_attr_name(sample_empty_time_lapse_creator: TimeLapseCreator):
@@ -1209,7 +1209,7 @@ def test_create_monthly_video_creates_video_and_keeps_existing_daily_videos(
         
         sample_non_empty_time_lapse_creator._delete_daily_videos = False # type: ignore
         # Act
-        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+        video_path, video_files_count = sample_non_empty_time_lapse_creator.create_monthly_video(
             base_path=td.sample_base_path,
             year=td.sample_year,
             month=td.sample_month_january,
@@ -1231,7 +1231,9 @@ def test_create_monthly_video_creates_video_and_keeps_existing_daily_videos(
         assert mock_delete_media_files.call_count == 0
         assert mock_path_split.call_count == 0
         assert mock_path_join.call_count == 2
-        assert result == video_folder_name
+        assert video_path == video_folder_name
+        assert isinstance(video_files_count, int)
+        assert video_files_count > 0
         assert mock_logger.call_count == 1
 
 
@@ -1263,7 +1265,7 @@ def test_create_monthly_video_no_video_files(
         ) as mock_logger_warning,
     ):
         # Act
-        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+        video_path, video_files_count = sample_non_empty_time_lapse_creator.create_monthly_video(
             base_path=td.sample_base_path,
             year=td.sample_year,
             month=td.sample_month_february,
@@ -1280,7 +1282,8 @@ def test_create_monthly_video_no_video_files(
         )
         mock_shorten.assert_called_once_with(output_video_name)
         assert mock_shorten.call_count == 1
-        assert result is None
+        assert video_path is None
+        assert video_files_count is None
 
 
 def test_create_monthly_video_deletes_source_files(
@@ -1307,7 +1310,7 @@ def test_create_monthly_video_deletes_source_files(
         ) as mock_delete_source_media_files,
     ):
         # Act
-        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+        new_video_path, video_files_count = sample_non_empty_time_lapse_creator.create_monthly_video(
             base_path=td.sample_base_path,
             year=td.sample_year,
             month=td.sample_month_january,
@@ -1334,7 +1337,9 @@ def test_create_monthly_video_deletes_source_files(
                 extension=MP4_FILE,
                 delete_folder=True,
             )
-        assert result == video_folder_name
+        assert new_video_path == video_folder_name
+        assert isinstance(video_files_count, int)
+        assert video_files_count > 0
 
 
 def test_is_next_month_true(
@@ -1469,7 +1474,7 @@ def test_process_monthly_summary_creates_videos_and_sends_to_queue(
         patch.object(
             sample_non_empty_time_lapse_creator,
             "create_monthly_video",
-            return_value=td.sample_video_file1,
+            return_value=(td.sample_video_file1, 1),
         ) as mock_create_video,
         patch.object(
             sample_non_empty_time_lapse_creator.logger, "info"
@@ -1533,7 +1538,7 @@ def test_process_monthly_summary_no_video_queue(
         patch.object(
             sample_non_empty_time_lapse_creator,
             "create_monthly_video",
-            return_value=td.sample_video_file1,
+            return_value=(td.sample_video_file1, 1),
         ) as mock_create_video,
         patch.object(
             sample_non_empty_time_lapse_creator.logger, "info"

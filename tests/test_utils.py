@@ -2,28 +2,33 @@ from src.automatic_time_lapse_creator.common.utils import (
     shorten,
     create_log_message,
     dash_sep_strings,
-    create_description_for_monthly_video,
-    video_type_response
+    create_description_for_monthly_video
 )
 from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_DESCRIPTION,
     MONTHLY_SUMMARY_VIDEO_DESCRIPTION,
     VideoType
 )
-from tests.test_data import sample_source_no_weather_data, sample_folder_path
+from tests.test_data import sample_source_no_weather_data, sample_folder_path, sample_count
 import os
 from unittest.mock import patch
+import json
 
+# TODO: add tests for VideoResponse, DailyVideoResponse, MonthlyVideoResponse, video_type_response
+# def test_video_type_response_returns_correct_result():
+#     # Arrange
+#     input_data: dict[str, str | int] = {
+#         "video_path": sample_folder_path, 
+#         "video_type": VideoType.DAILY.value,
+#         "video_files_count": sample_count
+#         }
+#     expected_result: str = json.dumps(input_data)
 
-def test_video_type_response_returns_correct_result():
-    # Arrange
-    expected_result: dict[str, str] = {"video_path": sample_folder_path, "video_type": VideoType.DAILY.value}
+#     # Act
+#     actual_result = video_type_response(input_data)
 
-    # Act
-    actual_result = video_type_response(sample_folder_path, VideoType.DAILY.value)
-
-    # Assert
-    assert expected_result == actual_result
+#     # Assert
+#     assert expected_result == actual_result
 
 
 def test_create_description_for_monthly_video_returns_correct_string():

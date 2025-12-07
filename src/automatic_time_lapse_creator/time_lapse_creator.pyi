@@ -24,7 +24,7 @@ from .common.exceptions import (
     InvalidCollectionException as InvalidCollectionException,
     InvalidStatusCodeException as InvalidStatusCodeException,
 )
-from .common.utils import create_log_message as create_log_message
+from .common.utils import create_log_message as create_log_message, VideoResponse as VideoResponse
 from .source import Source as Source
 from .time_manager import LocationAndTimeManager as LocationAndTimeManager
 from . import text_box as box
@@ -109,11 +109,12 @@ class TimeLapseCreator:
         month: str,
         delete_source_files: bool = ...,
         extension: str = ...,
-    ) -> str | None: ...
+    ) -> tuple[str, int] | tuple[None, None]: ...
     def is_next_month(self) -> bool: ...
     def process_monthly_summary(self) -> None: ...
     def get_previous_year_and_month(self) -> str: ...
-
+    def create_response_with_metadata(self, video_path: str, video_type: str, source: Source) -> VideoResponse: ...
+    def add_metadata(self, response: VideoResponse) -> VideoResponse: ...
 #     class TimeLapseCreator(ABC):
 #     base_path: str
 #     folder_name: str
