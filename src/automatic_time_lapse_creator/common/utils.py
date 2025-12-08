@@ -5,27 +5,27 @@ from .constants import (
     DEFAULT_VIDEO_DESCRIPTION,
     MONTHLY_SUMMARY_VIDEO_DESCRIPTION,
     MONTH_NAMES,
+    VideoType
 )
 
 
 class VideoResponse(ABC):
-    video_type: str
-    source_location_name: str | None
-    wait_before_next_frame: int | None
-    nighttime_wait_before_next_retry: int | None
-    video_fps: int | None
-    video_width: int | None
-    video_height: int | None
-    delete_collected_daily_images: bool | None
-    delete_daily_videos_after_monthly_summary_is_created: bool | None
-    location_city_name: str | None
-    location_city_tz: str | None
-    location_sunrise_offset_minutes: int | None
-    location_sunset_offset_minutes: int | None
-
     def __init__(self, video_path: str, video_created: bool) -> None:
         self.video_path = video_path
         self.video_created = video_created
+        self.video_type: str
+        self.video_fps: int | None = None
+        self.video_width: int | None = None
+        self.video_height: int | None = None
+        self.location_city_tz: str | None = None
+        self.location_city_name: str | None = None
+        self.source_location_name: str | None = None
+        self.wait_before_next_frame: int | None = None
+        self.delete_collected_daily_images: bool | None = None
+        self.location_sunset_offset_minutes: int | None = None
+        self.location_sunrise_offset_minutes: int | None = None
+        self.nighttime_wait_before_next_retry: int | None = None
+        self.delete_daily_videos_after_monthly_summary_is_created: bool | None = None
 
     def to_json(self):
         return json.dumps(self.__dict__)
@@ -33,15 +33,14 @@ class VideoResponse(ABC):
 class DailyVideoResponse(VideoResponse):
     def __init__(
             self, 
-            video_path: str, 
-            video_type: str, 
+            video_path: str,
             images_count: int, 
             video_created: bool, 
             all_images_collected: bool,
             images_partially_collected: bool
     ) -> None:
         super().__init__(video_path = video_path, video_created=video_created)
-        self.video_type = video_type
+        self.video_type = VideoType.DAILY.value
         self.images_count = images_count
         self.all_images_collected = all_images_collected
         self.images_partially_collected = images_partially_collected
@@ -50,12 +49,11 @@ class MonthlyVideoResponse(VideoResponse):
     def __init__(
             self, 
             video_path: str, 
-            video_created: bool, 
-            video_type: str, 
+            video_created: bool,
             video_files_count: int
     ) -> None:
         super().__init__(video_path, video_created)
-        self.video_type = video_type
+        self.video_type = VideoType.MONTHLY.value
         self.video_files_count= video_files_count
 
 

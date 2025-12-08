@@ -77,6 +77,8 @@ class MockDatetime:
     fake_day_for_a_monthly_video = datetime(year=2024, month=1, day=DEFAULT_DAY_FOR_MONTHLY_VIDEO)
     fake_now = datetime(year=2024, month=2, day=DEFAULT_DAY_FOR_MONTHLY_VIDEO, hour=3)
     fake_now_wrong_hour = fake_day_for_a_monthly_video
+    fake_longest_day_of_the_year = datetime(year=2024, month=6, day=21)
+    fake_shortest_day_of_the_year = datetime(year=2024, month=12, day=21)
 
 mock_youTubeAuth = Mock(spec=YouTubeAuth)
 

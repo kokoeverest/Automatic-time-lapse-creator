@@ -2,7 +2,9 @@ from src.automatic_time_lapse_creator.common.utils import (
     shorten,
     create_log_message,
     dash_sep_strings,
-    create_description_for_monthly_video
+    create_description_for_monthly_video,
+    DailyVideoResponse,
+    MonthlyVideoResponse
 )
 from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_DESCRIPTION,
@@ -14,22 +16,74 @@ import os
 from unittest.mock import patch
 import json
 
-# TODO: add tests for VideoResponse, DailyVideoResponse, MonthlyVideoResponse, video_type_response
-# def test_video_type_response_returns_correct_result():
-#     # Arrange
-#     input_data: dict[str, str | int] = {
-#         "video_path": sample_folder_path, 
-#         "video_type": VideoType.DAILY.value,
-#         "video_files_count": sample_count
-#         }
-#     expected_result: str = json.dumps(input_data)
 
-#     # Act
-#     actual_result = video_type_response(input_data)
+def test_daily_video_response_returns_correct_json():
+    # Arrange
+    instance = DailyVideoResponse(
+        video_path=sample_folder_path,
+        images_count=sample_count,
+        video_created=True,
+        all_images_collected=True,
+        images_partially_collected=False
+    )
 
-#     # Assert
-#     assert expected_result == actual_result
+    # Act
+    response_json = instance.to_json()
+    expexted_result = json.loads(response_json)
+    
+    # Assert
+    assert "video_files_count" not in expexted_result
+    assert "images_count" in expexted_result
+    assert "all_images_collected" in expexted_result
+    assert "images_partially_collected" in expexted_result
+    assert expexted_result["video_fps"] is None
+    assert expexted_result["video_width"] is None
+    assert expexted_result["video_height"] is None
+    assert expexted_result["video_path"] is not None
+    assert expexted_result["location_city_tz"] is None
+    assert expexted_result["video_created"] is not None
+    assert expexted_result["location_city_name"] is None
+    assert expexted_result["source_location_name"] is None
+    assert expexted_result["wait_before_next_frame"] is None
+    assert expexted_result["video_type"] == VideoType.DAILY.value
+    assert expexted_result["delete_collected_daily_images"] is None
+    assert expexted_result["location_sunset_offset_minutes"] is None
+    assert expexted_result["location_sunrise_offset_minutes"] is None
+    assert expexted_result["nighttime_wait_before_next_retry"] is None
+    assert expexted_result["delete_daily_videos_after_monthly_summary_is_created"] is None
 
+def test_monthly_video_response_returns_correct_json():
+    # Arrange
+    instance = MonthlyVideoResponse(
+        video_path=sample_folder_path,
+        video_files_count=sample_count,
+        video_created=True,
+    )
+
+    # Act
+    response_json = instance.to_json()
+    expexted_result = json.loads(response_json)
+    
+    # Assert
+    assert "video_files_count" in expexted_result
+    assert "images_count" not in expexted_result
+    assert "all_images_collected" not in expexted_result
+    assert "images_partially_collected" not in expexted_result
+    assert expexted_result["video_fps"] is None
+    assert expexted_result["video_width"] is None
+    assert expexted_result["video_height"] is None
+    assert expexted_result["video_path"] is not None
+    assert expexted_result["location_city_tz"] is None
+    assert expexted_result["video_created"] is not None
+    assert expexted_result["location_city_name"] is None
+    assert expexted_result["source_location_name"] is None
+    assert expexted_result["wait_before_next_frame"] is None
+    assert expexted_result["video_type"] == VideoType.MONTHLY.value
+    assert expexted_result["delete_collected_daily_images"] is None
+    assert expexted_result["location_sunset_offset_minutes"] is None
+    assert expexted_result["location_sunrise_offset_minutes"] is None
+    assert expexted_result["nighttime_wait_before_next_retry"] is None
+    assert expexted_result["delete_daily_videos_after_monthly_summary_is_created"] is None
 
 def test_create_description_for_monthly_video_returns_correct_string():
     # Arrange

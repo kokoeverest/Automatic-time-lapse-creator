@@ -30,6 +30,10 @@ from .common.constants import (
     DEFAULT_DAY_FOR_MONTHLY_VIDEO,
     DEFAULT_SUNRISE_OFFSET_MINUTES,
     DEFAULT_SUNSET_OFFSET_MINUTES,
+    OFFSETS_VALIDATION_RANGE,
+    ONE_SECOND_SIX_HUNDRED_SECONDS,
+    ONE_AND_SIXTY,
+
     LOG_START_INT,
     VideoType,
 )
@@ -162,12 +166,12 @@ class TimeLapseCreator:
         Attr = NamedTuple("Attr", [("type", type), ("range", range), ("default", int)])
 
         attrs: dict[str, Attr] = {
-            "sunrise_offset_minutes" : Attr(int, range(1, 301), DEFAULT_SUNRISE_OFFSET_MINUTES),
-            "sunset_offset_minutes" : Attr(int, range(1, 301), DEFAULT_SUNSET_OFFSET_MINUTES),
-            "seconds_between_frames" : Attr(int, range(1, 601), DEFAULT_SECONDS_BETWEEN_FRAMES),
-            "night_time_retry_seconds" : Attr(int, range(1, 601), DEFAULT_NIGHTTIME_RETRY_SECONDS),
-            "video_fps" : Attr(int, range(1, 61), DEFAULT_VIDEO_FPS),
-            "video_width" : Attr(int, range(640, 1921 * 4), VIDEO_WIDTH_360p), # TODO: increase these ranges
+            "sunrise_offset_minutes" : Attr(int, range(*OFFSETS_VALIDATION_RANGE), DEFAULT_SUNRISE_OFFSET_MINUTES),
+            "sunset_offset_minutes" : Attr(int, range(*OFFSETS_VALIDATION_RANGE), DEFAULT_SUNSET_OFFSET_MINUTES),
+            "seconds_between_frames" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_SECONDS_BETWEEN_FRAMES),
+            "night_time_retry_seconds" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_NIGHTTIME_RETRY_SECONDS),
+            "video_fps" : Attr(int, range(*ONE_AND_SIXTY), DEFAULT_VIDEO_FPS),
+            "video_width" : Attr(int, range(640, 1921 * 4), VIDEO_WIDTH_360p),
             "video_height" : Attr(int, range(360, 1081 * 4), VIDEO_HEIGHT_360p),
         }
 
@@ -792,7 +796,6 @@ class TimeLapseCreator:
         match video_type:
             case VideoType.MONTHLY.value:
                 response = MonthlyVideoResponse(
-                    video_type=video_type,
                     video_path=video_path,
                     video_files_count=source.daily_videos_count,
                     video_created=source.monthly_video_created
@@ -800,7 +803,6 @@ class TimeLapseCreator:
             case VideoType.DAILY.value:
                 response = DailyVideoResponse(
                     video_path=video_path,
-                    video_type=video_type,
                     images_count=source.images_count,
                     video_created=source.daily_video_created,
                     all_images_collected=source.images_collected,
@@ -815,7 +817,7 @@ class TimeLapseCreator:
         return response.to_json()
     
     def add_metadata(self, response: VideoResponse):
-        """"""
+        """Add metadata about the state of the TimaLapseCreator at the time of the video creation"""
         response.wait_before_next_frame = self.wait_before_next_frame
         response.nighttime_wait_before_next_retry = self.nighttime_wait_before_next_retry
         response.video_fps = self.video_fps

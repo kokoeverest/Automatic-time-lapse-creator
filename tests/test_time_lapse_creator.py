@@ -18,6 +18,7 @@ from src.automatic_time_lapse_creator.common.constants import (
     VIDEO_WIDTH_360p,
     DEFAULT_SUNSET_OFFSET_MINUTES,
     DEFAULT_SUNRISE_OFFSET_MINUTES,
+    VideoType,
     
 )
 from src.automatic_time_lapse_creator.source import Source
@@ -1587,3 +1588,106 @@ def test_get_previous_year_and_month_returns_tuple_with_correct_values(
         sample_empty_time_lapse_creator.folder_name = inp
         result = sample_empty_time_lapse_creator.get_previous_year_and_month()
         assert result == expected[idx]
+
+def test_create_response_with_metadata_returns_None_with_invalid_video_type(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    video_path = td.sample_folder_path
+    unknown_video_type = "unknown"
+    # Act
+    with (
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "warning"
+        ) as mock_logger_warning,
+    ):
+        result = sample_non_empty_time_lapse_creator.create_response_with_metadata(
+            video_path=video_path,
+            video_type=unknown_video_type,
+            source=td.sample_source2_no_weather_data
+        )
+
+    # Assert
+    assert result is None
+    mock_logger_warning.assert_called_once()
+
+def test_create_response_with_metadata_daily_video(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    with (
+        patch.object(sample_non_empty_time_lapse_creator, "add_metadata") as mock_metadata,
+        ):
+        result = sample_non_empty_time_lapse_creator.create_response_with_metadata(
+            td.sample_folder_path,
+            VideoType.DAILY.value,
+            td.sample_source2_no_weather_data
+        )
+        mock_metadata.return_value = td.mock_monthly_video_for_json_response
+        # Assert
+        assert isinstance(result, str)
+        assert td.sample_source2_no_weather_data.location_name in result
+        assert VideoType.DAILY.value in result
+        mock_metadata.assert_called_once()
+    
+
+def test_create_response_with_metadata_monthly_video(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    with (
+        patch.object(sample_non_empty_time_lapse_creator, "add_metadata") as mock_metadata,
+        ):
+        result = sample_non_empty_time_lapse_creator.create_response_with_metadata(
+            td.sample_folder_path,
+            VideoType.MONTHLY.value,
+            td.sample_source2_no_weather_data
+        )
+        mock_metadata.return_value = td.mock_monthly_video_for_json_response
+        # Assert
+        assert isinstance(result, str)
+        assert td.sample_source2_no_weather_data.location_name in result
+        assert VideoType.MONTHLY.value in result
+        mock_metadata.assert_called_once()
+    
+def test_add_metadata_to_monthly_video_type(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    expected_result = sample_non_empty_time_lapse_creator.add_metadata(td.mock_monthly_video_for_json_response)
+    # Assert
+    assert expected_result.video_fps is not None
+    assert expected_result.video_width is not None
+    assert expected_result.video_height is not None
+    assert expected_result.video_path is not None
+    assert expected_result.location_city_tz is not None
+    assert expected_result.video_created is not None
+    assert expected_result.location_city_name is not None
+    assert expected_result.wait_before_next_frame is not None
+    assert expected_result.video_type == VideoType.MONTHLY.value
+    assert expected_result.delete_collected_daily_images is not None
+    assert expected_result.location_sunset_offset_minutes is not None
+    assert expected_result.location_sunrise_offset_minutes is not None
+    assert expected_result.nighttime_wait_before_next_retry is not None
+    assert expected_result.delete_daily_videos_after_monthly_summary_is_created is not None
+
+def test_add_metadata_to_daily_video_type(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    expected_result = sample_non_empty_time_lapse_creator.add_metadata(td.mock_daily_video_for_json_response)
+    # Assert
+    assert expected_result.video_fps is not None
+    assert expected_result.video_width is not None
+    assert expected_result.video_height is not None
+    assert expected_result.video_path is not None
+    assert expected_result.location_city_tz is not None
+    assert expected_result.video_created is not None
+    assert expected_result.location_city_name is not None
+    assert expected_result.wait_before_next_frame is not None
+    assert expected_result.video_type == VideoType.DAILY.value
+    assert expected_result.delete_collected_daily_images is not None
+    assert expected_result.location_sunset_offset_minutes is not None
+    assert expected_result.location_sunrise_offset_minutes is not None
+    assert expected_result.nighttime_wait_before_next_retry is not None
+    assert expected_result.delete_daily_videos_after_monthly_summary_is_created is not None
