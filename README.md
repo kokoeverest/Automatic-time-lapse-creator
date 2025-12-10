@@ -54,6 +54,8 @@ and can be installed via pip:
 videos and folders may not be deleted (they will be deleted by default!).
 
 > ### 🚨 Known issues
+> - If you live in a location which is far North or South and you want to collect images during the night, the maximum sunrise and sunset offsets will make the program behave differently than expected **during the longest days of the year**.
+You can set the sunrise and sunset offsets to a calculated value that is smaller than the maximum allowed in order to avoid this issue. In case you have any questions, please ask on the issues page.
 > - Images are randomly saved into folders: [#5](https://github.com/kokoeverest/Automatic-time-lapse-creator/issues/5) "Cache doesn't work as expected"
 > - For other problems reported, please explore the issues page and check if your problem is already described there.
 
