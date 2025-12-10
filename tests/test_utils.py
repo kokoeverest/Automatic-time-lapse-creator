@@ -29,28 +29,28 @@ def test_daily_video_response_returns_correct_json():
 
     # Act
     response_json = instance.to_json()
-    expexted_result = json.loads(response_json)
+    expected_result = json.loads(response_json)
     
     # Assert
-    assert "video_files_count" not in expexted_result
-    assert "images_count" in expexted_result
-    assert "all_images_collected" in expexted_result
-    assert "images_partially_collected" in expexted_result
-    assert expexted_result["video_fps"] is None
-    assert expexted_result["video_width"] is None
-    assert expexted_result["video_height"] is None
-    assert expexted_result["video_path"] is not None
-    assert expexted_result["location_city_tz"] is None
-    assert expexted_result["video_created"] is not None
-    assert expexted_result["location_city_name"] is None
-    assert expexted_result["source_location_name"] is None
-    assert expexted_result["wait_before_next_frame"] is None
-    assert expexted_result["video_type"] == VideoType.DAILY.value
-    assert expexted_result["delete_collected_daily_images"] is None
-    assert expexted_result["location_sunset_offset_minutes"] is None
-    assert expexted_result["location_sunrise_offset_minutes"] is None
-    assert expexted_result["nighttime_wait_before_next_retry"] is None
-    assert expexted_result["delete_daily_videos_after_monthly_summary_is_created"] is None
+    assert "video_files_count" not in expected_result
+    assert "images_count" in expected_result
+    assert "all_images_collected" in expected_result
+    assert "images_partially_collected" in expected_result
+    assert expected_result["video_fps"] is None
+    assert expected_result["video_width"] is None
+    assert expected_result["video_height"] is None
+    assert expected_result["video_path"] is not None
+    assert expected_result["location_city_tz"] is None
+    assert expected_result["video_created"] is not None
+    assert expected_result["location_city_name"] is None
+    assert expected_result["source_location_name"] is None
+    assert expected_result["wait_before_next_frame"] is None
+    assert expected_result["video_type"] == VideoType.DAILY.value
+    assert expected_result["delete_collected_daily_images"] is None
+    assert expected_result["location_sunset_offset_minutes"] is None
+    assert expected_result["location_sunrise_offset_minutes"] is None
+    assert expected_result["nighttime_wait_before_next_retry"] is None
+    assert expected_result["delete_daily_videos_after_monthly_summary_is_created"] is None
 
 def test_monthly_video_response_returns_correct_json():
     # Arrange
@@ -62,28 +62,28 @@ def test_monthly_video_response_returns_correct_json():
 
     # Act
     response_json = instance.to_json()
-    expexted_result = json.loads(response_json)
+    expected_result = json.loads(response_json)
     
     # Assert
-    assert "video_files_count" in expexted_result
-    assert "images_count" not in expexted_result
-    assert "all_images_collected" not in expexted_result
-    assert "images_partially_collected" not in expexted_result
-    assert expexted_result["video_fps"] is None
-    assert expexted_result["video_width"] is None
-    assert expexted_result["video_height"] is None
-    assert expexted_result["video_path"] is not None
-    assert expexted_result["location_city_tz"] is None
-    assert expexted_result["video_created"] is not None
-    assert expexted_result["location_city_name"] is None
-    assert expexted_result["source_location_name"] is None
-    assert expexted_result["wait_before_next_frame"] is None
-    assert expexted_result["video_type"] == VideoType.MONTHLY.value
-    assert expexted_result["delete_collected_daily_images"] is None
-    assert expexted_result["location_sunset_offset_minutes"] is None
-    assert expexted_result["location_sunrise_offset_minutes"] is None
-    assert expexted_result["nighttime_wait_before_next_retry"] is None
-    assert expexted_result["delete_daily_videos_after_monthly_summary_is_created"] is None
+    assert "video_files_count" in expected_result
+    assert "images_count" not in expected_result
+    assert "all_images_collected" not in expected_result
+    assert "images_partially_collected" not in expected_result
+    assert expected_result["video_fps"] is None
+    assert expected_result["video_width"] is None
+    assert expected_result["video_height"] is None
+    assert expected_result["video_path"] is not None
+    assert expected_result["location_city_tz"] is None
+    assert expected_result["video_created"] is not None
+    assert expected_result["location_city_name"] is None
+    assert expected_result["source_location_name"] is None
+    assert expected_result["wait_before_next_frame"] is None
+    assert expected_result["video_type"] == VideoType.MONTHLY.value
+    assert expected_result["delete_collected_daily_images"] is None
+    assert expected_result["location_sunset_offset_minutes"] is None
+    assert expected_result["location_sunrise_offset_minutes"] is None
+    assert expected_result["nighttime_wait_before_next_retry"] is None
+    assert expected_result["delete_daily_videos_after_monthly_summary_is_created"] is None
 
 def test_create_description_for_monthly_video_returns_correct_string():
     # Arrange
