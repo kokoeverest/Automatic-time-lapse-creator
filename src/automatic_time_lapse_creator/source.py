@@ -28,6 +28,8 @@ class Source(ABC):
         weather_data_provider: WeatherStationInfo | None - An optional provider for retrieving weather data to overlay on images.
         #### *weather_data_provider will be ignored if the weather_data_on_images is set to True in order to avoid duplicate data.*
 
+        owner: str | None - Optionally you can provide the name of identifier of the owner of the source.
+
         _is_valid_url: bool - Whether the provided URL is a valid for collecting images from.
         _has_weather_data: bool - Whether weather data should be included in images.
         _daily_video_created: bool - Indicates whether a daily video has been successfully created.

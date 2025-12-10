@@ -30,7 +30,8 @@ from .common.constants import (
     DEFAULT_DAY_FOR_MONTHLY_VIDEO,
     DEFAULT_SUNRISE_OFFSET_MINUTES,
     DEFAULT_SUNSET_OFFSET_MINUTES,
-    OFFSETS_VALIDATION_RANGE,
+    SUNSET_OFFSET_VALIDATION_RANGE,
+    SUNRISE_OFFSET_VALIDATION_RANGE,
     ONE_SECOND_SIX_HUNDRED_SECONDS,
     ONE_AND_SIXTY,
 
@@ -87,6 +88,7 @@ class TimeLapseCreator:
         quiet_mode: bool - Whether to suppress frequent log messages.
         create_monthly_summary_video: bool - Whether to generate a monthly summary video.
         day_for_monthly_summary_video: int - The day of the month when the summary video should be created.
+        delete_collected_daily_images: bool - Whether to delete the images after a daily video is created. Defualts to True.
         delete_daily_videos_after_monthly_summary_is_created: bool - Whether to delete daily videos after the monthly summary is generated.
         log_queue: Queue[Any] | None - A queue for handling log messages across processes.
         video_queue: Queue[Any] | None - A queue for managing video creation and upload tasks.
@@ -166,8 +168,8 @@ class TimeLapseCreator:
         Attr = NamedTuple("Attr", [("type", type), ("range", range), ("default", int)])
 
         attrs: dict[str, Attr] = {
-            "sunrise_offset_minutes" : Attr(int, range(*OFFSETS_VALIDATION_RANGE), DEFAULT_SUNRISE_OFFSET_MINUTES),
-            "sunset_offset_minutes" : Attr(int, range(*OFFSETS_VALIDATION_RANGE), DEFAULT_SUNSET_OFFSET_MINUTES),
+            "sunrise_offset_minutes" : Attr(int, range(*SUNRISE_OFFSET_VALIDATION_RANGE), DEFAULT_SUNRISE_OFFSET_MINUTES),
+            "sunset_offset_minutes" : Attr(int, range(*SUNSET_OFFSET_VALIDATION_RANGE), DEFAULT_SUNSET_OFFSET_MINUTES),
             "seconds_between_frames" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_SECONDS_BETWEEN_FRAMES),
             "night_time_retry_seconds" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_NIGHTTIME_RETRY_SECONDS),
             "video_fps" : Attr(int, range(*ONE_AND_SIXTY), DEFAULT_VIDEO_FPS),
