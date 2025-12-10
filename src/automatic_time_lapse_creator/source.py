@@ -28,6 +28,8 @@ class Source(ABC):
         weather_data_provider: WeatherStationInfo | None - An optional provider for retrieving weather data to overlay on images.
         #### *weather_data_provider will be ignored if the weather_data_on_images is set to True in order to avoid duplicate data.*
 
+        owner: str | None - Optionally you can provide the name of identifier of the owner of the source.
+
         _is_valid_url: bool - Whether the provided URL is a valid for collecting images from.
         _has_weather_data: bool - Whether weather data should be included in images.
         _daily_video_created: bool - Indicates whether a daily video has been successfully created.
@@ -71,6 +73,7 @@ class Source(ABC):
         self._daily_video_created: bool = False
         self._monthly_video_created: bool = False
         self._images_count: int = 0
+        self._daily_videos_count: int = 0
         self._all_images_collected: bool = False
         self._images_partially_collected: bool = False
 
@@ -125,6 +128,17 @@ class Source(ABC):
             int: The total number of images collected.
         """
         return self._images_count
+    
+    @property
+    def daily_videos_count(self) -> int:
+        """
+        Retrieves the number of daily videos collected from this source 
+        and used for creation of a monthly summary video.
+
+        Returns:
+            int: The total number of videos collected.
+        """
+        return self._daily_videos_count
 
     @property
     def daily_video_created(self) -> bool:
@@ -169,6 +183,14 @@ class Source(ABC):
     def reset_images_counter(self) -> None:
         """Resets the images count to 0"""
         self._images_count = 0
+
+    def set_videos_count(self, count: int) -> None:
+        """Set the count of the daily videos to the specified count"""
+        self._daily_videos_count = count
+
+    def reset_daily_videos_counter(self) -> None:
+        """Resets the daily videos count to 0"""
+        self._daily_videos_count = 0
 
     def set_all_images_collected(self) -> None:
         """Sets the self._all_images_collected to True"""
@@ -268,14 +290,14 @@ class StreamSource(Source):
         """
         _url = self.get_url_with_yt_dlp(url) if "youtube.com/watch?v=" in url else url
 
+        cap = cv2.VideoCapture(_url)
         try:
-            cap = cv2.VideoCapture(_url)
-
             ret, _ = cap.read()
             if not ret:
                 self.logger.warning(
                     f"{self.location_name}: {_url} is not a valid url and will be ignored!"
                 )
+                cap.release()
                 return False
 
             cap.release()
@@ -283,7 +305,8 @@ class StreamSource(Source):
             return True
 
         except Exception as e:
-            self.logger.error(f"An error occurred: {e}")
+            self.logger.error(f"An error occurred while validating stream url: {e}")
+            cap.release()
             return False
 
     def get_frame_bytes(self) -> bytes | None:
@@ -298,19 +321,20 @@ class StreamSource(Source):
             if "youtube.com/watch?v=" in self.url
             else self.url
         )
+        cap = cv2.VideoCapture(_url)
         try:
-            cap = cv2.VideoCapture(_url)
-
             ret, frame = cap.read()
             if not ret:
                 self.logger.warning(
                     f"Failed to retrieve a frame from {self.location_name} video stream."
                 )
+                cap.release()
                 return None
 
             success, buffer = cv2.imencode(".jpg", frame)
             if not success:
                 self.logger.warning("Failed to encode frame to JPEG format.")
+                cap.release()
                 return None
 
             cap.release()
@@ -318,4 +342,5 @@ class StreamSource(Source):
 
         except Exception as e:
             self.logger.error(f"{self.location_name}: {e}")
+            cap.release()
             raise e

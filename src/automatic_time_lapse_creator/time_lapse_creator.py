@@ -28,8 +28,13 @@ from .common.constants import (
     VIDEO_HEIGHT_360p,
     VIDEO_WIDTH_360p,
     DEFAULT_DAY_FOR_MONTHLY_VIDEO,
-    DEFAULT_SUNRISE_OFFSET,
-    DEFAULT_SUNSET_OFFSET,
+    DEFAULT_SUNRISE_OFFSET_MINUTES,
+    DEFAULT_SUNSET_OFFSET_MINUTES,
+    SUNSET_OFFSET_VALIDATION_RANGE,
+    SUNRISE_OFFSET_VALIDATION_RANGE,
+    ONE_SECOND_SIX_HUNDRED_SECONDS,
+    ONE_AND_SIXTY,
+
     LOG_START_INT,
     VideoType,
 )
@@ -40,7 +45,9 @@ from .common.utils import (
     create_log_message,
     shorten,
     dash_sep_strings,
-    video_type_response,
+    VideoResponse,
+    DailyVideoResponse,
+    MonthlyVideoResponse,
 )
 from .common.logger import configure_root_logger
 from .text_box import TextBox, TopOutsideTextBox
@@ -81,6 +88,7 @@ class TimeLapseCreator:
         quiet_mode: bool - Whether to suppress frequent log messages.
         create_monthly_summary_video: bool - Whether to generate a monthly summary video.
         day_for_monthly_summary_video: int - The day of the month when the summary video should be created.
+        delete_collected_daily_images: bool - Whether to delete the images after a daily video is created. Defualts to True.
         delete_daily_videos_after_monthly_summary_is_created: bool - Whether to delete daily videos after the monthly summary is generated.
         log_queue: Queue[Any] | None - A queue for handling log messages across processes.
         video_queue: Queue[Any] | None - A queue for managing video creation and upload tasks.
@@ -98,12 +106,13 @@ class TimeLapseCreator:
         video_fps: int = DEFAULT_VIDEO_FPS,
         video_width: int = VIDEO_WIDTH_360p,
         video_height: int = VIDEO_HEIGHT_360p,
-        sunrise_offset_minutes: int = DEFAULT_SUNRISE_OFFSET,
-        sunset_offset_minutes: int = DEFAULT_SUNSET_OFFSET,
+        sunrise_offset_minutes: int = DEFAULT_SUNRISE_OFFSET_MINUTES,
+        sunset_offset_minutes: int = DEFAULT_SUNSET_OFFSET_MINUTES,
         text_box_position: type[TextBox] | None = TopOutsideTextBox,
         text_box_transparency: float = TextBox.TRANSPARENCY_MID,
         create_monthly_summary_video: bool = True,
         day_for_monthly_summary_video: int = DEFAULT_DAY_FOR_MONTHLY_VIDEO,
+        delete_collected_daily_images: bool = True,
         delete_daily_videos_after_monthly_summary_is_created: bool = True,
         quiet_mode: bool = True,
         log_queue: Queue[Any] | None = None,
@@ -132,6 +141,7 @@ class TimeLapseCreator:
         self.quiet_mode = quiet_mode
         self.video_queue = None
         self.log_queue = log_queue
+        self.delete_collected_daily_images = delete_collected_daily_images
         self._monthly_summary = create_monthly_summary_video
         self._day_for_monthly_summary = day_for_monthly_summary_video
         self._delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
@@ -158,13 +168,13 @@ class TimeLapseCreator:
         Attr = NamedTuple("Attr", [("type", type), ("range", range), ("default", int)])
 
         attrs: dict[str, Attr] = {
-            "sunrise_offset_minutes" : Attr(int, range(1, 301), DEFAULT_SUNRISE_OFFSET),
-            "sunset_offset_minutes" : Attr(int, range(1, 301), DEFAULT_SUNSET_OFFSET),
-            "seconds_between_frames" : Attr(int, range(1, 601), DEFAULT_SECONDS_BETWEEN_FRAMES),
-            "night_time_retry_seconds" : Attr(int, range(1, 601), DEFAULT_NIGHTTIME_RETRY_SECONDS),
-            "video_fps" : Attr(int, range(1, 61), DEFAULT_VIDEO_FPS),
-            "video_width" : Attr(int, range(640, 1921), VIDEO_WIDTH_360p),
-            "video_height" : Attr(int, range(360, 1081), VIDEO_HEIGHT_360p),
+            "sunrise_offset_minutes" : Attr(int, range(*SUNRISE_OFFSET_VALIDATION_RANGE), DEFAULT_SUNRISE_OFFSET_MINUTES),
+            "sunset_offset_minutes" : Attr(int, range(*SUNSET_OFFSET_VALIDATION_RANGE), DEFAULT_SUNSET_OFFSET_MINUTES),
+            "seconds_between_frames" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_SECONDS_BETWEEN_FRAMES),
+            "night_time_retry_seconds" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_NIGHTTIME_RETRY_SECONDS),
+            "video_fps" : Attr(int, range(*ONE_AND_SIXTY), DEFAULT_VIDEO_FPS),
+            "video_width" : Attr(int, range(640, 1921 * 4), VIDEO_WIDTH_360p),
+            "video_height" : Attr(int, range(360, 1081 * 4), VIDEO_HEIGHT_360p),
         }
 
         if not isinstance(attr_value, attrs[attr_name].type):
@@ -288,12 +298,14 @@ class TimeLapseCreator:
                             and not source.images_partially_collected
                             and not source.daily_video_created
                         ):
-                            if self.create_video(source):
+                            if self.create_video(source, self.delete_collected_daily_images):
                                 source.set_daily_video_created()
                                 if self.video_queue is not None:
                                     self.video_queue.put(
-                                        video_type_response(
-                                            video_path, VideoType.DAILY.value
+                                        self.create_response_with_metadata(
+                                            video_path,
+                                            VideoType.DAILY.value,
+                                            source
                                         )
                                     )
                                 self.cache_self()
@@ -307,8 +319,8 @@ class TimeLapseCreator:
                                 source.set_daily_video_created()
                                 if self.video_queue is not None:
                                     self.video_queue.put(
-                                        video_type_response(
-                                            video_path, VideoType.DAILY.value
+                                        self.create_response_with_metadata(
+                                            video_path, VideoType.DAILY.value, source
                                         )
                                     )
                                 self.cache_self()
@@ -455,6 +467,7 @@ class TimeLapseCreator:
         """
         for source in self.sources:
             source.reset_images_counter()
+            source.reset_daily_videos_counter()
             source.reset_daily_video_created()
             source.reset_monthly_video_created()
             source.reset_all_images_collected()
@@ -660,7 +673,7 @@ class TimeLapseCreator:
         year: str,
         month: str,
         extension: str = MP4_FILE,
-    ):
+    ) -> tuple[str, int] | tuple[None, None]:
         """
         Creates a monthly summary video by combining video files from a specific year and month.
 
@@ -689,12 +702,12 @@ class TimeLapseCreator:
         output_video_name = os.path.join(
             video_folder_name, f"{yy_mm_format}{extension}"
         )
-
+        none_return = (None, None)
         if len(video_files) == 0:
             self.logger.warning(
                 f"No folders found for a monthly summary video - {shorten(output_video_name)}!"
             )
-            return
+            return none_return
 
         if vm.create_monthly_summary_video(
             logger=self.logger,
@@ -714,7 +727,9 @@ class TimeLapseCreator:
                         delete_folder=True,
                     )
 
-            return video_folder_name
+            return (video_folder_name, len(video_files))
+        
+        return none_return
 
     def is_next_month(
         self,
@@ -740,9 +755,10 @@ class TimeLapseCreator:
             base_path = os.path.join(self.base_path, source.location_name)
 
             if not source.monthly_video_created:
-                new_video = self.create_monthly_video(base_path, year, month)
+                new_video, video_files_count = self.create_monthly_video(base_path, year, month)
 
-                if new_video:
+                if new_video and video_files_count:
+                    source.set_videos_count(video_files_count)
                     source.set_monthly_video_created()
                     self.logger.info(
                         f"Monthly summary created for {source.location_name}, {year}-{month}"
@@ -750,7 +766,11 @@ class TimeLapseCreator:
 
                     if self.video_queue:
                         self.video_queue.put(
-                            video_type_response(new_video, VideoType.MONTHLY.value)
+                            self.create_response_with_metadata(
+                                video_path=new_video,
+                                video_type=VideoType.MONTHLY.value,
+                                source=source
+                            )
                         )
 
     def get_previous_year_and_month(self):
@@ -770,3 +790,45 @@ class TimeLapseCreator:
             month = str(prev_date.month)
 
         return (str(prev_date.year), month)
+
+    def create_response_with_metadata(self, video_path: str, video_type: str, source: Source):
+        """
+        Create a response to be put in the video queue. Response contains metadata about the source's, creator's and location's state
+        """
+        match video_type:
+            case VideoType.MONTHLY.value:
+                response = MonthlyVideoResponse(
+                    video_path=video_path,
+                    video_files_count=source.daily_videos_count,
+                    video_created=source.monthly_video_created
+                )
+            case VideoType.DAILY.value:
+                response = DailyVideoResponse(
+                    video_path=video_path,
+                    images_count=source.images_count,
+                    video_created=source.daily_video_created,
+                    all_images_collected=source.images_collected,
+                    images_partially_collected=source.images_partially_collected
+                )
+            case _:
+                self.logger.warning("Unknown video_type received for creating a VideoResponse with metadata!")
+                return
+            
+        response.source_location_name = source.location_name
+        self.add_metadata(response)
+        return response.to_json()
+    
+    def add_metadata(self, response: VideoResponse):
+        """Add metadata about the state of the TimaLapseCreator at the time of the video creation"""
+        response.wait_before_next_frame = self.wait_before_next_frame
+        response.nighttime_wait_before_next_retry = self.nighttime_wait_before_next_retry
+        response.video_fps = self.video_fps
+        response.video_width = self.video_width
+        response.video_height = self.video_height
+        response.delete_collected_daily_images = self.delete_collected_daily_images
+        response.delete_daily_videos_after_monthly_summary_is_created = self._delete_daily_videos
+        response.location_city_name = self.location.city.name
+        response.location_city_tz = self.location.city.timezone
+        response.location_sunrise_offset_minutes = int(self.location.sunrise_offset_minutes.seconds / 60)
+        response.location_sunset_offset_minutes = int(self.location.sunset_offset_minutes.seconds / 60)
+        return response

@@ -44,8 +44,9 @@ def mock_mat_like():
 
     return mat_like
 
-def mock_images_iterator():
-    return (mock_jpg_file(x) for x in range(1, 11))
+def mock_images_list():
+    """Mock list containing 10 fake files"""
+    return list(mock_jpg_file(x) for x in range(1, 11))
 
 mock_image = mock_jpg_file()
 mock_MatLike = mock_mat_like()
@@ -76,6 +77,7 @@ class MockDatetime:
     fake_day_for_a_monthly_video = datetime(year=2024, month=1, day=DEFAULT_DAY_FOR_MONTHLY_VIDEO)
     fake_now = datetime(year=2024, month=2, day=DEFAULT_DAY_FOR_MONTHLY_VIDEO, hour=3)
     fake_now_wrong_hour = fake_day_for_a_monthly_video
+    fake_longest_day_of_the_year = datetime(year=today.year, month=6, day=21, hour=00, minute=00, second=1)
 
 mock_youTubeAuth = Mock(spec=YouTubeAuth)
 

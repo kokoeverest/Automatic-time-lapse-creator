@@ -9,8 +9,8 @@ GroupInfo = dict[LocationName, list[LocationInfo]]
 LocationDatabase = dict[GroupName, GroupInfo]
 
 class LocationAndTimeManager:
-    sunrise_offset: timedelta
-    sunset_offset: timedelta
+    sunrise_offset_minutes: timedelta
+    sunset_offset_minutes: timedelta
     db: LocationDatabase
     city: LocationInfo
     logger: Logger | None

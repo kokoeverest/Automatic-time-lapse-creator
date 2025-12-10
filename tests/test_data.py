@@ -1,7 +1,14 @@
 import os
 from unittest.mock import patch
 from src.automatic_time_lapse_creator.source import ImageSource
-from src.automatic_time_lapse_creator.common.constants import MP4_FILE, VideoPrivacyStatus
+from src.automatic_time_lapse_creator.common.constants import (
+    MP4_FILE, 
+    VideoPrivacyStatus,
+    )
+from src.automatic_time_lapse_creator.common.utils import (
+    DailyVideoResponse,
+    MonthlyVideoResponse,
+    )
 
 invalid_city_name = "Logator"
 group_name = "Europe"
@@ -25,6 +32,7 @@ with patch.object(ImageSource, "validate_url", return_value=False):
     sample_source_with_empty_url = ImageSource("fake", empty_url)
 
 empty_dict = {}
+sample_count = 40
 
 sample_base_path = os.path.join("base", "path")
 sample_folder_name_01 = "2020-01-01"
@@ -79,3 +87,16 @@ mock_video_list_response: dict[str, list[dict[str, str | dict[str, str]]]] = {
         }
     ]
 }
+
+mock_monthly_video_for_json_response = MonthlyVideoResponse(
+    video_path=sample_folder_path,
+    video_created=True,
+    video_files_count=30,
+)
+mock_daily_video_for_json_response = DailyVideoResponse(
+    video_path=sample_folder_path,
+    video_created=True,
+    images_count=30,
+    images_partially_collected=False,
+    all_images_collected=True
+)

@@ -61,8 +61,8 @@ class VideoManager:
         Note: the source image files are not modified or deleted in any case."""
         path = Path(path)
         logger.info(f"Creating video from images in {shorten(str(path))}")
-        image_files = map(str, path.glob(f"*{JPG_FILE}"))
-        first_element = next(image_files, None)
+        image_files = sorted(map(str, path.glob(f"*{JPG_FILE}")))
+        first_element = next(iter(image_files), None)
 
         if first_element is not None:
             try:
@@ -82,7 +82,7 @@ class VideoManager:
                 )
                 video_writer.write(first_image)
 
-                for image_file in image_files:
+                for image_file in image_files[1:]:
                     img_path = os.path.join(path, image_file)
 
                     img = cv2.imread(img_path)

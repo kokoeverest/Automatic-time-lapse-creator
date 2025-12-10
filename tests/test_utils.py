@@ -3,28 +3,87 @@ from src.automatic_time_lapse_creator.common.utils import (
     create_log_message,
     dash_sep_strings,
     create_description_for_monthly_video,
-    video_type_response
+    DailyVideoResponse,
+    MonthlyVideoResponse
 )
 from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_DESCRIPTION,
     MONTHLY_SUMMARY_VIDEO_DESCRIPTION,
     VideoType
 )
-from tests.test_data import sample_source_no_weather_data, sample_folder_path
+from tests.test_data import sample_source_no_weather_data, sample_folder_path, sample_count
 import os
 from unittest.mock import patch
+import json
 
 
-def test_video_type_response_returns_correct_result():
+def test_daily_video_response_returns_correct_json():
     # Arrange
-    expected_result: dict[str, str] = {"video_path": sample_folder_path, "video_type": VideoType.DAILY.value}
+    instance = DailyVideoResponse(
+        video_path=sample_folder_path,
+        images_count=sample_count,
+        video_created=True,
+        all_images_collected=True,
+        images_partially_collected=False
+    )
 
     # Act
-    actual_result = video_type_response(sample_folder_path, VideoType.DAILY.value)
-
+    response_json = instance.to_json()
+    expected_result = json.loads(response_json)
+    
     # Assert
-    assert expected_result == actual_result
+    assert "video_files_count" not in expected_result
+    assert "images_count" in expected_result
+    assert "all_images_collected" in expected_result
+    assert "images_partially_collected" in expected_result
+    assert expected_result["video_fps"] is None
+    assert expected_result["video_width"] is None
+    assert expected_result["video_height"] is None
+    assert expected_result["video_path"] is not None
+    assert expected_result["location_city_tz"] is None
+    assert expected_result["video_created"] is not None
+    assert expected_result["location_city_name"] is None
+    assert expected_result["source_location_name"] is None
+    assert expected_result["wait_before_next_frame"] is None
+    assert expected_result["video_type"] == VideoType.DAILY.value
+    assert expected_result["delete_collected_daily_images"] is None
+    assert expected_result["location_sunset_offset_minutes"] is None
+    assert expected_result["location_sunrise_offset_minutes"] is None
+    assert expected_result["nighttime_wait_before_next_retry"] is None
+    assert expected_result["delete_daily_videos_after_monthly_summary_is_created"] is None
 
+def test_monthly_video_response_returns_correct_json():
+    # Arrange
+    instance = MonthlyVideoResponse(
+        video_path=sample_folder_path,
+        video_files_count=sample_count,
+        video_created=True,
+    )
+
+    # Act
+    response_json = instance.to_json()
+    expected_result = json.loads(response_json)
+    
+    # Assert
+    assert "video_files_count" in expected_result
+    assert "images_count" not in expected_result
+    assert "all_images_collected" not in expected_result
+    assert "images_partially_collected" not in expected_result
+    assert expected_result["video_fps"] is None
+    assert expected_result["video_width"] is None
+    assert expected_result["video_height"] is None
+    assert expected_result["video_path"] is not None
+    assert expected_result["location_city_tz"] is None
+    assert expected_result["video_created"] is not None
+    assert expected_result["location_city_name"] is None
+    assert expected_result["source_location_name"] is None
+    assert expected_result["wait_before_next_frame"] is None
+    assert expected_result["video_type"] == VideoType.MONTHLY.value
+    assert expected_result["delete_collected_daily_images"] is None
+    assert expected_result["location_sunset_offset_minutes"] is None
+    assert expected_result["location_sunrise_offset_minutes"] is None
+    assert expected_result["nighttime_wait_before_next_retry"] is None
+    assert expected_result["delete_daily_videos_after_monthly_summary_is_created"] is None
 
 def test_create_description_for_monthly_video_returns_correct_string():
     # Arrange

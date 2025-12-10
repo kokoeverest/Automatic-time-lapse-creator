@@ -29,6 +29,12 @@ MONTH_NAMES: list[str]
 OK_STATUS_CODE: int
 NO_CONTENT_STATUS_CODE: int
 
+# LocationAndTimeManager defaults
+DEFAULT_SUNSET_OFFSET_MINUTES: int
+DEFAULT_SUNRISE_OFFSET_MINUTES: int
+MAX_SUNRISE_OFFSET_MINUTES: int
+MAX_SUNSET_OFFSET_MINUTES: int
+
 # TimeLapseCreator defaults
 DEFAULT_PATH_STRING: str
 DEFAULT_CITY_NAME: str
@@ -45,6 +51,10 @@ VIDEO_WIDTH_1080p: int
 VIDEO_HEIGHT_1080p: int
 
 DEFAULT_DAY_FOR_MONTHLY_VIDEO: int
+SUNRISE_OFFSET_VALIDATION_RANGE: tuple[int]
+SUNSET_OFFSET_VALIDATION_RANGE: tuple[int]
+ONE_SECOND_SIX_HUNDRED_SECONDS: tuple[int]
+ONE_AND_SIXTY: tuple[int]
 
 # youtube_manager defaults
 YOUTUBE_URL_PREFIX: str
@@ -78,9 +88,6 @@ class VideoType(Enum):
     DAILY: Enum
     MONTHLY: Enum
 
-# LocationAndTimeManager defaults
-DEFAULT_SUNSET_OFFSET: int
-DEFAULT_SUNRISE_OFFSET: int
 
 # WeatherStationInfo defaults
 OLD_TIMESTAMP_HOURS: int

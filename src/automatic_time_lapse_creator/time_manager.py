@@ -17,8 +17,8 @@ class LocationAndTimeManager:
 
     def __init__(self, city_name: str, sunrise_offset: int, sunset_offset: int, logger: Logger | None = None) -> None:
         self.db = database()
-        self.sunrise_offset = td(minutes=sunrise_offset)
-        self.sunset_offset = td(minutes=sunset_offset)
+        self.sunrise_offset_minutes = td(minutes=sunrise_offset)
+        self.sunset_offset_minutes = td(minutes=sunset_offset)
 
         if logger is None:
             self.logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class LocationAndTimeManager:
 
         Returns::
             datetime - the datetime object subtracted the self.sunrise_offset minutes"""
-        return sunrise(self.city.observer, tzinfo=self.city.tzinfo) - self.sunrise_offset # type: ignore
+        return sunrise(self.city.observer, date=self.time_now.date(), tzinfo=self.city.tzinfo) - self.sunrise_offset_minutes # type: ignore
 
     @property
     def end_of_daylight(self) -> dt:
@@ -55,7 +55,7 @@ class LocationAndTimeManager:
 
         Returns::
             datetime - the datetime object plus the self.sunset_offset minutes"""
-        return sunset(self.city.observer, tzinfo=self.city.tzinfo) + self.sunset_offset # type: ignore
+        return sunset(self.city.observer, date=self.time_now.date(), tzinfo=self.city.tzinfo) + self.sunset_offset_minutes # type: ignore
 
     @property
     def year(self) -> int:
@@ -89,6 +89,7 @@ class LocationAndTimeManager:
 
     def is_daylight(self) -> bool:
         """Checks if it's daylight at the specified location according to the start and end of daylight.
+           Note - sunrise and sunset minutes offsets are taken into account in this check!
 
         Returns::
 

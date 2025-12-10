@@ -187,6 +187,23 @@ def test_reset_monthly_video_created_changes_monthly_video_created_to_False(
     assert not sample_source.monthly_video_created
 
 
+def test_set_videos_count_sets_the_value(sample_source: Source):
+    # Arrange & Act
+    video_files_count = 12
+    sample_source.set_videos_count(video_files_count)
+
+    # Assert
+    assert sample_source.daily_videos_count == video_files_count
+
+
+def test_reset_daily_videos_counter_resets_to_zero(sample_source: Source):
+    # Arrange & Act
+    sample_source.reset_daily_videos_counter()
+
+    # Assert
+    assert sample_source.daily_videos_count == 0
+
+
 def test_increase_images_increases_the_images_count_by_one(sample_source: Source):
     # Arrange & Act
     sample_source.increase_images()

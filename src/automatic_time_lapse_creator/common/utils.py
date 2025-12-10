@@ -1,9 +1,60 @@
 import os
+import json
+from abc import ABC
 from .constants import (
     DEFAULT_VIDEO_DESCRIPTION,
     MONTHLY_SUMMARY_VIDEO_DESCRIPTION,
     MONTH_NAMES,
+    VideoType
 )
+
+
+class VideoResponse(ABC):
+    def __init__(self, video_path: str, video_created: bool) -> None:
+        self.video_path = video_path
+        self.video_created = video_created
+        self.video_type: str
+        self.video_fps: int | None = None
+        self.video_width: int | None = None
+        self.video_height: int | None = None
+        self.location_city_tz: str | None = None
+        self.location_city_name: str | None = None
+        self.source_location_name: str | None = None
+        self.wait_before_next_frame: int | None = None
+        self.delete_collected_daily_images: bool | None = None
+        self.location_sunset_offset_minutes: int | None = None
+        self.location_sunrise_offset_minutes: int | None = None
+        self.nighttime_wait_before_next_retry: int | None = None
+        self.delete_daily_videos_after_monthly_summary_is_created: bool | None = None
+
+    def to_json(self):
+        return json.dumps(self.__dict__)
+
+class DailyVideoResponse(VideoResponse):
+    def __init__(
+            self, 
+            video_path: str,
+            images_count: int, 
+            video_created: bool, 
+            all_images_collected: bool,
+            images_partially_collected: bool
+    ) -> None:
+        super().__init__(video_path = video_path, video_created=video_created)
+        self.video_type = VideoType.DAILY.value
+        self.images_count = images_count
+        self.all_images_collected = all_images_collected
+        self.images_partially_collected = images_partially_collected
+
+class MonthlyVideoResponse(VideoResponse):
+    def __init__(
+            self, 
+            video_path: str, 
+            video_created: bool,
+            video_files_count: int
+    ) -> None:
+        super().__init__(video_path, video_created)
+        self.video_type = VideoType.MONTHLY.value
+        self.video_files_count= video_files_count
 
 
 def create_log_message(location: str, url: str, method: str) -> str:
@@ -62,14 +113,3 @@ def create_description_for_monthly_video(monthly_video: str):
 
     result = f"{MONTHLY_SUMMARY_VIDEO_DESCRIPTION}{suffix}\n{DEFAULT_VIDEO_DESCRIPTION}"
     return result
-
-
-def video_type_response(video_path: str, video_type: str) -> dict[str, str]:
-    """Returns a response dict containing the video path and the video_type eg. "daily" or "monthly"
-    so the queue can distinguish between the two.
-
-    Returns::
-
-        dict[str, str] - the response dictionary
-    """
-    return {"video_path": video_path, "video_type": video_type}

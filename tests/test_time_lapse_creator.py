@@ -16,8 +16,9 @@ from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_FPS,
     VIDEO_HEIGHT_360p,
     VIDEO_WIDTH_360p,
-    DEFAULT_SUNSET_OFFSET,
-    DEFAULT_SUNRISE_OFFSET,
+    DEFAULT_SUNSET_OFFSET_MINUTES,
+    DEFAULT_SUNRISE_OFFSET_MINUTES,
+    VideoType,
     
 )
 from src.automatic_time_lapse_creator.source import Source
@@ -69,10 +70,10 @@ def test_initializes_correctly_with_default_config(
     assert isinstance(sample_empty_time_lapse_creator.sources, set)
     assert isinstance(sample_empty_time_lapse_creator.location.city, LocationInfo)
     assert isinstance(sample_empty_time_lapse_creator.logger, Logger)
-    assert isinstance(sample_empty_time_lapse_creator.location.sunrise_offset, timedelta)
-    assert isinstance(sample_empty_time_lapse_creator.location.sunset_offset, timedelta)
-    assert sample_empty_time_lapse_creator.location.sunrise_offset.seconds == DEFAULT_SUNRISE_OFFSET * 60
-    assert sample_empty_time_lapse_creator.location.sunset_offset.seconds == DEFAULT_SUNSET_OFFSET * 60
+    assert isinstance(sample_empty_time_lapse_creator.location.sunrise_offset_minutes, timedelta)
+    assert isinstance(sample_empty_time_lapse_creator.location.sunset_offset_minutes, timedelta)
+    assert sample_empty_time_lapse_creator.location.sunrise_offset_minutes.seconds == DEFAULT_SUNRISE_OFFSET_MINUTES * 60
+    assert sample_empty_time_lapse_creator.location.sunset_offset_minutes.seconds == DEFAULT_SUNSET_OFFSET_MINUTES * 60
     assert sample_empty_time_lapse_creator.location.city.name == DEFAULT_CITY_NAME
     assert sample_empty_time_lapse_creator.folder_name == dt.today().strftime(
         YYMMDD_FORMAT
@@ -128,9 +129,9 @@ def test_validate_logs_warning_for_out_of_range_value(sample_empty_time_lapse_cr
     with patch.object(sample_empty_time_lapse_creator.logger, "warning", return_value=None) as mock_warning:
         result = sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", out_of_range_value) # type: ignore
         mock_warning.assert_called_once_with(
-            f"sunrise_offset_minutes must be in range(1, 301)! Setting to default: {DEFAULT_SUNRISE_OFFSET}"
+            f"sunrise_offset_minutes must be in range(1, 301)! Setting to default: {DEFAULT_SUNRISE_OFFSET_MINUTES}"
         )
-        assert result == DEFAULT_SUNRISE_OFFSET
+        assert result == DEFAULT_SUNRISE_OFFSET_MINUTES
 
 
 def test_validate_raises_KeyError_for_invalid_attr_name(sample_empty_time_lapse_creator: TimeLapseCreator):
@@ -742,7 +743,7 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
             fake_non_empty_time_lapse_creator.sources
         )
         for source in fake_non_empty_time_lapse_creator.sources:
-            mock_create_video.assert_called_once_with(source)
+            mock_create_video.assert_called_once_with(source, fake_non_empty_time_lapse_creator.delete_collected_daily_images)
             assert source.daily_video_created
 
         # Tear down
@@ -789,7 +790,9 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
 
         for source in fake_non_empty_time_lapse_creator.sources:
             source.set_images_partially_collected()
-
+            # TODO: this behavior should be controlled inside the method according to the 
+            # images - partially collected or collected fully
+        fake_non_empty_time_lapse_creator.delete_collected_daily_images = False
         fake_non_empty_time_lapse_creator.execute()
         assert mock_logger_info.call_count == 1
         assert mock_cache.call_count == 1
@@ -800,7 +803,7 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
         )
         for source in fake_non_empty_time_lapse_creator.sources:
             mock_create_video.assert_called_once_with(
-                source, delete_source_images=False
+                source, delete_source_images=fake_non_empty_time_lapse_creator.delete_collected_daily_images
             )
             assert source.daily_video_created
 
@@ -1207,7 +1210,7 @@ def test_create_monthly_video_creates_video_and_keeps_existing_daily_videos(
         
         sample_non_empty_time_lapse_creator._delete_daily_videos = False # type: ignore
         # Act
-        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+        video_path, video_files_count = sample_non_empty_time_lapse_creator.create_monthly_video(
             base_path=td.sample_base_path,
             year=td.sample_year,
             month=td.sample_month_january,
@@ -1229,7 +1232,9 @@ def test_create_monthly_video_creates_video_and_keeps_existing_daily_videos(
         assert mock_delete_media_files.call_count == 0
         assert mock_path_split.call_count == 0
         assert mock_path_join.call_count == 2
-        assert result == video_folder_name
+        assert video_path == video_folder_name
+        assert isinstance(video_files_count, int)
+        assert video_files_count > 0
         assert mock_logger.call_count == 1
 
 
@@ -1261,7 +1266,7 @@ def test_create_monthly_video_no_video_files(
         ) as mock_logger_warning,
     ):
         # Act
-        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+        video_path, video_files_count = sample_non_empty_time_lapse_creator.create_monthly_video(
             base_path=td.sample_base_path,
             year=td.sample_year,
             month=td.sample_month_february,
@@ -1278,7 +1283,8 @@ def test_create_monthly_video_no_video_files(
         )
         mock_shorten.assert_called_once_with(output_video_name)
         assert mock_shorten.call_count == 1
-        assert result is None
+        assert video_path is None
+        assert video_files_count is None
 
 
 def test_create_monthly_video_deletes_source_files(
@@ -1305,7 +1311,7 @@ def test_create_monthly_video_deletes_source_files(
         ) as mock_delete_source_media_files,
     ):
         # Act
-        result = sample_non_empty_time_lapse_creator.create_monthly_video(
+        new_video_path, video_files_count = sample_non_empty_time_lapse_creator.create_monthly_video(
             base_path=td.sample_base_path,
             year=td.sample_year,
             month=td.sample_month_january,
@@ -1332,7 +1338,9 @@ def test_create_monthly_video_deletes_source_files(
                 extension=MP4_FILE,
                 delete_folder=True,
             )
-        assert result == video_folder_name
+        assert new_video_path == video_folder_name
+        assert isinstance(video_files_count, int)
+        assert video_files_count > 0
 
 
 def test_is_next_month_true(
@@ -1467,7 +1475,7 @@ def test_process_monthly_summary_creates_videos_and_sends_to_queue(
         patch.object(
             sample_non_empty_time_lapse_creator,
             "create_monthly_video",
-            return_value=td.sample_video_file1,
+            return_value=(td.sample_video_file1, 1),
         ) as mock_create_video,
         patch.object(
             sample_non_empty_time_lapse_creator.logger, "info"
@@ -1531,7 +1539,7 @@ def test_process_monthly_summary_no_video_queue(
         patch.object(
             sample_non_empty_time_lapse_creator,
             "create_monthly_video",
-            return_value=td.sample_video_file1,
+            return_value=(td.sample_video_file1, 1),
         ) as mock_create_video,
         patch.object(
             sample_non_empty_time_lapse_creator.logger, "info"
@@ -1580,3 +1588,106 @@ def test_get_previous_year_and_month_returns_tuple_with_correct_values(
         sample_empty_time_lapse_creator.folder_name = inp
         result = sample_empty_time_lapse_creator.get_previous_year_and_month()
         assert result == expected[idx]
+
+def test_create_response_with_metadata_returns_None_with_invalid_video_type(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange
+    video_path = td.sample_folder_path
+    unknown_video_type = "unknown"
+    # Act
+    with (
+        patch.object(
+            sample_non_empty_time_lapse_creator.logger, "warning"
+        ) as mock_logger_warning,
+    ):
+        result = sample_non_empty_time_lapse_creator.create_response_with_metadata(
+            video_path=video_path,
+            video_type=unknown_video_type,
+            source=td.sample_source2_no_weather_data
+        )
+
+    # Assert
+    assert result is None
+    mock_logger_warning.assert_called_once()
+
+def test_create_response_with_metadata_daily_video(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    with (
+        patch.object(sample_non_empty_time_lapse_creator, "add_metadata") as mock_metadata,
+        ):
+        result = sample_non_empty_time_lapse_creator.create_response_with_metadata(
+            td.sample_folder_path,
+            VideoType.DAILY.value,
+            td.sample_source2_no_weather_data
+        )
+        mock_metadata.return_value = td.mock_monthly_video_for_json_response
+        # Assert
+        assert isinstance(result, str)
+        assert td.sample_source2_no_weather_data.location_name in result
+        assert VideoType.DAILY.value in result
+        mock_metadata.assert_called_once()
+    
+
+def test_create_response_with_metadata_monthly_video(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    with (
+        patch.object(sample_non_empty_time_lapse_creator, "add_metadata") as mock_metadata,
+        ):
+        result = sample_non_empty_time_lapse_creator.create_response_with_metadata(
+            td.sample_folder_path,
+            VideoType.MONTHLY.value,
+            td.sample_source2_no_weather_data
+        )
+        mock_metadata.return_value = td.mock_monthly_video_for_json_response
+        # Assert
+        assert isinstance(result, str)
+        assert td.sample_source2_no_weather_data.location_name in result
+        assert VideoType.MONTHLY.value in result
+        mock_metadata.assert_called_once()
+    
+def test_add_metadata_to_monthly_video_type(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    expected_result = sample_non_empty_time_lapse_creator.add_metadata(td.mock_monthly_video_for_json_response)
+    # Assert
+    assert expected_result.video_fps is not None
+    assert expected_result.video_width is not None
+    assert expected_result.video_height is not None
+    assert expected_result.video_path is not None
+    assert expected_result.location_city_tz is not None
+    assert expected_result.video_created is not None
+    assert expected_result.location_city_name is not None
+    assert expected_result.wait_before_next_frame is not None
+    assert expected_result.video_type == VideoType.MONTHLY.value
+    assert expected_result.delete_collected_daily_images is not None
+    assert expected_result.location_sunset_offset_minutes is not None
+    assert expected_result.location_sunrise_offset_minutes is not None
+    assert expected_result.nighttime_wait_before_next_retry is not None
+    assert expected_result.delete_daily_videos_after_monthly_summary_is_created is not None
+
+def test_add_metadata_to_daily_video_type(
+    sample_non_empty_time_lapse_creator: TimeLapseCreator,
+):
+    # Arrange & Act
+    expected_result = sample_non_empty_time_lapse_creator.add_metadata(td.mock_daily_video_for_json_response)
+    # Assert
+    assert expected_result.video_fps is not None
+    assert expected_result.video_width is not None
+    assert expected_result.video_height is not None
+    assert expected_result.video_path is not None
+    assert expected_result.location_city_tz is not None
+    assert expected_result.video_created is not None
+    assert expected_result.location_city_name is not None
+    assert expected_result.wait_before_next_frame is not None
+    assert expected_result.video_type == VideoType.DAILY.value
+    assert expected_result.delete_collected_daily_images is not None
+    assert expected_result.location_sunset_offset_minutes is not None
+    assert expected_result.location_sunrise_offset_minutes is not None
+    assert expected_result.nighttime_wait_before_next_retry is not None
+    assert expected_result.delete_daily_videos_after_monthly_summary_is_created is not None

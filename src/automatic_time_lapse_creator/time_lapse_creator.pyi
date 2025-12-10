@@ -24,7 +24,7 @@ from .common.exceptions import (
     InvalidCollectionException as InvalidCollectionException,
     InvalidStatusCodeException as InvalidStatusCodeException,
 )
-from .common.utils import create_log_message as create_log_message
+from .common.utils import create_log_message as create_log_message, VideoResponse as VideoResponse
 from .source import Source as Source
 from .time_manager import LocationAndTimeManager as LocationAndTimeManager
 from . import text_box as box
@@ -41,9 +41,11 @@ class TimeLapseCreator:
     video_fps: int
     video_width: int
     video_height: int
+    delete_collected_daily_images: bool = ...
+    delete_daily_videos_after_monthly_summary_is_created: bool = True
     text_box_position: type[box.TextBox] | None = ...
     text_box_transparency: float = ...
-    quiet_mode: bool
+    quiet_mode: bool = True
     video_queue: Queue[Any | None] | None = ...
     log_queue: Queue[Any] | None = ...
     logger: Logger
@@ -63,6 +65,7 @@ class TimeLapseCreator:
         log_queue: Queue[Any] | None = ...,
         create_monthly_summary_video: bool = ...,
         day_for_monthly_summary_video: int = ...,
+        delete_collected_daily_images: bool = ...,
         delete_daily_videos_after_monthly_summary_is_created: bool = ...,
         sunrise_offset_minutes: int = ...,
         sunset_offset_minutes: int = ...,
@@ -106,11 +109,12 @@ class TimeLapseCreator:
         month: str,
         delete_source_files: bool = ...,
         extension: str = ...,
-    ) -> str | None: ...
+    ) -> tuple[str, int] | tuple[None, None]: ...
     def is_next_month(self) -> bool: ...
     def process_monthly_summary(self) -> None: ...
     def get_previous_year_and_month(self) -> str: ...
-
+    def create_response_with_metadata(self, video_path: str, video_type: str, source: Source) -> VideoResponse | None: ...
+    def add_metadata(self, response: VideoResponse) -> VideoResponse: ...
 #     class TimeLapseCreator(ABC):
 #     base_path: str
 #     folder_name: str
