@@ -141,10 +141,10 @@ class TimeLapseCreator:
         self.quiet_mode = quiet_mode
         self.video_queue = None
         self.log_queue = log_queue
+        self.delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
         self.delete_collected_daily_images = delete_collected_daily_images
         self._monthly_summary = create_monthly_summary_video
         self._day_for_monthly_summary = day_for_monthly_summary_video
-        self._delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
         self._test_counter = night_time_retry_seconds
 
     def _validate(self, attr_name: str, attr_value: int):
@@ -717,7 +717,7 @@ class TimeLapseCreator:
         ):
             self.logger.info(f"Video created: {shorten(output_video_name)}")
 
-            if self._delete_daily_videos:
+            if self.delete_daily_videos:
                 for video_path in video_files:
                     head, _ = os.path.split(video_path)
                     vm.delete_source_media_files(
@@ -826,7 +826,7 @@ class TimeLapseCreator:
         response.video_width = self.video_width
         response.video_height = self.video_height
         response.delete_collected_daily_images = self.delete_collected_daily_images
-        response.delete_daily_videos_after_monthly_summary_is_created = self._delete_daily_videos
+        response.delete_daily_videos_after_monthly_summary_is_created = self.delete_daily_videos
         response.location_city_name = self.location.city.name
         response.location_city_tz = self.location.city.timezone
         response.location_sunrise_offset_minutes = int(self.location.sunrise_offset_minutes.seconds / 60)
