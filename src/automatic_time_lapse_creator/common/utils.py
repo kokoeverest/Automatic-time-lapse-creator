@@ -7,6 +7,7 @@ from .constants import (
     MONTH_NAMES,
     VideoType
 )
+from datetime import datetime
 
 
 class VideoResponse(ABC):
@@ -24,6 +25,8 @@ class VideoResponse(ABC):
         self.delete_collected_daily_images: bool | None = None
         self.location_sunset_offset_minutes: int | None = None
         self.location_sunrise_offset_minutes: int | None = None
+        self.location_start_of_daylight: datetime | None = None
+        self.location_end_of_daylight: datetime | None = None
         self.nighttime_wait_before_next_retry: int | None = None
         self.delete_daily_videos_after_monthly_summary_is_created: bool | None = None
 

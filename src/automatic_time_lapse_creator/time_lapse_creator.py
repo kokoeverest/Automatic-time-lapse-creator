@@ -827,6 +827,8 @@ class TimeLapseCreator:
         response.delete_daily_videos_after_monthly_summary_is_created = self._delete_daily_videos
         response.location_city_name = self.location.city.name
         response.location_city_tz = self.location.city.timezone
+        response.location_start_of_daylight = self.location.start_of_daylight
+        response.location_end_of_daylight = self.location.end_of_daylight
         response.location_sunrise_offset_minutes = int(self.location.sunrise_offset_minutes.seconds / 60)
         response.location_sunset_offset_minutes = int(self.location.sunset_offset_minutes.seconds / 60)
         return response

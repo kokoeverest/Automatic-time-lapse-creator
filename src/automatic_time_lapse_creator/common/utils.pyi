@@ -1,4 +1,5 @@
 from abc import ABC
+from datetime import datetime
 
 class VideoResponse(ABC):
     video_type: str
@@ -14,6 +15,8 @@ class VideoResponse(ABC):
     location_city_tz: str | None
     location_sunrise_offset_minutes: int | None
     location_sunset_offset_minutes: int | None
+    location_start_of_daylight: datetime | None
+    location_end_of_daylight: datetime | None
     video_path: str
     video_created: bool
     def __init__(self, video_path: str, video_created: bool) -> None: ...

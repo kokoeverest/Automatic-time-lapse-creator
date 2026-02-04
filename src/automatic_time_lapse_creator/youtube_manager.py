@@ -385,6 +385,9 @@ class YouTubeUpload:
                 self.logger.error(
                     f"Failed to upload video {shorten(video_file)} to YouTube: {e}"
                 )
+                if "quotaExceeded" in str(e):
+                    self.logger.warning("Quota exceeded! Breaking")
+                    raise e
 
         return next(iter(uploaded_videos), emtpty_dict)
 
