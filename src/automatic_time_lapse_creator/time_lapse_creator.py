@@ -30,7 +30,8 @@ from .common.constants import (
     DEFAULT_DAY_FOR_MONTHLY_VIDEO,
     DEFAULT_SUNRISE_OFFSET_MINUTES,
     DEFAULT_SUNSET_OFFSET_MINUTES,
-    OFFSETS_VALIDATION_RANGE,
+    SUNSET_OFFSET_VALIDATION_RANGE,
+    SUNRISE_OFFSET_VALIDATION_RANGE,
     ONE_SECOND_SIX_HUNDRED_SECONDS,
     ONE_AND_SIXTY,
 
@@ -87,6 +88,7 @@ class TimeLapseCreator:
         quiet_mode: bool - Whether to suppress frequent log messages.
         create_monthly_summary_video: bool - Whether to generate a monthly summary video.
         day_for_monthly_summary_video: int - The day of the month when the summary video should be created.
+        delete_collected_daily_images: bool - Whether to delete the images after a daily video is created. Defualts to True.
         delete_daily_videos_after_monthly_summary_is_created: bool - Whether to delete daily videos after the monthly summary is generated.
         log_queue: Queue[Any] | None - A queue for handling log messages across processes.
         video_queue: Queue[Any] | None - A queue for managing video creation and upload tasks.
@@ -139,10 +141,10 @@ class TimeLapseCreator:
         self.quiet_mode = quiet_mode
         self.video_queue = None
         self.log_queue = log_queue
+        self.delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
         self.delete_collected_daily_images = delete_collected_daily_images
         self._monthly_summary = create_monthly_summary_video
         self._day_for_monthly_summary = day_for_monthly_summary_video
-        self._delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
         self._test_counter = night_time_retry_seconds
 
     def _validate(self, attr_name: str, attr_value: int):
@@ -166,8 +168,8 @@ class TimeLapseCreator:
         Attr = NamedTuple("Attr", [("type", type), ("range", range), ("default", int)])
 
         attrs: dict[str, Attr] = {
-            "sunrise_offset_minutes" : Attr(int, range(*OFFSETS_VALIDATION_RANGE), DEFAULT_SUNRISE_OFFSET_MINUTES),
-            "sunset_offset_minutes" : Attr(int, range(*OFFSETS_VALIDATION_RANGE), DEFAULT_SUNSET_OFFSET_MINUTES),
+            "sunrise_offset_minutes" : Attr(int, range(*SUNRISE_OFFSET_VALIDATION_RANGE), DEFAULT_SUNRISE_OFFSET_MINUTES),
+            "sunset_offset_minutes" : Attr(int, range(*SUNSET_OFFSET_VALIDATION_RANGE), DEFAULT_SUNSET_OFFSET_MINUTES),
             "seconds_between_frames" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_SECONDS_BETWEEN_FRAMES),
             "night_time_retry_seconds" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_NIGHTTIME_RETRY_SECONDS),
             "video_fps" : Attr(int, range(*ONE_AND_SIXTY), DEFAULT_VIDEO_FPS),
@@ -715,7 +717,7 @@ class TimeLapseCreator:
         ):
             self.logger.info(f"Video created: {shorten(output_video_name)}")
 
-            if self._delete_daily_videos:
+            if self.delete_daily_videos:
                 for video_path in video_files:
                     head, _ = os.path.split(video_path)
                     vm.delete_source_media_files(
@@ -824,7 +826,7 @@ class TimeLapseCreator:
         response.video_width = self.video_width
         response.video_height = self.video_height
         response.delete_collected_daily_images = self.delete_collected_daily_images
-        response.delete_daily_videos_after_monthly_summary_is_created = self._delete_daily_videos
+        response.delete_daily_videos_after_monthly_summary_is_created = self.delete_daily_videos
         response.location_city_name = self.location.city.name
         response.location_city_tz = self.location.city.timezone
         response.location_start_of_daylight = self.location.start_of_daylight

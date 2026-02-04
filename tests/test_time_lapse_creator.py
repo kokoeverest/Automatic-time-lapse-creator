@@ -99,7 +99,7 @@ def test_initializes_correctly_with_default_config(
     assert sample_empty_time_lapse_creator.logger.name == "__root__"
     assert sample_empty_time_lapse_creator._monthly_summary # type: ignore
     assert sample_empty_time_lapse_creator._day_for_monthly_summary == DEFAULT_DAY_FOR_MONTHLY_VIDEO # type: ignore
-    assert sample_empty_time_lapse_creator._delete_daily_videos # type: ignore
+    assert sample_empty_time_lapse_creator.delete_daily_videos
 
 def test_validate_raises_TypeError_for_invalid_type(sample_empty_time_lapse_creator: TimeLapseCreator):
     # Arrange
@@ -1208,7 +1208,7 @@ def test_create_monthly_video_creates_video_and_keeps_existing_daily_videos(
         ) as mock_logger,
     ):
         
-        sample_non_empty_time_lapse_creator._delete_daily_videos = False # type: ignore
+        sample_non_empty_time_lapse_creator.delete_daily_videos = False
         # Act
         video_path, video_files_count = sample_non_empty_time_lapse_creator.create_monthly_video(
             base_path=td.sample_base_path,
