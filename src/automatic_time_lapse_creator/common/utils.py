@@ -31,7 +31,7 @@ class VideoResponse(ABC):
         self.delete_daily_videos_after_monthly_summary_is_created: bool | None = None
 
     def to_json(self):
-        return json.dumps(self.__dict__)
+        return json.dumps(self.__dict__, default=str)
 
 class DailyVideoResponse(VideoResponse):
     def __init__(
