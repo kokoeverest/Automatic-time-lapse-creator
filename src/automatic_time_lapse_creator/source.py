@@ -67,7 +67,7 @@ class Source(ABC):
             self.weather_data_provider = None
         else:
             self.weather_data_provider = weather_data_provider
-            if not self.has_weather_data and self.weather_data_provider is not None:
+            if not self.weather_data_on_images and self.weather_data_provider is not None:
                 self.logger.info(f"Weather provider set for {self.location_name}")
         self.owner = owner
         self._daily_video_created: bool = False
@@ -78,7 +78,7 @@ class Source(ABC):
         self._images_partially_collected: bool = False
 
     @property
-    def has_weather_data(self) -> bool:
+    def weather_data_on_images(self) -> bool:
         """
         If weather data is originally available on the images for the given url.
 

@@ -66,7 +66,7 @@ def test_source_initializes_correctly_with_default_config(mock_logger: Mock):
         assert not sample_source.images_collected
         assert not sample_source.images_partially_collected
         assert sample_source.is_valid_url
-        assert not sample_source.has_weather_data
+        assert not sample_source.weather_data_on_images
         assert not sample_source.weather_data_provider
         assert mock_logger.call_count == 0
 
@@ -94,7 +94,7 @@ def test_source_initializes_correctly_with_weather_data_provider(mock_logger: Lo
 
     # Assert
     assert actual_result.is_valid_url
-    assert not actual_result.has_weather_data
+    assert not actual_result.weather_data_on_images
     assert actual_result.weather_data_provider
     assert mock_logger.call_count == 1
 
@@ -119,7 +119,7 @@ def test_source_initializes_correctly_for_video_stream(mock_logger: Logger):
 
     # Assert
     assert actual_result.is_valid_url
-    assert not actual_result.has_weather_data
+    assert not actual_result.weather_data_on_images
     assert not actual_result.weather_data_provider
     assert mock_logger.call_count == 0
 
@@ -146,7 +146,7 @@ def test_source_sets_is_valid_stream_to_False_for_invalid_video_stream(
 
     # Assert
     assert not actual_result.is_valid_url
-    assert not actual_result.has_weather_data
+    assert not actual_result.weather_data_on_images
     assert not actual_result.weather_data_provider
     assert mock_logger.call_count == 0
 
