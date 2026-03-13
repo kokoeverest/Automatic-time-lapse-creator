@@ -2,7 +2,12 @@ from queue import Queue
 import pytest
 import tests.test_data as td
 import tests.test_mocks as tm
-from src.automatic_time_lapse_creator.source import ImageSource, StreamSource, Source
+from src.automatic_time_lapse_creator.source import (
+    BrowserSource,
+    ImageSource,
+    StreamSource,
+    Source,
+)
 from src.automatic_time_lapse_creator.common.constants import (
     YOUTUBE_URL_PREFIX,
     OK_STATUS_CODE,
@@ -10,6 +15,7 @@ from src.automatic_time_lapse_creator.common.constants import (
 from unittest.mock import MagicMock, Mock, patch
 from requests import Response
 from logging import Logger
+from playwright.sync_api import Browser, Page
 
 
 @pytest.fixture
@@ -441,3 +447,404 @@ def test_get_frame_bytes_returns_correct_result_for_StreamSource(
     mock_source.assert_called_once()
     assert mock_source.fetch_image_from_static_web_cam.call_count == 0
     assert actual_result == expected_result
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def sample_BrowserSource(mock_logger: Mock):
+    with patch(
+        "src.automatic_time_lapse_creator.source.BrowserSource.validate_url",
+        return_value=True,
+    ):
+        source = BrowserSource(
+            location_name="fake_browser",
+            url="https://example.com/webcam",
+        )
+    source.logger = mock_logger
+    return source
+
+
+@pytest.fixture
+def sample_BrowserSource_with_selector(mock_logger: Mock):
+    with patch(
+        "src.automatic_time_lapse_creator.source.BrowserSource.validate_url",
+        return_value=True,
+    ):
+        source = BrowserSource(
+            location_name="fake_browser_sel",
+            url="https://example.com/webcam",
+            selector="#my-webcam video",
+        )
+    source.logger = mock_logger
+    return source
+
+
+@pytest.fixture
+def sample_BrowserSource_persistent(mock_logger: Mock):
+    with patch(
+        "src.automatic_time_lapse_creator.source.BrowserSource.validate_url",
+        return_value=True,
+    ):
+        source = BrowserSource(
+            location_name="fake_browser_persistent",
+            url="https://example.com/webcam",
+            persistent_session=True,
+        )
+    source.logger = mock_logger
+    return source
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource – initialisation
+# ---------------------------------------------------------------------------
+
+def test_browser_source_initializes_without_selector(
+    sample_BrowserSource: BrowserSource,
+):
+    assert isinstance(sample_BrowserSource, Source)
+    assert sample_BrowserSource.selector is None
+    assert sample_BrowserSource.url == "https://example.com/webcam"
+    assert sample_BrowserSource.location_name == "fake_browser"
+    assert sample_BrowserSource.persistent_session is False
+
+
+def test_browser_source_initializes_with_selector(
+    sample_BrowserSource_with_selector: BrowserSource,
+):
+    assert sample_BrowserSource_with_selector.selector == "#my-webcam video"
+
+
+def test_browser_source_initializes_with_persistent_session(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    assert sample_BrowserSource_persistent.persistent_session is True
+    assert sample_BrowserSource_persistent._pw is None
+    assert sample_BrowserSource_persistent._browser is None
+    assert sample_BrowserSource_persistent._page is None
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource – validate_url
+# ---------------------------------------------------------------------------
+
+def test_validate_url_returns_True_when_screenshot_succeeds(
+    sample_BrowserSource: BrowserSource, mock_logger: Mock
+):
+    with patch.object(
+        sample_BrowserSource,
+        "_capture_screenshot",
+        return_value=b"fake_jpeg_bytes",
+    ):
+        result = sample_BrowserSource.validate_url(sample_BrowserSource.url)
+
+    assert result is True
+    mock_logger.info.assert_called_once()
+
+
+def test_validate_url_returns_False_when_no_element_found(
+    sample_BrowserSource: BrowserSource, mock_logger: Mock
+):
+    with patch.object(
+        sample_BrowserSource,
+        "_capture_screenshot",
+        return_value=None,
+    ):
+        result = sample_BrowserSource.validate_url(sample_BrowserSource.url)
+
+    assert result is False
+    mock_logger.info.assert_not_called()
+
+
+def test_validate_url_returns_False_on_exception(
+    sample_BrowserSource: BrowserSource, mock_logger: Mock
+):
+    with patch.object(
+        sample_BrowserSource,
+        "_capture_screenshot",
+        side_effect=Exception("connection refused"),
+    ):
+        result = sample_BrowserSource.validate_url(sample_BrowserSource.url)
+
+    assert result is False
+    mock_logger.error.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource – get_frame_bytes
+# ---------------------------------------------------------------------------
+
+def test_get_frame_bytes_returns_bytes_on_success(
+    sample_BrowserSource: BrowserSource,
+):
+    expected = b"jpeg_frame_bytes"
+    with patch.object(
+        sample_BrowserSource,
+        "_capture_screenshot",
+        return_value=expected,
+    ):
+        result = sample_BrowserSource.get_frame_bytes()
+
+    assert result == expected
+
+
+def test_get_frame_bytes_returns_None_when_no_element_found(
+    sample_BrowserSource: BrowserSource,
+):
+    with patch.object(
+        sample_BrowserSource,
+        "_capture_screenshot",
+        return_value=None,
+    ):
+        result = sample_BrowserSource.get_frame_bytes()
+
+    assert result is None
+
+
+def test_get_frame_bytes_raises_on_exception(
+    sample_BrowserSource: BrowserSource,
+):
+    with (
+        patch.object(
+            sample_BrowserSource,
+            "_capture_screenshot",
+            side_effect=RuntimeError("browser crashed"),
+        ),
+        pytest.raises(RuntimeError, match="browser crashed"),
+    ):
+        sample_BrowserSource.get_frame_bytes()
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource – _find_element (auto-detection)
+# ---------------------------------------------------------------------------
+
+def _make_mock_element(width: float = 100, height: float = 100, visible: bool = True):
+    el = MagicMock()
+    el.is_visible.return_value = visible
+    el.bounding_box.return_value = {"width": width, "height": height}
+    return el
+
+
+def test_find_element_uses_explicit_selector(
+    sample_BrowserSource_with_selector: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    expected_el = _make_mock_element()
+    mock_page.wait_for_selector.return_value = expected_el
+
+    result = sample_BrowserSource_with_selector._find_element(mock_page)
+
+    mock_page.wait_for_selector.assert_called_once_with(
+        "#my-webcam video",
+        state="visible",
+        timeout=15000,
+    )
+    assert result is expected_el
+
+
+def test_find_element_auto_detects_video_element(
+    sample_BrowserSource: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    video_el = _make_mock_element(640, 480)
+
+    def query_selector_all(sel: str):
+        return [video_el] if sel == "video" else []
+
+    mock_page.query_selector_all.side_effect = query_selector_all
+
+    result = sample_BrowserSource._find_element(mock_page)
+
+    assert result is video_el
+
+
+def test_find_element_picks_largest_element(
+    sample_BrowserSource: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    small = _make_mock_element(100, 100)
+    large = _make_mock_element(1280, 720)
+
+    mock_page.query_selector_all.side_effect = lambda sel: (  # type: ignore
+        [small, large] if sel == "video" else []
+    )
+
+    result = sample_BrowserSource._find_element(mock_page)
+
+    assert result is large
+
+
+def test_find_element_skips_invisible_elements(
+    sample_BrowserSource: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    invisible = _make_mock_element(visible=False)
+    canvas_el = _make_mock_element(800, 600)
+
+    def query_selector_all(sel: str) -> list[MagicMock]:
+        """Return a list of elements matching the selector."""
+        if sel == "video":
+            return [invisible]
+        if sel == "canvas":
+            return [canvas_el]
+        return []
+
+    mock_page.query_selector_all.side_effect = query_selector_all
+
+    result = sample_BrowserSource._find_element(mock_page)
+
+    assert result is canvas_el
+
+
+def test_find_element_returns_None_when_nothing_found(
+    sample_BrowserSource: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    mock_page.query_selector_all.return_value = []
+
+    result = sample_BrowserSource._find_element(mock_page)
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource – persistent session (_ensure_page / close)
+# ---------------------------------------------------------------------------
+
+def _make_persistent_mocks():
+    """Return a mock Playwright stack: (mock_pw_start, mock_browser, mock_page)."""
+    mock_page = MagicMock(spec=Page)
+    mock_browser = MagicMock(spec=Browser)
+    mock_browser.is_connected.return_value = True
+    mock_browser.new_page.return_value = mock_page
+
+    mock_pw_instance = MagicMock()
+    mock_pw_instance.chromium.launch.return_value = mock_browser
+
+    return mock_pw_instance, mock_browser, mock_page
+
+
+def test_ensure_page_opens_browser_on_first_call(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_pw_instance, mock_browser, mock_page = _make_persistent_mocks()
+
+    with patch(
+        "src.automatic_time_lapse_creator.source.sync_playwright"
+    ) as mock_sync_playwright:
+        mock_sync_playwright.return_value.start.return_value = mock_pw_instance
+
+        page = sample_BrowserSource_persistent._ensure_page()
+
+    assert page is mock_page
+    mock_page.goto.assert_called_once_with(
+        sample_BrowserSource_persistent.url,
+        timeout=BrowserSource.PAGE_LOAD_TIMEOUT_MS,
+        wait_until="load",
+    )
+    assert sample_BrowserSource_persistent._browser is mock_browser
+    assert sample_BrowserSource_persistent._page is mock_page
+
+
+def test_ensure_page_reuses_existing_page(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_pw_instance, mock_browser, mock_page = _make_persistent_mocks()
+
+    sample_BrowserSource_persistent._pw = mock_pw_instance
+    sample_BrowserSource_persistent._browser = mock_browser
+    sample_BrowserSource_persistent._page = mock_page
+
+    with patch(
+        "src.automatic_time_lapse_creator.source.sync_playwright"
+    ) as mock_sync_playwright:
+        page = sample_BrowserSource_persistent._ensure_page()
+
+    mock_sync_playwright.assert_not_called()
+    mock_page.goto.assert_not_called()
+    assert page is mock_page
+
+
+def test_ensure_page_reopens_after_disconnect(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_pw_instance, _, mock_page = _make_persistent_mocks()
+
+    disconnected_browser = MagicMock(spec=Browser)
+    disconnected_browser.is_connected.return_value = False
+    sample_BrowserSource_persistent._browser = disconnected_browser
+    sample_BrowserSource_persistent._page = mock_page
+
+    with patch(
+        "src.automatic_time_lapse_creator.source.sync_playwright"
+    ) as mock_sync_playwright:
+        mock_sync_playwright.return_value.start.return_value = mock_pw_instance
+
+        page = sample_BrowserSource_persistent._ensure_page()
+
+    assert page is mock_page
+    mock_page.goto.assert_called_once()
+
+
+def test_capture_screenshot_uses_ensure_page_in_persistent_mode(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    expected = b"persistent_jpeg"
+
+    with (
+        patch.object(
+            sample_BrowserSource_persistent,
+            "_ensure_page",
+            return_value=mock_page,
+        ) as mock_ensure,
+        patch.object(
+            sample_BrowserSource_persistent,
+            "_screenshot_page",
+            return_value=expected,
+        ) as mock_screenshot,
+    ):
+        result = sample_BrowserSource_persistent._capture_screenshot(
+            sample_BrowserSource_persistent.url
+        )
+
+    mock_ensure.assert_called_once()
+    mock_screenshot.assert_called_once_with(mock_page)
+    assert result == expected
+
+
+def test_close_releases_persistent_session(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_pw_instance, mock_browser, mock_page = _make_persistent_mocks()
+
+    sample_BrowserSource_persistent._pw = mock_pw_instance
+    sample_BrowserSource_persistent._browser = mock_browser
+    sample_BrowserSource_persistent._page = mock_page
+
+    sample_BrowserSource_persistent.close()
+
+    mock_browser.close.assert_called_once()
+    mock_pw_instance.stop.assert_called_once()
+    assert sample_BrowserSource_persistent._browser is None
+    assert sample_BrowserSource_persistent._page is None
+    assert sample_BrowserSource_persistent._pw is None
+
+
+def test_close_is_noop_when_session_never_opened(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    # Should not raise even though nothing was ever opened
+    sample_BrowserSource_persistent.close()
+
+    assert sample_BrowserSource_persistent._browser is None
+    assert sample_BrowserSource_persistent._pw is None
+
+
+def test_close_is_noop_for_ephemeral_source(
+    sample_BrowserSource: BrowserSource,
+):
+    sample_BrowserSource.close()  # should not raise

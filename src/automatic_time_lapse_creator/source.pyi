@@ -1,6 +1,7 @@
 from logging import Logger
 from .weather_station_info import WeatherStationInfo
 from abc import ABC, abstractmethod
+from playwright.sync_api import Browser, ElementHandle, Page, Playwright
 
 class Source(ABC):
     logger: Logger
@@ -16,6 +17,7 @@ class Source(ABC):
         weather_data_on_images: bool =  False,
         weather_data_provider: WeatherStationInfo | None = ...,
         owner: str | None = ...,
+        skip_validation: bool = False,
     ) -> None: ...
     @property
     def weather_data_on_images(self) -> bool: ...
@@ -55,7 +57,43 @@ class ImageSource(Source):
     def get_frame_bytes(self) -> bytes | None: ...
 
 class StreamSource(Source):
+    OPEN_TIMEOUT_MS: int
+    READ_TIMEOUT_MS: int
+    CAPTURE_WALL_TIMEOUT_S: float
     @staticmethod
     def get_url_with_yt_dlp(url: str) -> str: ...
+    @staticmethod
+    def _open_capture(url: str) -> object: ...
+    def _read_frame(self, url: str) -> tuple[bool, object | None]: ...
+    def validate_url(self, url: str) -> bool: ...
+    def get_frame_bytes(self) -> bytes | None: ...
+
+class BrowserSource(Source):
+    PAGE_LOAD_TIMEOUT_MS: int
+    ELEMENT_TIMEOUT_MS: int
+    _pw: Playwright | None
+    _browser: Browser | None
+    _page: Page | None
+    def __init__(
+        self,
+        location_name: str,
+        url: str,
+        selector: str | None = ...,
+        persistent_session: bool = False,
+        logger: Logger | None = ...,
+        weather_data_on_images: bool = ...,
+        weather_data_provider: WeatherStationInfo | None = ...,
+        owner: str | None = ...,
+        skip_validation: bool = False,
+    ) -> None: ...
+    @property
+    def selector(self) -> str | None: ...
+    @property
+    def persistent_session(self) -> bool: ...
+    def _ensure_page(self) -> Page: ...
+    def close(self) -> None: ...
+    def _find_element(self, page: Page) -> ElementHandle | None: ...
+    def _screenshot_page(self, page: Page) -> bytes | None: ...
+    def _capture_screenshot(self, url: str) -> bytes | None: ...
     def validate_url(self, url: str) -> bool: ...
     def get_frame_bytes(self) -> bytes | None: ...
