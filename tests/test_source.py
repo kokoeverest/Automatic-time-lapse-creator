@@ -1,4 +1,7 @@
 from queue import Queue
+import pickle
+import cv2
+import numpy as np
 import pytest
 import tests.test_data as td
 import tests.test_mocks as tm
@@ -711,6 +714,169 @@ def test_find_element_returns_None_when_nothing_found(
 
 
 # ---------------------------------------------------------------------------
+# BrowserSource – blank frame detection (_is_blank_frame / _screenshot_page)
+# ---------------------------------------------------------------------------
+
+def _make_jpeg(brightness: int) -> bytes:
+    """Return a valid JPEG-encoded image filled with the given grey brightness."""
+    img = np.full((100, 100, 3), brightness, dtype=np.uint8)
+    _, buf = cv2.imencode(".jpg", img)
+    return buf.tobytes()
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource – popup dismissal (_dismiss_popups)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def sample_BrowserSource_with_dismiss(mock_logger: Mock):
+    with patch(
+        "src.automatic_time_lapse_creator.source.BrowserSource.validate_url",
+        return_value=True,
+    ):
+        source = BrowserSource(
+            location_name="fake_browser_dismiss",
+            url="https://example.com/webcam",
+            dismiss_selectors=[
+                "button:has-text('Accept')",
+                "button.close-popup",
+            ],
+        )
+    source.logger = mock_logger
+    return source
+
+
+def test_dismiss_selectors_property(
+    sample_BrowserSource_with_dismiss: BrowserSource,
+):
+    assert sample_BrowserSource_with_dismiss.dismiss_selectors == [
+        "button:has-text('Accept')",
+        "button.close-popup",
+    ]
+
+
+def test_dismiss_selectors_defaults_to_empty_list(
+    sample_BrowserSource: BrowserSource,
+):
+    assert sample_BrowserSource.dismiss_selectors == []
+
+
+def test_dismiss_popups_clicks_each_selector(
+    sample_BrowserSource_with_dismiss: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+
+    sample_BrowserSource_with_dismiss._dismiss_popups(mock_page)
+
+    assert mock_page.click.call_count == 2
+    mock_page.click.assert_any_call(
+        "button:has-text('Accept')",
+        timeout=BrowserSource.DISMISS_TIMEOUT_MS,
+    )
+    mock_page.click.assert_any_call(
+        "button.close-popup",
+        timeout=BrowserSource.DISMISS_TIMEOUT_MS,
+    )
+
+
+def test_dismiss_popups_silently_skips_missing_elements(
+    sample_BrowserSource_with_dismiss: BrowserSource, mock_logger: Mock
+):
+    mock_page = MagicMock(spec=Page)
+    mock_page.click.side_effect = Exception("element not found")
+
+    # Should not raise even when every click fails
+    sample_BrowserSource_with_dismiss._dismiss_popups(mock_page)
+
+
+def test_dismiss_popups_is_noop_with_empty_list(
+    sample_BrowserSource: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+
+    sample_BrowserSource._dismiss_popups(mock_page)
+
+    mock_page.click.assert_not_called()
+
+
+def test_ensure_page_calls_dismiss_popups(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_pw_instance, _, mock_page = _make_persistent_mocks()
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.source.sync_playwright"
+        ) as mock_sync_playwright,
+        patch.object(
+            sample_BrowserSource_persistent, "_dismiss_popups"
+        ) as mock_dismiss,
+    ):
+        mock_sync_playwright.return_value.start.return_value = mock_pw_instance
+
+        sample_BrowserSource_persistent._ensure_page()
+
+    mock_dismiss.assert_called_once_with(mock_page)
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource – blank frame detection (_is_blank_frame / _screenshot_page)
+# ---------------------------------------------------------------------------
+
+def test_is_blank_frame_returns_True_for_black_image(
+    sample_BrowserSource: BrowserSource,
+):
+    assert sample_BrowserSource._is_blank_frame(_make_jpeg(0)) is True
+
+
+def test_is_blank_frame_returns_False_for_bright_image(
+    sample_BrowserSource: BrowserSource,
+):
+    assert sample_BrowserSource._is_blank_frame(_make_jpeg(128)) is False
+
+
+def test_is_blank_frame_returns_False_when_threshold_is_zero(
+    sample_BrowserSource: BrowserSource,
+):
+    original = BrowserSource.BLANK_BRIGHTNESS_THRESHOLD
+    try:
+        BrowserSource.BLANK_BRIGHTNESS_THRESHOLD = 0
+        assert sample_BrowserSource._is_blank_frame(_make_jpeg(0)) is False
+    finally:
+        BrowserSource.BLANK_BRIGHTNESS_THRESHOLD = original
+
+
+def test_screenshot_page_returns_None_for_blank_frame(
+    sample_BrowserSource: BrowserSource, mock_logger: Mock
+):
+    mock_page = MagicMock(spec=Page)
+    mock_element = _make_mock_element()
+    mock_page.wait_for_selector.return_value = mock_element
+    sample_BrowserSource.selector = "#cam"
+    mock_element.screenshot.return_value = _make_jpeg(0)
+
+    result = sample_BrowserSource._screenshot_page(mock_page)
+
+    assert result is None
+    mock_logger.debug.assert_called_once()
+
+
+def test_screenshot_page_returns_bytes_for_non_blank_frame(
+    sample_BrowserSource: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    mock_element = _make_mock_element()
+    mock_page.wait_for_selector.return_value = mock_element
+    sample_BrowserSource.selector = "#cam"
+    jpeg = _make_jpeg(128)
+    mock_element.screenshot.return_value = jpeg
+
+    result = sample_BrowserSource._screenshot_page(mock_page)
+
+    assert result == jpeg
+
+
+# ---------------------------------------------------------------------------
 # BrowserSource – persistent session (_ensure_page / close)
 # ---------------------------------------------------------------------------
 
@@ -848,3 +1014,68 @@ def test_close_is_noop_for_ephemeral_source(
     sample_BrowserSource: BrowserSource,
 ):
     sample_BrowserSource.close()  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# BrowserSource – pickle / CacheManager compatibility
+# ---------------------------------------------------------------------------
+# These fixtures use real Logger objects instead of MagicMock because
+# MagicMock(spec=Logger) tricks pickle's __newobj__ protocol into a class
+# mismatch error that is irrelevant to the behaviour under test.
+
+@pytest.fixture
+def browser_source_for_pickle():
+    with patch(
+        "src.automatic_time_lapse_creator.source.BrowserSource.validate_url",
+        return_value=True,
+    ):
+        return BrowserSource(
+            location_name="fake_browser_pickle",
+            url="https://example.com/webcam",
+        )
+
+
+@pytest.fixture
+def persistent_browser_source_for_pickle():
+    with patch(
+        "src.automatic_time_lapse_creator.source.BrowserSource.validate_url",
+        return_value=True,
+    ):
+        return BrowserSource(
+            location_name="fake_browser_pickle_persistent",
+            url="https://example.com/webcam",
+            persistent_session=True,
+        )
+
+
+def test_ephemeral_browser_source_is_picklable(
+    browser_source_for_pickle: BrowserSource,
+):
+    data = pickle.dumps(browser_source_for_pickle)
+    restored = pickle.loads(data)
+
+    assert restored.location_name == browser_source_for_pickle.location_name
+    assert restored.url == browser_source_for_pickle.url
+    assert restored.persistent_session is False
+    assert restored._pw is None
+    assert restored._browser is None
+    assert restored._page is None
+
+
+def test_persistent_browser_source_is_picklable_with_live_session(
+    persistent_browser_source_for_pickle: BrowserSource,
+):
+    mock_pw_instance, mock_browser, mock_page = _make_persistent_mocks()
+    persistent_browser_source_for_pickle._pw = mock_pw_instance
+    persistent_browser_source_for_pickle._browser = mock_browser
+    persistent_browser_source_for_pickle._page = mock_page
+
+    data = pickle.dumps(persistent_browser_source_for_pickle)
+    restored = pickle.loads(data)
+
+    assert restored.location_name == persistent_browser_source_for_pickle.location_name
+    assert restored.persistent_session is True
+    # Live Playwright objects must be stripped — session will reopen lazily
+    assert restored._pw is None
+    assert restored._browser is None
+    assert restored._page is None

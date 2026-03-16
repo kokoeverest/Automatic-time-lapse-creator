@@ -27,11 +27,10 @@
 sunrise and sunset time of the day for a specific geolocation
 - OpenCV-Python (https://pypi.org/project/opencv-python/) - to 
 read/resize the jpeg files and build a time lapse mp4 video
-- Requests - builtin module used to retrieve the image from the url
-- Logging - the builtin python looging tool for creating comprehensive 
-logs of the program execution
+- Requests - the module used to retrieve the image from the url of the webcam
 - Pytest, unittest.mock - testing and mocking objects in isolation
 - yt-dlp - for getting the correct video stream url from a live youtube stream
+- Playwright (https://playwright.dev/python/) - headless Chromium browser used by `BrowserSource` to capture frames from webcams embedded in web pages (iframes, JavaScript video players, WebRTC streams, etc.)
 - google data api v3 - for uploading the videos to a youtube channel (optional)
 
 ### Installation
@@ -42,6 +41,12 @@ The latest releases under development are available on the TestPyPi web page:
 [TestPyPi/automatic-time-lapse-creator](https://test.pypi.org/project/automatic-time-lapse-creator/#history)
 and can be installed via pip:
 ```pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple automatic-time-lapse-creator=='the_version_you_want'```
+
+#### Additional setup for `BrowserSource`
+`BrowserSource` requires a one-time download of the headless Chromium browser (done once per machine, not on every run):
+```
+playwright install chromium
+```
 
 ### Main flow and automation:
 - The execute() method is sufficient for images collection during the day, creating a video from them and storing the video on the file system.
@@ -64,7 +69,7 @@ You can set the sunrise and sunset offsets to a calculated value that is smaller
 > ***Note that no location is provided in the examples, so the TimeLapseCreator will be instantiated for the default location: Sofia, Bulgaria.***
 ```python
 from automatic_time_lapse_creator.time_lapse_creator import TimeLapseCreator
-from automatic_time_lapse_creator.source import ImageSource, StreamSource
+from automatic_time_lapse_creator.source import ImageSource, StreamSource, Source
 
 # Valid sources
 borovets_source = ImageSource(
@@ -115,6 +120,66 @@ invalid_url_creator = TimeLapseCreator(invalid_source_list)
 
 invalid_url_creator.execute()
 ```
+
+### 🌐 Using `BrowserSource` for embedded / protected webcams
+
+Some webcams are not accessible via a direct image or stream URL — their feed is embedded inside a web page using an `<iframe>`, a JavaScript video player, a WebRTC stream, or a canvas-based renderer. The underlying stream URL is often token-authenticated, hashed, or IP-locked and cannot be used directly.
+
+`BrowserSource` solves this by running a headless Chromium browser, loading the full web page, and screenshotting the webcam element. It works transparently regardless of how the stream is protected.
+
+> **One-time setup required:** run `playwright install chromium` once on each machine before using `BrowserSource`.
+
+#### Auto-detecting the webcam element
+
+When no CSS selector is provided, `BrowserSource` automatically searches for `<video>`, `<canvas>`, and `<iframe>` elements in that order. Among all visible candidates of the same type it picks the one with the **largest pixel area**, which reliably selects the main camera feed over thumbnails or decorative elements.
+
+```python
+from automatic_time_lapse_creator.source import BrowserSource
+
+# BrowserSource will auto-detect the largest visible video/canvas/iframe on the page
+earthcam_source = BrowserSource(
+    location_name="times_square",
+    url="https://www.earthcam.com/usa/newyork/timessquare/",
+)
+```
+
+#### Pinning a specific element with a CSS selector
+
+If the page contains multiple video elements or the auto-detection picks the wrong one, provide an explicit CSS selector:
+
+```python
+roundshot_source = BrowserSource(
+    location_name="zurich_roundshot",
+    url="https://www.roundshot.com/some-live-view-page",
+    selector="#webcam-player video",
+)
+```
+
+#### Persistent session (server-friendly mode)
+
+By default `BrowserSource` launches a fresh browser for every frame capture. This is the simplest mode but causes the full page (JS, CSS, fonts, analytics) to be re-downloaded each time.
+
+Setting `persistent_session=True` opens the browser **once** and keeps the tab alive for the lifetime of the source object. Subsequent frame captures only take a screenshot of the already-loaded page — no extra network requests. This closely mimics a human who leaves the browser tab open all day and just glances at it periodically, and is the recommended mode for sites that have rate limiting or bot-detection.
+
+```python
+# Open once, screenshot repeatedly — server-friendly
+earthcam_source = BrowserSource(
+    location_name="times_square",
+    url="https://www.earthcam.com/usa/newyork/timessquare/",
+    selector="#video-player video",
+    persistent_session=True,
+)
+
+bulgaria_webcams = TimeLapseCreator(sources=[earthcam_source])
+bulgaria_webcams.execute()
+
+# Release the browser when done
+earthcam_source.close()
+```
+
+If the browser crashes mid-session, `BrowserSource` automatically reopens it and reloads the page on the next `get_frame_bytes()` call — no manual intervention needed.
+
+> **Tip:** `close()` is always safe to call regardless of mode or whether the session was ever opened, so you can call it unconditionally in cleanup code.
 ### 📺 Managing YouTube Channel Videos
 
 With the new YouTubeChannelManager, users can list videos and delete failed uploads:

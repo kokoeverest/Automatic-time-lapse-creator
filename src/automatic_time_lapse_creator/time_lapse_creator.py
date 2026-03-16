@@ -146,6 +146,7 @@ class TimeLapseCreator:
         self._monthly_summary = create_monthly_summary_video
         self._day_for_monthly_summary = day_for_monthly_summary_video
         self._test_counter = night_time_retry_seconds
+        self._initial_wait_before_next_frame = seconds_between_frames
 
     def _validate(self, attr_name: str, attr_value: int):
         """
@@ -333,6 +334,149 @@ class TimeLapseCreator:
                 self._decrease_test_counter()
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
+
+    def execute_with_custom_end(
+        self,
+        end_time: dt,
+        video_queue: Queue[Any] | None = None,
+        log_queue: Queue[Any] | None = None,
+    ) -> None:
+        """
+        Executes the main time-lapse creation process for the configured sources until the end_time is reached.
+        
+        """
+
+        self.video_queue = video_queue
+        if log_queue:
+            self.log_queue = log_queue
+            _, tail = os.path.split(self.base_path)
+            self.logger = configure_root_logger(log_queue, tail)
+        try:
+            self.logger.info("Program starts!")
+            self = self.get_cached_self()
+            self.verify_sources_not_empty()
+
+            # self._test_counter > 0 for testing purposes only, see Note in TimeLapseCreator docstring
+            while self._test_counter > 0:
+                self.reset_test_counter()
+                collected = self.collect_with_custom_end(end_time)
+                if collected or (
+                    not collected
+                    and any(
+                        source.images_partially_collected for source in self.sources
+                    )
+                    and any(not source.daily_video_created for source in self.sources)
+                ):
+                    for source in self.sources:
+                        video_path = str(
+                            Path(
+                                f"{self.base_path}/{source.location_name}/{self.folder_name}"
+                            )
+                        )
+                        if (
+                            self.location.time_now > self.location.end_of_daylight
+                            and source.images_collected
+                            and not source.images_partially_collected
+                            and not source.daily_video_created
+                        ):
+                            if self.create_video(source, self.delete_collected_daily_images):
+                                source.set_daily_video_created()
+                                if self.video_queue is not None:
+                                    self.video_queue.put(
+                                        self.create_response_with_metadata(
+                                            video_path,
+                                            VideoType.DAILY.value,
+                                            source
+                                        )
+                                    )
+                                self.cache_self()
+                        elif (
+                            self.location.time_now > self.location.end_of_daylight
+                            and source.images_partially_collected
+                            and not source.images_collected
+                            and not source.daily_video_created
+                        ):
+                            if self.create_video(source, delete_source_images=False):
+                                source.set_daily_video_created()
+                                if self.video_queue is not None:
+                                    self.video_queue.put(
+                                        self.create_response_with_metadata(
+                                            video_path, VideoType.DAILY.value, source
+                                        )
+                                    )
+                                self.cache_self()
+                else:
+                    if self._monthly_summary:
+                        if self.is_next_month():
+                            self.process_monthly_summary()
+                    sleep(self.nighttime_wait_before_next_retry)
+
+                self._decrease_test_counter()
+        except KeyboardInterrupt:
+            self.logger.info("Program execution cancelled...")
+
+    def _adjust_wait_before_next_frame(self) -> None:
+        """Adjusts the wait_before_next_frame based on the time of day."""
+        final_value = int(self._initial_wait_before_next_frame * 5)
+        
+        if not self.location.is_daylight():
+            self.wait_before_next_frame = final_value
+            self.logger.info(f"Night time detected! Increasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
+        else:
+            self.wait_before_next_frame = self._initial_wait_before_next_frame
+            self.logger.info(f"Daytime detected! Decreasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
+
+    def collect_with_custom_end(self, end_time: dt) -> bool:
+        """Collects images from the sources until the end_time is reached.
+        If is_daylight() returns False, the wait_before_next_frame should be increased (multiplied by 5 or more)
+        so that the night time in the videos will be shorter and not boring to the viewer.
+        """
+        if self.location.time_now < end_time:
+
+            while self.location.time_now < end_time:
+                self._adjust_wait_before_next_frame()
+                for source in self.sources:
+                    try:
+                        img = source.get_frame_bytes()
+
+                        if img:
+                            if source.weather_data_provider:
+                                source.weather_data_provider.get_data()
+
+                            file_name = self.location.time_now.strftime(HHMMSS_UNDERSCORE_FORMAT)
+                            current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
+                            dt_text = f"{self.folder_name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}"
+
+                            Path(current_path).mkdir(parents=True, exist_ok=True)
+                            full_path = Path(f"{current_path}/{file_name}{JPG_FILE}")
+
+                            vm.save_image_with_weather_overlay(
+                                image_bytes=img,
+                                save_path=str(full_path),
+                                width=self.video_width,
+                                height=self.video_height,
+                                date_time_text=dt_text,
+                                weather_data_text=str(source.weather_data_provider)
+                                if source.weather_data_provider
+                                else None,
+                                text_box_position=self.text_box_position,
+                                text_box_transparency=self.text_box_transparency
+                            )
+
+                            source.increase_images()
+                            source.set_images_partially_collected()
+
+                    except Exception:
+                        continue
+                    sleep(self.wait_before_next_frame)
+
+            self.set_sources_all_images_collected()
+            self.logger.info(f"Finished collecting for {self.folder_name}")
+            self.cache_self()
+
+            return True
+        else:
+            return False
 
     def collect_images_from_webcams(self) -> bool:
         """While self.location.is_daylight() returns True, the images for every source

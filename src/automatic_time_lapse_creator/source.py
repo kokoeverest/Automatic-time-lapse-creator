@@ -5,7 +5,8 @@ import subprocess
 import requests
 from logging import Logger
 from playwright.sync_api import sync_playwright, Browser, ElementHandle, Page, Playwright
-
+from typing import Any
+from time import sleep
 from .common.logger import configure_child_logger
 from .common.constants import OK_STATUS_CODE
 from .common.exceptions import InvalidStatusCodeException
@@ -433,10 +434,36 @@ class BrowserSource(Source):
 
         element_timeout_ms: int - How long (ms) to wait for the target element
             to appear in the DOM after the page has loaded. Defaults to 15 000.
+
+        blank_brightness_threshold: float - Mean pixel brightness (0–255) below
+            which a captured frame is considered blank (e.g. a black video
+            player that has not yet buffered). Such frames are discarded and
+            ``get_frame_bytes()`` returns *None* instead of saving a useless
+            black image. Defaults to 10. Set to 0 to disable blank detection.
+
+        dismiss_selectors: list[str] - CSS selectors for overlay close/accept
+            buttons (cookie banners, donation popups, GDPR notices, etc.) that
+            should be clicked once after the page loads. Each selector is tried
+            in order; selectors that do not match any element are silently
+            skipped. In persistent-session mode the dismissals happen once when
+            the browser opens (or reopens after a crash), so the overlays stay
+            gone for the entire day. In ephemeral mode they are dismissed on
+            every frame capture.
+
+            Selectors may use any syntax Playwright supports, including
+            text-based selectors, e.g.::
+
+                dismiss_selectors=[
+                    "button:has-text('Разреши всички')",  # cookie banner
+                    "button:has-text('Затвори')",          # Patreon popup
+                ]
     """
 
     PAGE_LOAD_TIMEOUT_MS: int = 30_000
     ELEMENT_TIMEOUT_MS: int = 15_000
+    BLANK_BRIGHTNESS_THRESHOLD: float = 10.0
+    # How long to wait for each dismiss selector before giving up (ms).
+    DISMISS_TIMEOUT_MS: int = 3_000
 
     def __init__(
         self,
@@ -444,6 +471,7 @@ class BrowserSource(Source):
         url: str,
         selector: str | None = None,
         persistent_session: bool = False,
+        dismiss_selectors: list[str] | None = None,
         logger: Logger | None = None,
         weather_data_on_images: bool = False,
         weather_data_provider: "WeatherStationInfo | None" = None,
@@ -452,6 +480,7 @@ class BrowserSource(Source):
     ) -> None:
         self._selector = selector
         self._persistent_session = persistent_session
+        self._dismiss_selectors: list[str] = dismiss_selectors or []
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._page: Page | None = None
@@ -470,10 +499,39 @@ class BrowserSource(Source):
         """The CSS selector used to locate the webcam element, or None for auto-detect."""
         return self._selector
 
+    @selector.setter
+    def selector(self, value: str) -> None:
+        """Set the CSS selector used to locate the webcam element."""
+        self._selector = value
+
     @property
     def persistent_session(self) -> bool:
         """True if a single browser session is reused across all frame captures."""
         return self._persistent_session
+
+    @property
+    def dismiss_selectors(self) -> list[str]:
+        """CSS selectors for overlay buttons to click once after page load."""
+        return self._dismiss_selectors
+
+    def _dismiss_popups(self, page: Page) -> None:
+        """
+        Clicks every button in ``dismiss_selectors`` to close overlays.
+
+        Each selector is attempted with a short timeout (``DISMISS_TIMEOUT_MS``).
+        Selectors that do not match any visible element are silently skipped so
+        a missing or already-closed popup never interrupts frame capture.
+        """
+        for sel in self._dismiss_selectors:
+            try:
+                page.click(sel, timeout=self.DISMISS_TIMEOUT_MS)
+                self.logger.debug(
+                    f"{self.location_name}: dismissed overlay '{sel}'."
+                )
+                sleep(1)
+            except Exception:
+                self.logger.error(f"{self.location_name}: failed to dismiss overlay '{sel}'.")
+                pass
 
     def _ensure_page(self) -> Page:
         """
@@ -500,6 +558,7 @@ class BrowserSource(Source):
             timeout=self.PAGE_LOAD_TIMEOUT_MS,
             wait_until="load",
         )
+        self._dismiss_popups(self._page)
         self.logger.info(
             f"{self.location_name}: persistent browser session (re)opened."
         )
@@ -519,6 +578,26 @@ class BrowserSource(Source):
         if self._pw is not None:
             self._pw.stop()
             self._pw = None
+
+    def __getstate__(self) -> dict[str, Any]:
+        """
+        Custom pickle serialisation: strip the live Playwright runtime objects
+        before the object is pickled (e.g. by CacheManager).
+
+        Playwright's internal asyncio event loop and async-generator hooks are
+        not serialisable by pickle. The browser state is dropped here and will
+        be transparently recreated by ``_ensure_page()`` the next time
+        ``get_frame_bytes()`` is called after the object is restored.
+        """
+        state = self.__dict__.copy()
+        state["_pw"] = None
+        state["_browser"] = None
+        state["_page"] = None
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore the instance from a pickle snapshot."""
+        self.__dict__.update(state)
 
     def _find_element(self, page: Page) -> ElementHandle | None:
         """
@@ -552,6 +631,27 @@ class BrowserSource(Source):
 
         return None
 
+    def _is_blank_frame(self, jpeg_bytes: bytes) -> bool:
+        """
+        Returns *True* when the frame is predominantly black.
+
+        This catches the common case where a video player has not yet buffered
+        its first frame and renders a solid black rectangle. The check decodes
+        the JPEG to a greyscale image and compares the mean pixel brightness
+        against ``BLANK_BRIGHTNESS_THRESHOLD``.
+
+        Always returns *False* when the threshold is set to 0 (detection
+        disabled) or when the image cannot be decoded.
+        """
+        if self.BLANK_BRIGHTNESS_THRESHOLD <= 0:
+            return False
+        import numpy as np
+        arr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return False
+        return float(img.mean()) < self.BLANK_BRIGHTNESS_THRESHOLD
+
     def _screenshot_page(self, page: Page) -> bytes | None:
         """Takes a JPEG screenshot of the webcam element on *page*."""
         element = self._find_element(page)
@@ -561,7 +661,13 @@ class BrowserSource(Source):
                 f"Try providing an explicit CSS selector."
             )
             return None
-        return element.screenshot(type="jpeg", quality=90)
+        screenshot = element.screenshot(type="jpeg", quality=90)
+        if self._is_blank_frame(screenshot):
+            self.logger.debug(
+                f"{self.location_name}: blank frame detected, skipping."
+            )
+            return None
+        return screenshot
 
     def _capture_screenshot(self, url: str) -> bytes | None:
         """
@@ -582,6 +688,7 @@ class BrowserSource(Source):
                     timeout=self.PAGE_LOAD_TIMEOUT_MS,
                     wait_until="load",
                 )
+                self._dismiss_popups(page)
                 return self._screenshot_page(page)
             finally:
                 browser.close()
