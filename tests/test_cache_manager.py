@@ -67,12 +67,17 @@ def test_get_returns_TimeLapsCreator_object(
         ) as mock_logger,
     ):
         for source in sample_non_empty_time_lapse_creator.sources:
+            assert source.images_count == 0
+            source.increase_images()
             result = CacheManager.get(
                 logger=sample_non_empty_time_lapse_creator.logger,
                 location=source.location_name,
                 path_prefix=sample_non_empty_time_lapse_creator.base_path,
             )
             assert isinstance(result, TimeLapseCreator)
+            assert result.sources == set(mock_creator.sources)
+            assert source.images_count == 1
+            source.reset_images_counter()
         assert mock_logger.call_count == (
             len(sample_non_empty_time_lapse_creator.sources) * 2
         )

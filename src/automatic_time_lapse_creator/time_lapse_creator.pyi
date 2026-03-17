@@ -30,6 +30,7 @@ from .time_manager import LocationAndTimeManager as LocationAndTimeManager
 from . import text_box as box
 from logging import Logger
 from typing import Any, Iterable
+from datetime import datetime as dt
 
 class TimeLapseCreator:
     base_path: str
@@ -78,6 +79,13 @@ class TimeLapseCreator:
         video_queue: Queue[Any] | None = ...,
         log_queue: Queue[Any] | None = ...,
     ) -> None: ...
+    def execute_with_custom_end(
+        self,
+        end_time: dt,
+        video_queue: Queue[Any] | None = ...,
+        log_queue: Queue[Any] | None = ...,
+    ) -> None: ...
+    def collect_with_custom_end(self, end_time: dt) -> bool: ...
     def collect_images_from_webcams(self) -> bool: ...
     def is_it_next_day(self) -> None: ...
     def create_video(
