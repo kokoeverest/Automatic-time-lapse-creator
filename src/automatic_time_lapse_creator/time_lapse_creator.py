@@ -147,6 +147,7 @@ class TimeLapseCreator:
         self._day_for_monthly_summary = day_for_monthly_summary_video
         self._test_counter = night_time_retry_seconds
         self._initial_wait_before_next_frame = seconds_between_frames
+        self._fresh = True
 
     def _validate(self, attr_name: str, attr_value: int):
         """
@@ -490,7 +491,9 @@ class TimeLapseCreator:
             False - if it's not daylight yet.
         """
         if self.location.is_daylight():
-            self.reset_all_sources_counters_to_default_values()
+            # Reset the counters only in the begining of a new day
+            if self._fresh:
+                self.reset_all_sources_counters_to_default_values()
             self.logger.info(f"Start collecting images @{self.location.city.name}")
 
             while self.location.is_daylight():
@@ -525,6 +528,7 @@ class TimeLapseCreator:
                             source.increase_images()
                             source.set_images_partially_collected()
                             self.cache_self()
+                            self._fresh = False
 
                     except Exception:
                         continue
@@ -551,6 +555,7 @@ class TimeLapseCreator:
             or new_date.day > old_date.day
         ):
             self.folder_name = new_date.strftime(YYMMDD_FORMAT)
+            self._fresh = True
             self.logger.info(
                 f"New day starts! Images will be collected between:\n"
                 f"{LOG_START_INT * ' '}Start time: {self.location.start_of_daylight.strftime(HHMMSS_COLON_FORMAT)}  -->"
