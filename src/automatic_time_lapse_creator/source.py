@@ -6,7 +6,7 @@ import requests
 from logging import Logger
 from playwright.sync_api import sync_playwright, Browser, ElementHandle, Page, Playwright
 from typing import Any
-from time import sleep
+from time import monotonic, sleep
 from .common.logger import configure_child_logger
 from .common.constants import OK_STATUS_CODE
 from .common.exceptions import InvalidStatusCodeException
@@ -212,6 +212,29 @@ class Source(ABC):
         """Resets the self._images_partially_collected to False"""
         self._images_partially_collected = False
 
+    BLANK_BRIGHTNESS_THRESHOLD: float = 10.0
+
+    def _is_blank_frame(self, jpeg_bytes: bytes) -> bool:
+        """
+        Returns *True* when the frame is predominantly black.
+
+        This catches the common case where a video player has not yet buffered
+        its first frame and renders a solid black rectangle. The check decodes
+        the JPEG to a greyscale image and compares the mean pixel brightness
+        against ``BLANK_BRIGHTNESS_THRESHOLD``.
+
+        Always returns *False* when the threshold is set to 0 (detection
+        disabled) or when the image cannot be decoded.
+        """
+        if self.BLANK_BRIGHTNESS_THRESHOLD <= 0:
+            return False
+        import numpy as np
+        arr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            return False
+        return float(img.mean()) < self.BLANK_BRIGHTNESS_THRESHOLD
+
     @abstractmethod
     def validate_url(self, url: str) -> bool:
         pass
@@ -265,6 +288,9 @@ class ImageSource(Source):
         except Exception as exc:
             self.logger.error(f"{self.location_name}: {exc}")
             raise exc
+        if self._is_blank_frame(response.content):
+            self.logger.debug(f"{self.location_name}: blank frame detected, skipping.")
+            return None
         return response.content
 
 
@@ -386,7 +412,11 @@ class StreamSource(Source):
                 self.logger.warning("Failed to encode frame to JPEG format.")
                 return None
 
-            return buffer.tobytes()
+            jpeg = buffer.tobytes()
+            if self._is_blank_frame(jpeg):
+                self.logger.debug(f"{self.location_name}: blank frame detected, skipping.")
+                return None
+            return jpeg
 
         except Exception as e:
             self.logger.error(f"{self.location_name}: {e}")
@@ -455,15 +485,26 @@ class BrowserSource(Source):
 
                 dismiss_selectors=[
                     "button:has-text('Разреши всички')",  # cookie banner
-                    "button:has-text('Затвори')",          # Patreon popup
+                    "a.patreon-close",                    # Patreon popup
                 ]
+
+        reload_interval_s: float - How often (in seconds) the persistent page
+            is proactively reloaded to keep the stream fresh. Defaults to 600 s
+            (10 minutes). Set to 0 to disable periodic reloads.
+
+            In addition to the periodic reload, a blank frame in persistent
+            mode always triggers an immediate reload + single retry, regardless
+            of this interval. This handles the case where the stream connection
+            drops mid-interval.
     """
 
     PAGE_LOAD_TIMEOUT_MS: int = 30_000
     ELEMENT_TIMEOUT_MS: int = 15_000
-    BLANK_BRIGHTNESS_THRESHOLD: float = 10.0
     # How long to wait for each dismiss selector before giving up (ms).
     DISMISS_TIMEOUT_MS: int = 3_000
+    # Default periodic reload interval for persistent sessions (seconds).
+    # 0 disables periodic reloads (blank-triggered reloads still apply).
+    PAGE_RELOAD_INTERVAL_S: float = 600.0
 
     def __init__(
         self,
@@ -472,6 +513,7 @@ class BrowserSource(Source):
         selector: str | None = None,
         persistent_session: bool = False,
         dismiss_selectors: list[str] | None = None,
+        reload_interval_s: float | None = None,
         logger: Logger | None = None,
         weather_data_on_images: bool = False,
         weather_data_provider: "WeatherStationInfo | None" = None,
@@ -481,6 +523,11 @@ class BrowserSource(Source):
         self._selector = selector
         self._persistent_session = persistent_session
         self._dismiss_selectors: list[str] = dismiss_selectors or []
+        self._reload_interval_s: float = (
+            reload_interval_s if reload_interval_s is not None
+            else self.PAGE_RELOAD_INTERVAL_S
+        )
+        self._last_reload: float = 0.0
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._page: Page | None = None
@@ -513,6 +560,11 @@ class BrowserSource(Source):
     def dismiss_selectors(self) -> list[str]:
         """CSS selectors for overlay buttons to click once after page load."""
         return self._dismiss_selectors
+
+    @property
+    def reload_interval_s(self) -> float:
+        """Seconds between proactive page reloads in persistent-session mode."""
+        return self._reload_interval_s
 
     def _dismiss_popups(self, page: Page) -> None:
         """
@@ -559,6 +611,7 @@ class BrowserSource(Source):
             wait_until="load",
         )
         self._dismiss_popups(self._page)
+        self._last_reload = monotonic()
         self.logger.info(
             f"{self.location_name}: persistent browser session (re)opened."
         )
@@ -578,6 +631,17 @@ class BrowserSource(Source):
         if self._pw is not None:
             self._pw.stop()
             self._pw = None
+
+    def _reload_page(self, page: Page) -> None:
+        """
+        Reloads the persistent page, re-dismisses overlays and resets the
+        reload timer. Called both by the periodic scheduler and by the
+        blank-frame recovery path.
+        """
+        self.logger.info(f"{self.location_name}: reloading page.")
+        page.reload(timeout=self.PAGE_LOAD_TIMEOUT_MS, wait_until="load")
+        self._dismiss_popups(page)
+        self._last_reload = monotonic()
 
     def __getstate__(self) -> dict[str, Any]:
         """
@@ -631,27 +695,6 @@ class BrowserSource(Source):
 
         return None
 
-    def _is_blank_frame(self, jpeg_bytes: bytes) -> bool:
-        """
-        Returns *True* when the frame is predominantly black.
-
-        This catches the common case where a video player has not yet buffered
-        its first frame and renders a solid black rectangle. The check decodes
-        the JPEG to a greyscale image and compares the mean pixel brightness
-        against ``BLANK_BRIGHTNESS_THRESHOLD``.
-
-        Always returns *False* when the threshold is set to 0 (detection
-        disabled) or when the image cannot be decoded.
-        """
-        if self.BLANK_BRIGHTNESS_THRESHOLD <= 0:
-            return False
-        import numpy as np
-        arr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
-        img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            return False
-        return float(img.mean()) < self.BLANK_BRIGHTNESS_THRESHOLD
-
     def _screenshot_page(self, page: Page) -> bytes | None:
         """Takes a JPEG screenshot of the webcam element on *page*."""
         element = self._find_element(page)
@@ -674,10 +717,36 @@ class BrowserSource(Source):
         Returns a JPEG screenshot of the webcam element.
 
         In ephemeral mode a fresh browser is launched, used, and closed.
-        In persistent mode the existing page is reused (or reopened on crash).
+        In persistent mode the existing page is reused (or reopened on crash),
+        with two automatic recovery mechanisms:
+
+        * **Periodic reload** — the page is refreshed every
+          ``reload_interval_s`` seconds (default 10 min) so long-running
+          sessions never accumulate stale stream state.
+        * **Blank-triggered reload** — if a frame is blank (stream died),
+          the page is reloaded immediately and the screenshot is retried once
+          before returning *None*.
         """
         if self._persistent_session:
-            return self._screenshot_page(self._ensure_page())
+            page = self._ensure_page()
+
+            if (
+                self._reload_interval_s > 0
+                and monotonic() - self._last_reload >= self._reload_interval_s
+            ):
+                self._reload_page(page)
+
+            screenshot = self._screenshot_page(page)
+
+            if screenshot is None:
+                self.logger.info(
+                    f"{self.location_name}: blank or missing element — "
+                    "reloading page and retrying once."
+                )
+                self._reload_page(page)
+                screenshot = self._screenshot_page(page)
+
+            return screenshot
 
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
