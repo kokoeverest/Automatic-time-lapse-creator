@@ -375,7 +375,7 @@ class TimeLapseCreator:
                             )
                         )
                         if (
-                            self.location.time_now > self.location.end_of_daylight
+                            self.location.time_now > end_time
                             and source.images_collected
                             and not source.images_partially_collected
                             and not source.daily_video_created
@@ -392,7 +392,7 @@ class TimeLapseCreator:
                                     )
                                 self.cache_self()
                         elif (
-                            self.location.time_now > self.location.end_of_daylight
+                            self.location.time_now > end_time
                             and source.images_partially_collected
                             and not source.images_collected
                             and not source.daily_video_created
@@ -422,10 +422,33 @@ class TimeLapseCreator:
         
         if not self.location.is_daylight():
             self.wait_before_next_frame = final_value
-            self.logger.info(f"Night time detected! Increasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
+            if not self.quiet_mode:
+                self.logger.info(f"Night time detected! Increasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
         else:
             self.wait_before_next_frame = self._initial_wait_before_next_frame
-            self.logger.info(f"Daytime detected! Decreasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
+            if not self.quiet_mode:
+                self.logger.info(f"Daytime detected! Decreasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
+
+    def _pre_collect_actions(self, source: Source) -> tuple[Path, str]:
+        """Performs the actions before the image is collected.
+        Gets the weather data for the source if it's available.
+        Prepare the folder and file name for the image."""
+        if source.weather_data_provider:
+            source.weather_data_provider.get_data()
+
+        file_name = self.location.time_now.strftime(HHMMSS_UNDERSCORE_FORMAT)
+        current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
+        dt_text = f"{self.folder_name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}"
+
+        Path(current_path).mkdir(parents=True, exist_ok=True)
+        return Path(f"{current_path}/{file_name}{JPG_FILE}"), dt_text
+
+    def _post_collect_actions(self, source: Source) -> None:
+        """Performs the actions after the image is collected."""
+        source.increase_images()
+        source.set_images_partially_collected()
+        self.cache_self()
+        self._fresh = False
 
     def collect_with_custom_end(self, end_time: dt) -> bool:
         """Collects images from the sources until the end_time is reached.
@@ -441,15 +464,7 @@ class TimeLapseCreator:
                         img = source.get_frame_bytes()
 
                         if img:
-                            if source.weather_data_provider:
-                                source.weather_data_provider.get_data()
-
-                            file_name = self.location.time_now.strftime(HHMMSS_UNDERSCORE_FORMAT)
-                            current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
-                            dt_text = f"{self.folder_name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}"
-
-                            Path(current_path).mkdir(parents=True, exist_ok=True)
-                            full_path = Path(f"{current_path}/{file_name}{JPG_FILE}")
+                            full_path, dt_text = self._pre_collect_actions(source)
 
                             vm.save_image_with_weather_overlay(
                                 image_bytes=img,
@@ -463,9 +478,7 @@ class TimeLapseCreator:
                                 text_box_position=self.text_box_position,
                                 text_box_transparency=self.text_box_transparency
                             )
-
-                            source.increase_images()
-                            source.set_images_partially_collected()
+                            self._post_collect_actions(source)
 
                     except Exception:
                         continue
@@ -502,15 +515,7 @@ class TimeLapseCreator:
                         img = source.get_frame_bytes()
 
                         if img:
-                            if source.weather_data_provider:
-                                source.weather_data_provider.get_data()
-
-                            file_name = self.location.time_now.strftime(HHMMSS_UNDERSCORE_FORMAT)
-                            current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
-                            dt_text = f"{self.folder_name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}"
-
-                            Path(current_path).mkdir(parents=True, exist_ok=True)
-                            full_path = Path(f"{current_path}/{file_name}{JPG_FILE}")
+                            full_path, dt_text = self._pre_collect_actions(source)
 
                             vm.save_image_with_weather_overlay(
                                 image_bytes=img,
@@ -524,11 +529,7 @@ class TimeLapseCreator:
                                 text_box_position=self.text_box_position,
                                 text_box_transparency=self.text_box_transparency
                             )
-
-                            source.increase_images()
-                            source.set_images_partially_collected()
-                            self.cache_self()
-                            self._fresh = False
+                            self._post_collect_actions(source)
 
                     except Exception:
                         continue

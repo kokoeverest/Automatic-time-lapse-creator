@@ -452,6 +452,34 @@ def test_get_frame_bytes_returns_correct_result_for_StreamSource(
     assert actual_result == expected_result
 
 
+def test_image_source_get_frame_bytes_returns_None_for_blank_frame(
+    sample_source: ImageSource, mock_logger: Mock
+):
+    sample_source.logger = mock_logger
+    mock_response = Mock(spec=Response)
+    mock_response.status_code = OK_STATUS_CODE
+    mock_response.content = _make_jpeg(0)  # solid black image
+
+    with patch("requests.get", return_value=mock_response):
+        result = sample_source.get_frame_bytes()
+
+    assert result is None
+    mock_logger.debug.assert_called_once()
+
+
+def test_stream_source_get_frame_bytes_returns_None_for_blank_frame(
+    sample_StreamSource: StreamSource, mock_logger: Mock
+):
+    sample_StreamSource.logger = mock_logger
+    black_frame = np.zeros((100, 100, 3), dtype=np.uint8)
+
+    with patch.object(sample_StreamSource, "_read_frame", return_value=(True, black_frame)):
+        result = sample_StreamSource.get_frame_bytes()
+
+    assert result is None
+    mock_logger.debug.assert_called_once()
+
+
 # ---------------------------------------------------------------------------
 # BrowserSource fixtures
 # ---------------------------------------------------------------------------
@@ -824,26 +852,26 @@ def test_ensure_page_calls_dismiss_popups(
 # ---------------------------------------------------------------------------
 
 def test_is_blank_frame_returns_True_for_black_image(
-    sample_BrowserSource: BrowserSource,
+    sample_source: ImageSource,
 ):
-    assert sample_BrowserSource._is_blank_frame(_make_jpeg(0)) is True
+    assert sample_source._is_blank_frame(_make_jpeg(0)) is True
 
 
 def test_is_blank_frame_returns_False_for_bright_image(
-    sample_BrowserSource: BrowserSource,
+    sample_source: ImageSource,
 ):
-    assert sample_BrowserSource._is_blank_frame(_make_jpeg(128)) is False
+    assert sample_source._is_blank_frame(_make_jpeg(128)) is False
 
 
 def test_is_blank_frame_returns_False_when_threshold_is_zero(
-    sample_BrowserSource: BrowserSource,
+    sample_source: ImageSource,
 ):
-    original = BrowserSource.BLANK_BRIGHTNESS_THRESHOLD
+    original = Source.BLANK_BRIGHTNESS_THRESHOLD
     try:
-        BrowserSource.BLANK_BRIGHTNESS_THRESHOLD = 0
-        assert sample_BrowserSource._is_blank_frame(_make_jpeg(0)) is False
+        Source.BLANK_BRIGHTNESS_THRESHOLD = 0
+        assert sample_source._is_blank_frame(_make_jpeg(0)) is False
     finally:
-        BrowserSource.BLANK_BRIGHTNESS_THRESHOLD = original
+        Source.BLANK_BRIGHTNESS_THRESHOLD = original
 
 
 def test_screenshot_page_returns_None_for_blank_frame(
@@ -980,6 +1008,117 @@ def test_capture_screenshot_uses_ensure_page_in_persistent_mode(
     mock_ensure.assert_called_once()
     mock_screenshot.assert_called_once_with(mock_page)
     assert result == expected
+
+
+def test_capture_screenshot_reloads_page_when_interval_elapsed(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    expected = b"fresh_jpeg"
+    # Force the interval to appear elapsed
+    sample_BrowserSource_persistent._last_reload = 0.0
+    sample_BrowserSource_persistent._reload_interval_s = 1.0  # 1 s
+
+    with (
+        patch.object(sample_BrowserSource_persistent, "_ensure_page", return_value=mock_page),
+        patch.object(sample_BrowserSource_persistent, "_reload_page") as mock_reload,
+        patch.object(sample_BrowserSource_persistent, "_screenshot_page", return_value=expected),
+        patch("src.automatic_time_lapse_creator.source.monotonic", return_value=100.0),
+    ):
+        result = sample_BrowserSource_persistent._capture_screenshot(
+            sample_BrowserSource_persistent.url
+        )
+
+    mock_reload.assert_called_once_with(mock_page)
+    assert result == expected
+
+
+def test_capture_screenshot_does_not_reload_when_interval_not_elapsed(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    sample_BrowserSource_persistent._reload_interval_s = 600.0
+
+    with (
+        patch.object(sample_BrowserSource_persistent, "_ensure_page", return_value=mock_page),
+        patch.object(sample_BrowserSource_persistent, "_reload_page") as mock_reload,
+        patch.object(sample_BrowserSource_persistent, "_screenshot_page", return_value=b"jpeg"),
+        patch(
+            "src.automatic_time_lapse_creator.source.monotonic",
+            side_effect=[100.0, 100.0],  # _last_reload=100, current=100 → 0s elapsed
+        ),
+    ):
+        sample_BrowserSource_persistent._last_reload = 100.0
+        sample_BrowserSource_persistent._capture_screenshot(
+            sample_BrowserSource_persistent.url
+        )
+
+    mock_reload.assert_not_called()
+
+
+def test_capture_screenshot_reloads_and_retries_on_blank_frame(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    expected = b"recovered_jpeg"
+    # Disable periodic reload so only blank-triggered reload fires
+    sample_BrowserSource_persistent._reload_interval_s = 0.0
+
+    with (
+        patch.object(sample_BrowserSource_persistent, "_ensure_page", return_value=mock_page),
+        patch.object(sample_BrowserSource_persistent, "_reload_page") as mock_reload,
+        patch.object(
+            sample_BrowserSource_persistent,
+            "_screenshot_page",
+            side_effect=[None, expected],  # first call blank, second succeeds
+        ),
+    ):
+        result = sample_BrowserSource_persistent._capture_screenshot(
+            sample_BrowserSource_persistent.url
+        )
+
+    mock_reload.assert_called_once_with(mock_page)
+    assert result == expected
+
+
+def test_capture_screenshot_returns_None_when_still_blank_after_reload(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+    sample_BrowserSource_persistent._reload_interval_s = 0.0
+
+    with (
+        patch.object(sample_BrowserSource_persistent, "_ensure_page", return_value=mock_page),
+        patch.object(sample_BrowserSource_persistent, "_reload_page"),
+        patch.object(
+            sample_BrowserSource_persistent,
+            "_screenshot_page",
+            return_value=None,  # blank both before and after reload
+        ),
+    ):
+        result = sample_BrowserSource_persistent._capture_screenshot(
+            sample_BrowserSource_persistent.url
+        )
+
+    assert result is None
+
+
+def test_reload_page_calls_reload_and_dismiss(
+    sample_BrowserSource_persistent: BrowserSource,
+):
+    mock_page = MagicMock(spec=Page)
+
+    with patch.object(
+        sample_BrowserSource_persistent, "_dismiss_popups"
+    ) as mock_dismiss:
+        sample_BrowserSource_persistent._reload_page(mock_page)
+
+    mock_page.reload.assert_called_once_with(
+        timeout=BrowserSource.PAGE_LOAD_TIMEOUT_MS,
+        wait_until="load",
+    )
+    mock_dismiss.assert_called_once_with(mock_page)
+    assert sample_BrowserSource_persistent._last_reload > 0
 
 
 def test_close_releases_persistent_session(
