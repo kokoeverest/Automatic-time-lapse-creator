@@ -2,7 +2,6 @@ from logging import Logger
 from typing import Any, Generator, Iterable
 from google.auth.external_account_authorized_user import Credentials as Creds
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import Resource
 from .common.constants import AuthMethod
 from multiprocessing import Queue
@@ -25,10 +24,14 @@ class YouTubeAuth:
     def validate_secrets_file(logger: Logger, secrets_file: str | None) -> None: ...
     @staticmethod
     def _auth_worker(
-        flow: InstalledAppFlow , 
-        host: str, 
-        port: int, 
-        queue: Queue[Any]
+        secrets_file: str,
+        scopes: list[str],
+        host: str,
+        port: int,
+        redirect_url: str,
+        queue: Queue[Any],
+        logger: Logger,
+        cls: type[YouTubeAuth],
         ) -> None: ...
     def authenticate_youtube(
         self, youtube_client_secrets_file: str
