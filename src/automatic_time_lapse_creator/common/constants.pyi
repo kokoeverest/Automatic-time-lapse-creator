@@ -66,6 +66,7 @@ MAX_TITLE_LENGTH: int
 BYTES: int
 MEGABYTES: int
 DEFAULT_CHUNK_SIZE: int
+DEFAULT_EMAIL_AUTH_TIMEOUT_SECONDS: int
 
 class VideoPrivacyStatus(Enum):
     PUBLIC: Enum

@@ -58,7 +58,8 @@ def test_authenticate_youtube_with_valid_token(mock_logger: MagicMock):
             return_value="YouTubeService",
         ),
     ):
-        result = YouTubeAuth.authenticate_youtube(mock_logger, td.mock_secrets_file, AuthMethod.MANUAL)
+        youtube_instance = YouTubeAuth(td.mock_secrets_file)
+        result = youtube_instance.authenticate_youtube(td.mock_secrets_file)
         assert result == "YouTubeService"
 
 
@@ -77,5 +78,6 @@ def test_authenticate_youtube_with_new_auth(mock_logger: MagicMock):
             return_value="YouTubeService",
         ),
     ):
-        result = YouTubeAuth.authenticate_youtube(mock_logger, td.mock_secrets_file, AuthMethod.MANUAL)
+        youtube_instance = YouTubeAuth(td.mock_secrets_file)
+        result = youtube_instance.authenticate_youtube(td.mock_secrets_file)
         assert result == "YouTubeService"
