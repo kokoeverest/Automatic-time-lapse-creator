@@ -4,9 +4,12 @@ import json
 import logging
 import smtplib
 from email.mime.text import MIMEText
-from multiprocessing import Queue, Process
+from multiprocessing import Process, Queue
 from queue import Empty
+import wsgiref.simple_server
+import wsgiref.util
 from urllib3.util import parse_url
+from time import sleep
 
 from typing import Iterable, Any, Generator
 from googleapiclient.discovery import build
@@ -126,70 +129,108 @@ class YouTubeAuth:
 
     @staticmethod
     def _auth_worker(
-        flow: InstalledAppFlow, 
+        secrets_file: str, 
+        scopes: list[str], 
         host: str, 
         port: int, 
-        queue: Queue[Any]
+        redirect_url: str, 
+        queue: Queue[Any], 
+        logger: logging.Logger, 
+        cls: type[YouTubeAuth]
         ):
-        """Helper function to run in a separate process."""
         try:
-            creds: Credentials | Creds = flow.run_local_server(
-                host=host,
-                port=port,
-                open_browser=False,
-                authorization_prompt_message='Authorize here: {url}',
-                success_message='Success! You can close this tab.'
+            # 1. Initialize flow inside the worker for state isolation
+            flow = InstalledAppFlow.from_client_secrets_file(secrets_file, scopes=scopes)
+            flow.redirect_uri = redirect_url
+            
+            # 2. Generate the Auth URL and capture the state correctly
+            auth_url, state = flow.authorization_url(prompt="consent", access_type="offline")
+            
+            # 3. Send the email
+            try:
+                cls.notify_by_email(logger=logger, auth_url=auth_url)
+                # Check if the email actually worked (or just log it properly)
+                logger.info(f"Worker initiated auth sequence. State: {state}")
+            except Exception as e:
+                logger.error(f"Worker failed to send email: {e}")
+
+            # 4. Define a simple, standalone WSGI App
+            class SimpleAuthApp:
+                def __init__(self):
+                    self.last_request_uri = None
+                def __call__(self, environ, start_response):
+                    start_response('200 OK', [('Content-type', 'text/plain; charset=utf-8')])
+                    self.last_request_uri = wsgiref.util.request_uri(environ)
+                    return [b"Authentication successful! You can now close this tab."]
+
+            # 5. Define a silent request handler
+            class SilentHandler(wsgiref.simple_server.WSGIRequestHandler):
+                def log_message(self, format, *args):
+                    pass
+
+            # 6. Start the local server
+            auth_app = SimpleAuthApp()
+            local_server = wsgiref.simple_server.make_server(
+                host, port, auth_app, handler_class=SilentHandler
             )
-            queue.put(creds)
+            
+            local_server.handle_request()
+            
+            auth_response = auth_app.last_request_uri.replace('http:', 'https:')
+            flow.fetch_token(authorization_response=auth_response)
+            
+            queue.put(flow.credentials)
         except Exception as e:
+            logger.error(f"Worker failed: {e}", exc_info=True)
             queue.put(e)
 
     def open_browser_to_authenticate(self, secrets_file: str) -> Credentials | Creds:
-
+        # Use the scopes required for YouTube
+        scopes = ["https://www.googleapis.com/auth/youtube"]
+        
         try:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                secrets_file,
-                scopes=["https://www.googleapis.com/auth/youtube"]
-            )
-
             if self.auth_method == AuthMethod.EMAIL and self.redirect_url:
-            
-                flow.redirect_uri = self.redirect_url
                 parsed_url = parse_url(self.redirect_url)
                 port = parsed_url.port or 8080
-                
-                auth_url, _ = flow.authorization_url(prompt="consent")
-                self.notify_by_email(logger=self.logger, auth_url=auth_url)
-                self.logger.info(f"Auth email sent. Timeout set to {self.email_auth_timeout_seconds}s.")
+                _host: str = "0.0.0.0"
 
-                # Use multiprocessing to allow 'killing' the blocking server
                 queue: Queue[Any] = Queue()
                 process = Process(
                     target=self._auth_worker, 
-                    args=(flow, '0.0.0.0', port, queue)
+                    args=(
+                        secrets_file, 
+                        scopes, 
+                        _host, 
+                        port, 
+                        self.redirect_url, 
+                        queue, 
+                        self.logger, 
+                        self.__class__
+                    )
                 )
                 process.start()
 
-                # Wait for the user to authenticate
-                process.join(timeout=self.email_auth_timeout_seconds)
-
-                if process.is_alive():
-                    process.terminate()
-                    process.join(timeout=5)  # reap the zombie process
-                    self.logger.warning("Authentication timed out. User did not respond.")
-                    # Return a Non-Retryable error to Temporal
-                    raise RuntimeError("User authentication timed out.")
-
+                # Instead of joining first, we wait on the QUEUE.
+                # This breaks the deadlock because the parent reads while the child is alive.
                 try:
-                    result = queue.get(timeout=5)
+                    timeout = getattr(self, 'email_auth_timeout_seconds', 3600)
+                    result = queue.get(timeout=timeout) 
                 except Empty:
-                    raise RuntimeError("Worker process exited without returning credentials.")
-
+                    # If we hit the timeout without getting data
+                    if process.is_alive():
+                        process.terminate()
+                    raise RuntimeError("YouTube Authentication timed out.")
+                finally:
+                    # Always join at the very end to clean up the process
+                    if process.is_alive():
+                        process.join(timeout=5)
                 if isinstance(result, Exception):
                     raise result
                 return result
 
             else:
+                # Standard manual flow
+                flow = InstalledAppFlow.from_client_secrets_file(secrets_file, scopes=scopes)
                 return flow.run_local_server(port=0)
 
         except Exception as e:
@@ -215,35 +256,49 @@ class YouTubeAuth:
         sender_email = os.getenv("EMAIL_SENDER", "")
         receiver_email = os.getenv("EMAIL_RECEIVER", "")
         smtp_server = os.getenv("SMTP_SERVER", "")
+        
         try:
-            smtp_port = int(os.getenv("SMTP_PORT", 587))
+            smtp_port = int(os.getenv("SMTP_PORT", "587"))
         except ValueError:
-            logger.error("SMTP_PORT is not a valid integer. Defaulting to 587.")
-            smtp_port = 587
+            logger.error("SMTP_PORT environment variable is missing or invalid.")
+            return
+
         smtp_username = os.getenv("SMTP_USERNAME", "")
         smtp_password = os.getenv("SMTP_PASSWORD", "")
 
-        if any(x == "" for x in [sender_email, receiver_email, smtp_server, smtp_username, smtp_password]):
-            logger.error("Email configuration is missing! Please set environment variables.")
+        # Configuration Check
+        if not all([sender_email, receiver_email, smtp_server, smtp_username, smtp_password]):
+            logger.error("Email configuration is incomplete. Check your environment variables.")
             return
 
-        subject = "YouTube Authentication for TimeLapseCreator Required"
-        body = f"Click the following link to authenticate: {auth_url}" if not message else message
-
+        subject = "YouTube Authentication Required"
+        body = f"Authorize here: {auth_url}" if not message else message
         msg = MIMEText(body)
         msg["Subject"] = subject
         msg["From"] = sender_email
         msg["To"] = receiver_email
 
-        try:
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_username, smtp_password)
-                server.sendmail(sender_email, receiver_email, msg.as_string())
-
-            logger.info(f"Authentication email sent to {receiver_email}.")
-        except Exception as e:
-            logger.error(f"Failed to send authentication email: {e}", exc_info=True)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Added a 10-second timeout to the connection attempt
+                with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
+                    server.starttls()
+                    server.login(smtp_username, smtp_password)
+                    server.sendmail(sender_email, receiver_email, msg.as_string())
+                
+                logger.info(f"Authentication email successfully sent to {receiver_email}.")
+                return  # Success, exit the retry loop
+                
+            except (smtplib.SMTPConnectError, ConnectionRefusedError, TimeoutError) as e:
+                logger.warning(f"Email attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    sleep(5)  # Wait 5 seconds before retrying
+                else:
+                    logger.error("All email retry attempts failed.")
+            except Exception as e:
+                logger.error(f"An unexpected error occurred while sending email: {e}", exc_info=True)
+                break
 
 class YouTubeUpload:
     """Handles uploading videos to YouTube using the YouTube Data API.
