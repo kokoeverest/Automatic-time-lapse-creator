@@ -2,21 +2,38 @@ from logging import Logger
 from typing import Any, Generator, Iterable
 from google.auth.external_account_authorized_user import Credentials as Creds
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import Resource
 from .common.constants import AuthMethod
+from multiprocessing import Queue
 
 class YouTubeAuth:
     logger: Logger
     service: Resource
-    def __init__(self, youtube_client_secrets_file: str, logger: Logger | None = ..., auth_method: AuthMethod = ...) -> None: ...
+    redirect_url: str | None
+    auth_method: AuthMethod
+    email_auth_timeout_seconds: int
+    def __init__(
+            self, 
+            youtube_client_secrets_file: str, 
+            logger: Logger | None = ..., 
+            auth_method: AuthMethod = ...,
+            redirect_url: str | None = ...,
+            email_auth_timeout_seconds: int = ...
+            ) -> None: ...
     @staticmethod
     def validate_secrets_file(logger: Logger, secrets_file: str | None) -> None: ...
-    @classmethod
+    @staticmethod
+    def _auth_worker(
+        flow: InstalledAppFlow , 
+        host: str, 
+        port: int, 
+        queue: Queue[Any]
+        ) -> None: ...
     def authenticate_youtube(
-        cls, logger: Logger, youtube_client_secrets_file: str, auth_method: AuthMethod
+        self, youtube_client_secrets_file: str
     ) -> Any: ...
-    @classmethod
-    def open_browser_to_authenticate(cls, secrets_file: str, auth_method: AuthMethod) -> Credentials | Creds: ...
+    def open_browser_to_authenticate(self, secrets_file: str) -> Credentials | Creds: ...
     @staticmethod
     def notify_by_email(logger: Logger, message: str | None = ..., auth_url: str | None = ...) -> None: ...
     

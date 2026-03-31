@@ -1,22 +1,21 @@
 from __future__ import annotations
 import os
 import json
-import tempfile
 import logging
-import pickle
 import smtplib
+from email.mime.text import MIMEText
+from multiprocessing import Queue, Process
+from queue import Empty
+from urllib3.util import parse_url
 
 from typing import Iterable, Any, Generator
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.http import MediaFileUpload
-from google.auth.exceptions import RefreshError
-from google.auth.external_account_authorized_user import Credentials as Creds
 from google.oauth2.credentials import Credentials
-from time import sleep
+from google.auth.external_account_authorized_user import Credentials as Creds
 
-from email.mime.text import MIMEText
 from .common.utils import shorten
 from .common.logger import configure_child_logger
 from .common.constants import (
@@ -28,6 +27,7 @@ from .common.constants import (
     YOUTUBE_KEYWORDS,
     MAX_TITLE_LENGTH,
     DEFAULT_CHUNK_SIZE,
+    DEFAULT_EMAIL_AUTH_TIMEOUT_SECONDS
 )
 
 
@@ -41,7 +41,8 @@ class YouTubeAuth:
     Args:
         youtube_client_secrets_file: str - the json secrets file downloaded from the YouTube Data API 
         logger: logging.Logger | None - a logger instance, defaults to None
-        auth_method: AuthMethod - authentication via browser locally (default) or via email (not implemented yet)
+        auth_method: AuthMethod - authentication via browser locally (default) or via email
+        redirect_url: str | None - url at which the email authentication will return the credentials
 
     Returns:
 
@@ -51,15 +52,25 @@ class YouTubeAuth:
             self, 
             youtube_client_secrets_file: str, 
             logger: logging.Logger | None = None, 
-            auth_method: AuthMethod = AuthMethod.MANUAL
+            auth_method: AuthMethod = AuthMethod.MANUAL,
+            redirect_url: str | None = None,
+            email_auth_timeout_seconds: int = DEFAULT_EMAIL_AUTH_TIMEOUT_SECONDS
         ) -> None:
+        self.redirect_url = None
+        
+        if auth_method == AuthMethod.EMAIL:
+            if not redirect_url:
+                raise ValueError("redirect_url required for EMAIL auth.")
+            else:
+                self.redirect_url = redirect_url
 
         self.logger = configure_child_logger(logger_name="Authenticator", logger=logger)  
         self.validate_secrets_file(self.logger, youtube_client_secrets_file)
-
-        self.service = self.authenticate_youtube(
-            self.logger, youtube_client_secrets_file, auth_method
-        )
+        
+        self.auth_method = auth_method
+        self.email_auth_timeout_seconds = email_auth_timeout_seconds
+        
+        self.service = self.authenticate_youtube(youtube_client_secrets_file)
 
     @staticmethod
     def validate_secrets_file(
@@ -83,99 +94,114 @@ class YouTubeAuth:
                 f"YouTube client secrets file is not valid JSON: {secrets_file}"
             ) from e
 
-    @classmethod
-    def authenticate_youtube(
-        cls, logger: logging.Logger, youtube_client_secrets_file: str, auth_method: AuthMethod
-    ) -> Any:
-        """Authenticate and return a YouTube service object. If the service is started for the first time or
-        the refresh token is expired or revoked, a browser window will open so the user can authenticate manually.
-        In the end the credentials will be pickled for future use.
-        """
-        logger.info("Authenticating with YouTube...")
+    def authenticate_youtube(self, youtube_client_secrets_file: str) -> Any:
+        self.logger.info("Authenticating with YouTube...")
 
-        credentials: Credentials | Creds | None = None
-        pickle_file = os.path.join(
-            tempfile.gettempdir(), "youtube-upload-token.pickle"
-        )
+        credentials = None
+        token_file = os.path.join(os.path.dirname(youtube_client_secrets_file), "youtube-token.json")
 
-        if os.path.exists(pickle_file):
-            logger.info(f"YouTube auth token file found: {pickle_file}")
-            with open(pickle_file, "rb") as token:
-                credentials = pickle.load(token)
+        if os.path.exists(token_file):
+            self.logger.info(f"YouTube auth token found: {token_file}")
+            try:
+                credentials = Credentials.from_authorized_user_file(token_file)
+            except Exception:
+                self.logger.warning("Token file is corrupted or invalid. Re-authenticating...")
+                credentials = None
 
         if not credentials or not credentials.valid:
-            open_browser_message = "Opening a browser for manual authentication with YouTube..."
             if credentials and credentials.expired and credentials.refresh_token:
                 try:
                     credentials.refresh(Request())
-                except RefreshError:
-                    logger.info(open_browser_message)
-                    cls.notify_by_email(logger, message=open_browser_message)
-                    credentials = cls.open_browser_to_authenticate(
-                        youtube_client_secrets_file, logger, auth_method
-                    )
+                except Exception:
+                    self.logger.info("Token expired/invalid. Re-authenticating...")
+                    credentials = self.open_browser_to_authenticate(youtube_client_secrets_file)
             else:
-                logger.info(open_browser_message)
-                credentials = cls.open_browser_to_authenticate(
-                    youtube_client_secrets_file, logger, auth_method
-                )
+                credentials = self.open_browser_to_authenticate(youtube_client_secrets_file)
 
-            with open(pickle_file, "wb") as token:
-                logger.info(f"Saving YouTube auth token to file: {pickle_file}")
-                pickle.dump(credentials, token)
+            # Save the new token as JSON
+            with open(token_file, "w") as token:
+                token.write(credentials.to_json())
 
         return build("youtube", "v3", credentials=credentials)
 
-    @classmethod
-    def open_browser_to_authenticate(
-        cls, secrets_file: str, logger: logging.Logger, auth_method: AuthMethod
-    ) -> Credentials | Creds:
-        """
-        Authenticates the user with YouTube Data API v3 using either manual browser login
-        or email authentication.
+    @staticmethod
+    def _auth_worker(
+        flow: InstalledAppFlow, 
+        host: str, 
+        port: int, 
+        queue: Queue[Any]
+        ):
+        """Helper function to run in a separate process."""
+        try:
+            creds: Credentials | Creds = flow.run_local_server(
+                host=host,
+                port=port,
+                open_browser=False,
+                authorization_prompt_message='Authorize here: {url}',
+                success_message='Success! You can close this tab.'
+            )
+            queue.put(creds)
+        except Exception as e:
+            queue.put(e)
 
-        Args:
-            secrets_file (str): Path to the Google client secrets JSON.
-            logger (logging.Logger): Logger instance for logging events.
-            auth_method (str): Authentication method, either 'manual' (default) or 'email'.
+    def open_browser_to_authenticate(self, secrets_file: str) -> Credentials | Creds:
 
-        Returns:
-            Credentials | Creds: Authenticated YouTube credentials.
-        """
         try:
             flow = InstalledAppFlow.from_client_secrets_file(
                 secrets_file,
                 scopes=["https://www.googleapis.com/auth/youtube"]
             )
 
-            # email authentication is not implemented yet! Remotely accessible url should be passed
-            # to the InstalledAppFlow.from_client_secrets_file as a redirect_uri parameter
-            if auth_method == AuthMethod.EMAIL:
+            if self.auth_method == AuthMethod.EMAIL and self.redirect_url:
+            
+                flow.redirect_uri = self.redirect_url
+                parsed_url = parse_url(self.redirect_url)
+                port = parsed_url.port or 8080
+                
                 auth_url, _ = flow.authorization_url(prompt="consent")
-                cls.notify_by_email(logger=logger, auth_url=auth_url)
-                logger.info("Authentication email sent. Waiting for user approval...")
+                self.notify_by_email(logger=self.logger, auth_url=auth_url)
+                self.logger.info(f"Auth email sent. Timeout set to {self.email_auth_timeout_seconds}s.")
 
-                while True:
-                    try:
-                        credentials = flow.run_local_server(port=0)
-                        if credentials and credentials.valid:
-                            successful_message = "Authentication successful!"
-                            logger.info(successful_message)
-                            cls.notify_by_email(logger=logger, message=successful_message)
-                            return credentials
-                    except Exception:
-                        pass
+                # Use multiprocessing to allow 'killing' the blocking server
+                queue: Queue[Any] = Queue()
+                process = Process(
+                    target=self._auth_worker, 
+                    args=(flow, '0.0.0.0', port, queue)
+                )
+                process.start()
 
-                    sleep(10)
+                # Wait for the user to authenticate
+                process.join(timeout=self.email_auth_timeout_seconds)
+
+                if process.is_alive():
+                    process.terminate()
+                    process.join(timeout=5)  # reap the zombie process
+                    self.logger.warning("Authentication timed out. User did not respond.")
+                    # Return a Non-Retryable error to Temporal
+                    raise RuntimeError("User authentication timed out.")
+
+                try:
+                    result = queue.get(timeout=5)
+                except Empty:
+                    raise RuntimeError("Worker process exited without returning credentials.")
+
+                if isinstance(result, Exception):
+                    raise result
+                return result
 
             else:
                 return flow.run_local_server(port=0)
 
         except Exception as e:
-            unsuccessful_message = "Re-authentication failed."
-            logger.error(unsuccessful_message, exc_info=True)
-            cls.notify_by_email(logger=logger, message=f"{unsuccessful_message}\n{e}")
-            raise RuntimeError(unsuccessful_message) from e
+            msg = f"YouTube Authentication failed: {str(e)}"
+            self.logger.error(msg, exc_info=True)
+            # Notify user of failure if email was the intended method
+            if self.auth_method == AuthMethod.EMAIL:
+                self.notify_by_email(logger=self.logger, message=msg)
+            # Avoid double-wrapping intentional RuntimeErrors (e.g. timeout)
+            if isinstance(e, RuntimeError):
+                raise
+            raise RuntimeError(msg) from e
 
     @staticmethod
     def notify_by_email(logger: logging.Logger, message: str | None = None, auth_url: str | None = None):
@@ -189,7 +215,11 @@ class YouTubeAuth:
         sender_email = os.getenv("EMAIL_SENDER", "")
         receiver_email = os.getenv("EMAIL_RECEIVER", "")
         smtp_server = os.getenv("SMTP_SERVER", "")
-        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        try:
+            smtp_port = int(os.getenv("SMTP_PORT", 587))
+        except ValueError:
+            logger.error("SMTP_PORT is not a valid integer. Defaulting to 587.")
+            smtp_port = 587
         smtp_username = os.getenv("SMTP_USERNAME", "")
         smtp_password = os.getenv("SMTP_PASSWORD", "")
 
