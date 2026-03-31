@@ -4,7 +4,8 @@ import logging
 import os
 import smtplib
 from queue import Empty
-from unittest.mock import MagicMock, call, mock_open, patch
+from typing import Any
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 import tests.test_data as td
@@ -54,21 +55,23 @@ def _make_youtube_auth(
         )
 
 
-def _make_email_auth_mocks(redirect: str = "http://localhost:8080"):
-    """Return (mock_flow, mock_process, mock_queue, mock_creds) for email auth tests."""
+def _make_email_auth_mocks():
+    """Return (mock_process, mock_queue, mock_creds) for email auth tests.
+
+    The flow is now created entirely inside _auth_worker (the child process),
+    so the parent process no longer needs a mock flow.
+    """
     mock_creds = MagicMock()
-    mock_flow = MagicMock()
-    mock_flow.authorization_url.return_value = ("http://auth.url/login", {})
 
     mock_process = MagicMock()
     mock_process.is_alive.return_value = False
 
-    # Do not use spec=Queue here: multiprocessing.Queue methods are C-level and
+    # Do not use spec=Queue: multiprocessing.Queue methods are C-level and
     # won't appear in the spec, making .get inaccessible on the mock.
     mock_queue = MagicMock()
     mock_queue.get.return_value = mock_creds
 
-    return mock_flow, mock_process, mock_queue, mock_creds
+    return mock_process, mock_queue, mock_creds
 
 
 # ---------------------------------------------------------------------------
@@ -369,21 +372,20 @@ def test_open_browser_to_authenticate_manual_does_not_send_email_on_error():
 # open_browser_to_authenticate – EMAIL branch
 # ---------------------------------------------------------------------------
 
-def test_open_browser_to_authenticate_email_sets_redirect_uri_and_sends_email():
+def test_open_browser_to_authenticate_email_spawns_worker_and_returns_credentials():
     # Arrange
+    # The flow is created inside _auth_worker (child process), so the parent
+    # only needs to verify the Process is spawned with the right arguments and
+    # that the credential returned from the queue is propagated to the caller.
     redirect = "http://localhost:9090"
     instance = _make_youtube_auth(auth_method=AuthMethod.EMAIL, redirect_url=redirect)
-    mock_flow, mock_process, mock_queue, mock_creds = _make_email_auth_mocks(redirect)
+    mock_process, mock_queue, mock_creds = _make_email_auth_mocks()
 
     with (
         patch(
-            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
-            return_value=mock_flow,
-        ),
-        patch(
             "src.automatic_time_lapse_creator.youtube_manager.Process",
             return_value=mock_process,
-        ),
+        ) as mock_process_cls,
         patch(
             "src.automatic_time_lapse_creator.youtube_manager.Queue",
             return_value=mock_queue,
@@ -393,28 +395,25 @@ def test_open_browser_to_authenticate_email_sets_redirect_uri_and_sends_email():
         # Act
         result = instance.open_browser_to_authenticate(td.mock_secrets_file)
 
-    # Assert
-    assert mock_flow.redirect_uri == redirect
-    mock_flow.authorization_url.assert_called_once_with(prompt="consent")
-    mock_notify.assert_called_once_with(
-        logger=instance.logger, auth_url="http://auth.url/login"
-    )
+    # Assert – worker spawned with correct positional args
+    spawned_args = mock_process_cls.call_args.kwargs["args"]
+    assert spawned_args[0] == td.mock_secrets_file          # secrets_file
+    assert spawned_args[2] == "0.0.0.0"                     # host
+    assert spawned_args[4] == redirect                       # redirect_url
     mock_process.start.assert_called_once()
-    mock_process.join.assert_called_once_with(timeout=instance.email_auth_timeout_seconds)
+    mock_queue.get.assert_called_once_with(timeout=instance.email_auth_timeout_seconds)
     assert result is mock_creds
+    # notify_by_email is now the worker's responsibility; parent must not call it on success
+    mock_notify.assert_not_called()
 
 
 def test_open_browser_to_authenticate_email_uses_port_from_redirect_url():
     # Arrange
     redirect = "http://myserver.com:12345/callback"
     instance = _make_youtube_auth(auth_method=AuthMethod.EMAIL, redirect_url=redirect)
-    mock_flow, mock_process, mock_queue, _ = _make_email_auth_mocks(redirect)
+    mock_process, mock_queue, _ = _make_email_auth_mocks()
 
     with (
-        patch(
-            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
-            return_value=mock_flow,
-        ),
         patch(
             "src.automatic_time_lapse_creator.youtube_manager.Process",
             return_value=mock_process,
@@ -428,23 +427,19 @@ def test_open_browser_to_authenticate_email_uses_port_from_redirect_url():
         # Act
         instance.open_browser_to_authenticate(td.mock_secrets_file)
 
-    # Assert – _auth_worker args: (flow, host, port, queue)
+    # Assert – _auth_worker args: (secrets_file, scopes, host, port, redirect_url, ...)
     spawned_args = mock_process_cls.call_args.kwargs["args"]
-    assert spawned_args[1] == "0.0.0.0"
-    assert spawned_args[2] == 12345
+    assert spawned_args[2] == "0.0.0.0"
+    assert spawned_args[3] == 12345
 
 
 def test_open_browser_to_authenticate_email_uses_default_port_8080_when_no_port_in_url():
     # Arrange
     redirect = "http://myserver.com/callback"
     instance = _make_youtube_auth(auth_method=AuthMethod.EMAIL, redirect_url=redirect)
-    mock_flow, mock_process, mock_queue, _ = _make_email_auth_mocks(redirect)
+    mock_process, mock_queue, _ = _make_email_auth_mocks()
 
     with (
-        patch(
-            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
-            return_value=mock_flow,
-        ),
         patch(
             "src.automatic_time_lapse_creator.youtube_manager.Process",
             return_value=mock_process,
@@ -458,27 +453,27 @@ def test_open_browser_to_authenticate_email_uses_default_port_8080_when_no_port_
         # Act
         instance.open_browser_to_authenticate(td.mock_secrets_file)
 
-    # Assert
+    # Assert – _auth_worker args: (secrets_file, scopes, host, port, redirect_url, ...)
     spawned_args = mock_process_cls.call_args.kwargs["args"]
-    assert spawned_args[2] == 8080
+    assert spawned_args[3] == 8080
 
 
 def test_open_browser_to_authenticate_email_raises_on_timeout():
     # Arrange
+    # Timeout is detected when queue.get() raises Empty (the worker did not
+    # respond within email_auth_timeout_seconds).  The process is then
+    # terminated and joined once inside the finally block.
     redirect = "http://localhost:8080"
     instance = _make_youtube_auth(
         auth_method=AuthMethod.EMAIL,
         redirect_url=redirect,
         email_auth_timeout_seconds=30,
     )
-    mock_flow, mock_process, mock_queue, _ = _make_email_auth_mocks(redirect)
-    mock_process.is_alive.return_value = True  # still alive → timed out
+    mock_process, mock_queue, _ = _make_email_auth_mocks()
+    mock_process.is_alive.return_value = True  # still running → needs terminate + join
+    mock_queue.get.side_effect = Empty           # simulate timeout
 
     with (
-        patch(
-            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
-            return_value=mock_flow,
-        ),
         patch(
             "src.automatic_time_lapse_creator.youtube_manager.Process",
             return_value=mock_process,
@@ -488,29 +483,36 @@ def test_open_browser_to_authenticate_email_raises_on_timeout():
             return_value=mock_queue,
         ),
         patch.object(YouTubeAuth, "notify_by_email"),
-        # Act & Assert – original RuntimeError re-raised without double-wrapping
-        pytest.raises(RuntimeError, match="User authentication timed out."),
+        # Act & Assert – RuntimeError re-raised without double-wrapping
+        pytest.raises(RuntimeError, match="YouTube Authentication timed out."),
     ):
         instance.open_browser_to_authenticate(td.mock_secrets_file)
 
-    # Assert
+    # Assert – process cleaned up properly
     mock_process.terminate.assert_called_once()
-    # join called twice: main join + zombie-reaping join after terminate
-    assert mock_process.join.call_args_list == [
-        call(timeout=30),
-        call(timeout=5),
-    ]
+    # finally block calls join exactly once to reap the zombie
+    mock_process.join.assert_called_once_with(timeout=5)
 
 
 def test_open_browser_to_authenticate_email_sends_failure_email_on_error():
     # Arrange
+    # Simulate a failure that occurs before queue.get() is ever reached (e.g.
+    # process.start() raising).  The parent must send exactly ONE failure email;
+    # the auth-URL notification is the worker's responsibility so it is never
+    # sent from the parent.
     redirect = "http://localhost:8080"
     instance = _make_youtube_auth(auth_method=AuthMethod.EMAIL, redirect_url=redirect)
+    mock_process, mock_queue, _ = _make_email_auth_mocks()
+    mock_process.start.side_effect = Exception("start failed")
 
     with (
         patch(
-            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
-            side_effect=Exception("unexpected error"),
+            "src.automatic_time_lapse_creator.youtube_manager.Process",
+            return_value=mock_process,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.youtube_manager.Queue",
+            return_value=mock_queue,
         ),
         patch.object(YouTubeAuth, "notify_by_email") as mock_notify,
         # Act & Assert
@@ -518,29 +520,28 @@ def test_open_browser_to_authenticate_email_sends_failure_email_on_error():
     ):
         instance.open_browser_to_authenticate(td.mock_secrets_file)
 
-    # Assert – only one email sent: the failure notification (flow creation failed
-    # before the auth_url notification could be made)
+    # Assert – exactly one failure email sent by the parent; no auth-URL email
     mock_notify.assert_called_once()
     _, call_kwargs = mock_notify.call_args
     assert "message" in call_kwargs
 
 
-def test_open_browser_to_authenticate_email_sends_auth_url_then_failure_email_on_process_error():
-    """notify_by_email is called twice: once for auth URL, once for the error."""
+def test_open_browser_to_authenticate_email_sends_failure_email_on_timeout():
+    """On timeout the parent sends exactly one failure email (not an auth-URL email).
+
+    The auth-URL notification is handled inside the worker process; the parent
+    only ever sends a single error/failure email via notify_by_email.
+    """
     # Arrange
     redirect = "http://localhost:8080"
     instance = _make_youtube_auth(auth_method=AuthMethod.EMAIL, redirect_url=redirect)
-    mock_flow, _, _, _ = _make_email_auth_mocks(redirect)
 
     mock_process = MagicMock()
-    mock_process.is_alive.return_value = True  # timeout!
+    mock_process.is_alive.return_value = True  # still alive when queue times out
     mock_queue = MagicMock()
+    mock_queue.get.side_effect = Empty          # simulate timeout
 
     with (
-        patch(
-            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
-            return_value=mock_flow,
-        ),
         patch(
             "src.automatic_time_lapse_creator.youtube_manager.Process",
             return_value=mock_process,
@@ -555,27 +556,21 @@ def test_open_browser_to_authenticate_email_sends_auth_url_then_failure_email_on
     ):
         instance.open_browser_to_authenticate(td.mock_secrets_file)
 
-    # Assert
-    assert mock_notify.call_count == 2
-    first_call_kwargs = mock_notify.call_args_list[0][1]
-    assert "auth_url" in first_call_kwargs
-    second_call_kwargs = mock_notify.call_args_list[1][1]
-    assert "message" in second_call_kwargs
+    # Assert – exactly one failure email; no separate auth-URL email from the parent
+    assert mock_notify.call_count == 1
+    _, call_kwargs = mock_notify.call_args
+    assert "message" in call_kwargs
 
 
 def test_open_browser_to_authenticate_email_re_raises_exception_from_queue():
     # Arrange
     redirect = "http://localhost:8080"
     instance = _make_youtube_auth(auth_method=AuthMethod.EMAIL, redirect_url=redirect)
-    mock_flow, mock_process, mock_queue, _ = _make_email_auth_mocks(redirect)
+    mock_process, mock_queue, _ = _make_email_auth_mocks()
     mock_queue.get.return_value = ValueError("auth worker crashed")
 
     # Act & Assert
     with (
-        patch(
-            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
-            return_value=mock_flow,
-        ),
         patch(
             "src.automatic_time_lapse_creator.youtube_manager.Process",
             return_value=mock_process,
@@ -592,19 +587,18 @@ def test_open_browser_to_authenticate_email_re_raises_exception_from_queue():
 
 def test_open_browser_to_authenticate_email_raises_when_queue_is_empty_after_worker_crash():
     # Arrange
+    # A crashed worker never puts anything in the queue.  From the parent's
+    # perspective this is indistinguishable from a timeout: queue.get() raises
+    # Empty and the same RuntimeError is surfaced.
     redirect = "http://localhost:8080"
     instance = _make_youtube_auth(auth_method=AuthMethod.EMAIL, redirect_url=redirect)
-    mock_flow, mock_process, _, _ = _make_email_auth_mocks(redirect)
+    mock_process, _, _ = _make_email_auth_mocks()
 
     mock_queue = MagicMock()
     mock_queue.get.side_effect = Empty  # worker exited without writing to the queue
 
-    # Act & Assert – original RuntimeError re-raised without double-wrapping
+    # Act & Assert – RuntimeError re-raised without double-wrapping
     with (
-        patch(
-            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
-            return_value=mock_flow,
-        ),
         patch(
             "src.automatic_time_lapse_creator.youtube_manager.Process",
             return_value=mock_process,
@@ -614,7 +608,7 @@ def test_open_browser_to_authenticate_email_raises_when_queue_is_empty_after_wor
             return_value=mock_queue,
         ),
         patch.object(YouTubeAuth, "notify_by_email"),
-        pytest.raises(RuntimeError, match="Worker process exited without returning credentials."),
+        pytest.raises(RuntimeError, match="YouTube Authentication timed out."),
     ):
         instance.open_browser_to_authenticate(td.mock_secrets_file)
 
@@ -624,27 +618,63 @@ def test_open_browser_to_authenticate_email_raises_when_queue_is_empty_after_wor
 # ---------------------------------------------------------------------------
 
 def test_auth_worker_puts_credentials_in_queue():
-    # Use queue.Queue (threading-based) to avoid multiprocessing pickling of MagicMock
+    # Use queue.Queue (threading-based) to avoid multiprocessing pickling of MagicMock.
+    # _auth_worker now owns the full OAuth flow internally: it creates the
+    # InstalledAppFlow, starts a WSGI server to receive the redirect, fetches the
+    # token and puts flow.credentials in the queue.
     from queue import Queue as ThreadQueue
 
     # Arrange
     mock_flow = MagicMock()
     mock_creds = MagicMock()
-    mock_flow.run_local_server.return_value = mock_creds
-    q = ThreadQueue()
+    mock_flow.credentials = mock_creds
+    mock_flow.authorization_url.return_value = ("http://auth.url/login", "test_state")
 
-    # Act
-    YouTubeAuth._auth_worker(mock_flow, "0.0.0.0", 8080, q)
+    fake_redirect_uri = "http://localhost:8080/?code=test_code&state=test_state"
+
+    def fake_make_server(host: str, port: int, app: Any, handler_class: Any | None = None) -> Any:
+        """Simulate the WSGI server receiving a single request."""
+        class FakeServer:
+            def handle_request(self) -> None:
+                # Invoke the WSGI app so it can capture last_request_uri
+                app({}, lambda status, headers: None)
+        return FakeServer()
+
+    q = ThreadQueue()
+    mock_logger = MagicMock()
+
+    with (
+        patch(
+            "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
+            return_value=mock_flow,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.youtube_manager.wsgiref.simple_server.make_server",
+            side_effect=fake_make_server,
+        ),
+        patch(
+            "src.automatic_time_lapse_creator.youtube_manager.wsgiref.util.request_uri",
+            return_value=fake_redirect_uri,
+        ),
+        patch.object(YouTubeAuth, "notify_by_email"),
+    ):
+        # Act
+        YouTubeAuth._auth_worker(
+            td.mock_secrets_file,
+            ["https://www.googleapis.com/auth/youtube"],
+            "0.0.0.0",
+            8080,
+            "http://localhost:8080/",
+            q,
+            mock_logger,
+            YouTubeAuth,
+        )
 
     # Assert
     result = q.get(timeout=1)
     assert result is mock_creds
-    mock_flow.run_local_server.assert_called_once_with(
-        host="0.0.0.0",
-        port=8080,
-        open_browser=False,
-        authorization_prompt_message="Authorize here: {url}",
-        success_message="Success! You can close this tab.",
+    mock_flow.fetch_token.assert_called_once_with(
+        authorization_response=fake_redirect_uri.replace("http:", "https:")
     )
 
 
@@ -652,18 +682,30 @@ def test_auth_worker_puts_exception_in_queue_on_failure():
     from queue import Queue as ThreadQueue
 
     # Arrange
-    mock_flow = MagicMock()
-    error = RuntimeError("server crashed")
-    mock_flow.run_local_server.side_effect = error
+    error = RuntimeError("flow initialization failed")
     q = ThreadQueue()
+    mock_logger = MagicMock()
 
-    # Act
-    YouTubeAuth._auth_worker(mock_flow, "0.0.0.0", 8080, q)
+    with patch(
+        "src.automatic_time_lapse_creator.youtube_manager.InstalledAppFlow.from_client_secrets_file",
+        side_effect=error,
+    ):
+        # Act
+        YouTubeAuth._auth_worker(
+            td.mock_secrets_file,
+            ["https://www.googleapis.com/auth/youtube"],
+            "0.0.0.0",
+            8080,
+            "http://localhost:8080/",
+            q,
+            mock_logger,
+            YouTubeAuth,
+        )
 
     # Assert
     result = q.get(timeout=1)
     assert isinstance(result, RuntimeError)
-    assert str(result) == "server crashed"
+    assert str(result) == "flow initialization failed"
 
 
 # ---------------------------------------------------------------------------
@@ -837,10 +879,12 @@ def test_notify_by_email_logs_error_on_smtp_failure(mock_logger: MagicMock):
     mock_logger.info.assert_not_called()
 
 
-def test_notify_by_email_logs_error_and_defaults_port_when_smtp_port_is_invalid(
+def test_notify_by_email_logs_error_and_returns_early_when_smtp_port_is_invalid(
     mock_logger: MagicMock,
 ):
     # Arrange
+    # An invalid SMTP_PORT value causes notify_by_email to log an error and
+    # return immediately – no email is dispatched.
     env = {
         "EMAIL_SENDER": "sender@example.com",
         "EMAIL_RECEIVER": "receiver@example.com",
@@ -849,19 +893,15 @@ def test_notify_by_email_logs_error_and_defaults_port_when_smtp_port_is_invalid(
         "SMTP_USERNAME": "user",
         "SMTP_PASSWORD": "pass",
     }
-    mock_smtp_instance = MagicMock()
 
     with (
         patch.dict(os.environ, env),
         patch("smtplib.SMTP") as mock_smtp_cls,
     ):
-        mock_smtp_cls.return_value.__enter__ = lambda s: mock_smtp_instance
-        mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
-
         # Act
         YouTubeAuth.notify_by_email(logger=mock_logger, auth_url="http://auth.url")
 
-    # Assert – invalid port is logged, email is still dispatched with the 587 fallback
+    # Assert – error is logged and the method returns before sending anything
     mock_logger.error.assert_called_once()
-    mock_logger.info.assert_called_once()
-    mock_smtp_cls.assert_called_once_with("smtp.example.com", 587)
+    mock_logger.info.assert_not_called()
+    mock_smtp_cls.assert_not_called()
