@@ -5,6 +5,7 @@ import logging
 import smtplib
 from email.mime.text import MIMEText
 from multiprocessing import Queue, Process
+from queue import Empty
 from urllib3.util import parse_url
 
 from typing import Iterable, Any, Generator
@@ -101,8 +102,11 @@ class YouTubeAuth:
 
         if os.path.exists(token_file):
             self.logger.info(f"YouTube auth token found: {token_file}")
-            # Use JSON instead of Pickle
-            credentials = Credentials.from_authorized_user_file(token_file)
+            try:
+                credentials = Credentials.from_authorized_user_file(token_file)
+            except Exception:
+                self.logger.warning("Token file is corrupted or invalid. Re-authenticating...")
+                credentials = None
 
         if not credentials or not credentials.valid:
             if credentials and credentials.expired and credentials.refresh_token:
@@ -140,7 +144,7 @@ class YouTubeAuth:
         except Exception as e:
             queue.put(e)
 
-    def open_browser_to_authenticate(self, secrets_file: str) -> Credentials:
+    def open_browser_to_authenticate(self, secrets_file: str) -> Credentials | Creds:
 
         try:
             flow = InstalledAppFlow.from_client_secrets_file(
@@ -170,12 +174,17 @@ class YouTubeAuth:
                 process.join(timeout=self.email_auth_timeout_seconds)
 
                 if process.is_alive():
-                    process.terminate()  # Kill the server process
+                    process.terminate()
+                    process.join(timeout=5)  # reap the zombie process
                     self.logger.warning("Authentication timed out. User did not respond.")
                     # Return a Non-Retryable error to Temporal
                     raise RuntimeError("User authentication timed out.")
 
-                result = queue.get()
+                try:
+                    result = queue.get(timeout=5)
+                except Empty:
+                    raise RuntimeError("Worker process exited without returning credentials.")
+
                 if isinstance(result, Exception):
                     raise result
                 return result
@@ -189,6 +198,9 @@ class YouTubeAuth:
             # Notify user of failure if email was the intended method
             if self.auth_method == AuthMethod.EMAIL:
                 self.notify_by_email(logger=self.logger, message=msg)
+            # Avoid double-wrapping intentional RuntimeErrors (e.g. timeout)
+            if isinstance(e, RuntimeError):
+                raise
             raise RuntimeError(msg) from e
 
     @staticmethod
@@ -203,7 +215,11 @@ class YouTubeAuth:
         sender_email = os.getenv("EMAIL_SENDER", "")
         receiver_email = os.getenv("EMAIL_RECEIVER", "")
         smtp_server = os.getenv("SMTP_SERVER", "")
-        smtp_port = int(os.getenv("SMTP_PORT", 587))
+        try:
+            smtp_port = int(os.getenv("SMTP_PORT", 587))
+        except ValueError:
+            logger.error("SMTP_PORT is not a valid integer. Defaulting to 587.")
+            smtp_port = 587
         smtp_username = os.getenv("SMTP_USERNAME", "")
         smtp_password = os.getenv("SMTP_PASSWORD", "")
 
