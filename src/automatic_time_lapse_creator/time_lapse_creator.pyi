@@ -38,6 +38,7 @@ class TimeLapseCreator:
     location: LocationAndTimeManager
     sources: set[Source]
     wait_before_next_frame: int
+    wait_between_frames_nighttime_multiplier: int
     nighttime_wait_before_next_retry: int
     video_fps: int
     video_width: int
@@ -56,6 +57,7 @@ class TimeLapseCreator:
         city: str = ...,
         path: str = ...,
         seconds_between_frames: int = ...,
+        wait_between_frames_nighttime_multiplier: int = ...,
         night_time_retry_seconds: int = ...,
         video_fps: int = ...,
         video_width: int = ...,

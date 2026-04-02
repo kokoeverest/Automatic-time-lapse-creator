@@ -34,7 +34,8 @@ from .common.constants import (
     SUNRISE_OFFSET_VALIDATION_RANGE,
     ONE_SECOND_SIX_HUNDRED_SECONDS,
     ONE_AND_SIXTY,
-
+    DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER_VALIDATION_RANGE,
+    DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER,
     LOG_START_INT,
     VideoType,
 )
@@ -76,6 +77,7 @@ class TimeLapseCreator:
         base_path: str - The root directory where time-lapse images and videos are stored.
         folder_name: str - The name of the current day's folder for image storage.
         wait_before_next_frame: int - Interval in seconds between consecutive image captures.
+        wait_between_frames_nighttime_multiplier: int - Multiplier for the wait_before_next_frame during nighttime. Defaults to 5 (wait_before_next_frame * 5).
         nighttime_wait_before_next_retry: int - Interval in seconds between retries during nighttime.
         video_fps: int - Frames per second for the generated videos.
         video_width: int - Width of the output videos in pixels.
@@ -102,6 +104,7 @@ class TimeLapseCreator:
         city: str = DEFAULT_CITY_NAME,
         path: str = DEFAULT_PATH_STRING,
         seconds_between_frames: int = DEFAULT_SECONDS_BETWEEN_FRAMES,
+        wait_between_frames_nighttime_multiplier: int = DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER,
         night_time_retry_seconds: int = DEFAULT_NIGHTTIME_RETRY_SECONDS,
         video_fps: int = DEFAULT_VIDEO_FPS,
         video_width: int = VIDEO_WIDTH_360p,
@@ -133,6 +136,7 @@ class TimeLapseCreator:
         self.sources: set[Source] = self.validate_collection(sources)
         self.wait_before_next_frame = self._validate("seconds_between_frames", seconds_between_frames)
         self.nighttime_wait_before_next_retry = self._validate("night_time_retry_seconds", night_time_retry_seconds)
+        self.wait_between_frames_nighttime_multiplier = self._validate("wait_between_frames_nighttime_multiplier", wait_between_frames_nighttime_multiplier)
         self.video_fps = self._validate("video_fps", video_fps)
         self.video_width = self._validate("video_width", video_width)
         self.video_height = self._validate("video_height", video_height)
@@ -177,6 +181,7 @@ class TimeLapseCreator:
             "video_fps" : Attr(int, range(*ONE_AND_SIXTY), DEFAULT_VIDEO_FPS),
             "video_width" : Attr(int, range(640, 1921 * 4), VIDEO_WIDTH_360p),
             "video_height" : Attr(int, range(360, 1081 * 4), VIDEO_HEIGHT_360p),
+            "wait_between_frames_nighttime_multiplier" : Attr(int, range(*DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER_VALIDATION_RANGE), DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER),
         }
 
         if not isinstance(attr_value, attrs[attr_name].type):
@@ -417,8 +422,12 @@ class TimeLapseCreator:
             self.logger.info("Program execution cancelled...")
 
     def _adjust_wait_before_next_frame(self) -> None:
-        """Adjusts the wait_before_next_frame based on the time of day."""
-        final_value = int(self._initial_wait_before_next_frame * 5)
+        """Adjusts the wait_before_next_frame based on the time of day.
+        The wait_before_next_frame is multiplied by the wait_between_frames_nighttime_multiplier during nighttime.\n
+        This is done in order to make the night time in the videos shorter (time in videos goes faster) and not boring to the viewer.
+        The day time wait_before_next_frame is the same as the initial wait_before_next_frame.
+        """
+        final_value = int(self._initial_wait_before_next_frame * self.wait_between_frames_nighttime_multiplier)
         
         if not self.location.is_daylight():
             self.wait_before_next_frame = final_value
@@ -432,7 +441,8 @@ class TimeLapseCreator:
     def _pre_collect_actions(self, source: Source) -> tuple[Path, str]:
         """Performs the actions before the image is collected.
         Gets the weather data for the source if it's available.
-        Prepare the folder and file name for the image."""
+        Prepare the folder and file name for the image.
+        """
         if source.weather_data_provider:
             source.weather_data_provider.get_data()
 
