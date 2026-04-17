@@ -12,14 +12,16 @@ class YouTubeAuth:
     redirect_url: str | None
     auth_method: AuthMethod
     email_auth_timeout_seconds: int
+    token_file_name: str
     def __init__(
-            self, 
-            youtube_client_secrets_file: str, 
-            logger: Logger | None = ..., 
-            auth_method: AuthMethod = ...,
-            redirect_url: str | None = ...,
-            email_auth_timeout_seconds: int = ...
-            ) -> None: ...
+        self, 
+        youtube_client_secrets_file: str, 
+        token_file_name: str,
+        logger: Logger | None = ...,
+        auth_method: AuthMethod = ...,
+        redirect_url: str | None = ...,
+        email_auth_timeout_seconds: int = ...
+        ) -> None: ...
     @staticmethod
     def validate_secrets_file(logger: Logger, secrets_file: str | None) -> None: ...
     @staticmethod

@@ -43,6 +43,7 @@ class YouTubeAuth:
     
     Args:
         youtube_client_secrets_file: str - the json secrets file downloaded from the YouTube Data API 
+        token_file_name: str - a file name under which the credentials will be saved locally
         logger: logging.Logger | None - a logger instance, defaults to None
         auth_method: AuthMethod - authentication via browser locally (default) or via email
         redirect_url: str | None - url at which the email authentication will return the credentials
@@ -53,7 +54,8 @@ class YouTubeAuth:
     """
     def __init__(
             self, 
-            youtube_client_secrets_file: str, 
+            youtube_client_secrets_file: str,
+            token_file_name: str,
             logger: logging.Logger | None = None, 
             auth_method: AuthMethod = AuthMethod.MANUAL,
             redirect_url: str | None = None,
@@ -70,6 +72,9 @@ class YouTubeAuth:
         self.logger = configure_child_logger(logger_name="Authenticator", logger=logger)  
         self.validate_secrets_file(self.logger, youtube_client_secrets_file)
         
+        if len(token_file_name) == 0:
+            self.logger.warning("Token file name is an empty string!")
+        self.token_file_name = token_file_name
         self.auth_method = auth_method
         self.email_auth_timeout_seconds = email_auth_timeout_seconds
         
@@ -101,7 +106,7 @@ class YouTubeAuth:
         self.logger.info("Authenticating with YouTube...")
 
         credentials = None
-        token_file = os.path.join(os.path.dirname(youtube_client_secrets_file), "youtube-token.json")
+        token_file = os.path.join(os.path.dirname(youtube_client_secrets_file), self.token_file_name)
 
         if os.path.exists(token_file):
             self.logger.info(f"YouTube auth token found: {token_file}")

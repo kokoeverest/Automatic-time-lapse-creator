@@ -32,7 +32,7 @@ from .common.constants import (
     DEFAULT_SUNSET_OFFSET_MINUTES,
     SUNSET_OFFSET_VALIDATION_RANGE,
     SUNRISE_OFFSET_VALIDATION_RANGE,
-    ONE_SECOND_SIX_HUNDRED_SECONDS,
+    ONE_SECOND_EIGHTY_SIX_THOUSAND_SECONDS,
     ONE_AND_SIXTY,
     DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER_VALIDATION_RANGE,
     DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER,
@@ -48,11 +48,14 @@ from .common.utils import (
     dash_sep_strings,
     VideoResponse,
     DailyVideoResponse,
+    WeeklyVideoResponse,
     MonthlyVideoResponse,
+    get_weekly_video_files_paths
 )
 from .common.logger import configure_root_logger
 from .text_box import TextBox, TopOutsideTextBox
 
+CustomTimeSpan = NamedTuple("CustomTimeSpan", [("start_hour", int), ("start_minutes", int), ("end_hour", int), ("end_minutes", int)])
 
 class TimeLapseCreator:
     """
@@ -114,29 +117,35 @@ class TimeLapseCreator:
         text_box_position: type[TextBox] | None = TopOutsideTextBox,
         text_box_transparency: float = TextBox.TRANSPARENCY_MID,
         create_monthly_summary_video: bool = True,
+        create_weekly_summary_video: bool = False,
         day_for_monthly_summary_video: int = DEFAULT_DAY_FOR_MONTHLY_VIDEO,
         delete_collected_daily_images: bool = True,
-        delete_daily_videos_after_monthly_summary_is_created: bool = True,
+        delete_daily_videos_after_summary_is_created: bool = True,
         quiet_mode: bool = True,
         log_queue: Queue[Any] | None = None,
     ) -> None:
         self.base_path = os.path.join(os.getcwd(), path)
-        self.folder_name = dt.today().strftime(YYMMDD_FORMAT)
 
         self.logger = configure_root_logger(
             log_queue=log_queue, logger_base_path=self.base_path
         )
-
         self.location = LocationAndTimeManager(
             city_name=city,
             sunrise_offset=self._validate("sunrise_offset_minutes", sunrise_offset_minutes),
             sunset_offset=self._validate("sunset_offset_minutes", sunset_offset_minutes),
             logger=self.logger,
         )
+        
+        self._folder_name = self.location.time_now.strftime(YYMMDD_FORMAT)
+        self._weekly_folder_name = f"{self.location.calendar.year}/{self.location.calendar.week}/{self.location.calendar.weekday}"
+
         self.sources: set[Source] = self.validate_collection(sources)
         self.wait_before_next_frame = self._validate("seconds_between_frames", seconds_between_frames)
         self.nighttime_wait_before_next_retry = self._validate("night_time_retry_seconds", night_time_retry_seconds)
-        self.wait_between_frames_nighttime_multiplier = self._validate("wait_between_frames_nighttime_multiplier", wait_between_frames_nighttime_multiplier)
+        self.wait_between_frames_nighttime_multiplier = self._validate(
+            "wait_between_frames_nighttime_multiplier", 
+            wait_between_frames_nighttime_multiplier
+            )
         self.video_fps = self._validate("video_fps", video_fps)
         self.video_width = self._validate("video_width", video_width)
         self.video_height = self._validate("video_height", video_height)
@@ -145,14 +154,50 @@ class TimeLapseCreator:
         self.quiet_mode = quiet_mode
         self.video_queue = None
         self.log_queue = log_queue
-        self.delete_daily_videos = delete_daily_videos_after_monthly_summary_is_created
+        self.delete_daily_videos = delete_daily_videos_after_summary_is_created
         self.delete_collected_daily_images = delete_collected_daily_images
+        self._weekly_summary = create_weekly_summary_video
         self._monthly_summary = create_monthly_summary_video
         self._day_for_monthly_summary = day_for_monthly_summary_video
         self._test_counter = night_time_retry_seconds
         self._initial_wait_before_next_frame = seconds_between_frames
         self._fresh = True
 
+    def _resolve_video_path(self, source: Source):
+        if self._weekly_summary:
+            return str(Path(f"{self.base_path}/{source.location_name}/{self.weekly_folder_name}"))
+        else: 
+            return str(Path(f"{self.base_path}/{source.location_name}/{self.folder_name}")) 
+
+    @property
+    def folder_name(self):
+        return self._folder_name
+        
+    @property
+    def weekly_folder_name(self) -> str:
+        return self._weekly_folder_name
+
+    def set_folder_name(self, value: str):
+        """
+        A method for setting a custom value as a folder name.
+
+        Args: 
+            value (str)
+        """
+        self._folder_name = value
+
+    def set_weekly_folder_name(self, value: str):
+        """
+        A method for changing the weekly folder name.
+
+        Args: 
+            value (str)
+        """
+        _prev_week_number = self.get_current_calendar(self.weekly_folder_name).week
+        self._weekly_folder_name = value
+        self.logger.info(f"\nNew week started - {_prev_week_number} -> {self.location.calendar.week}\n")
+
+    # utility function
     def _validate(self, attr_name: str, attr_value: int):
         """
         Validates the attribute value based on predefined rules.
@@ -176,8 +221,8 @@ class TimeLapseCreator:
         attrs: dict[str, Attr] = {
             "sunrise_offset_minutes" : Attr(int, range(*SUNRISE_OFFSET_VALIDATION_RANGE), DEFAULT_SUNRISE_OFFSET_MINUTES),
             "sunset_offset_minutes" : Attr(int, range(*SUNSET_OFFSET_VALIDATION_RANGE), DEFAULT_SUNSET_OFFSET_MINUTES),
-            "seconds_between_frames" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_SECONDS_BETWEEN_FRAMES),
-            "night_time_retry_seconds" : Attr(int, range(*ONE_SECOND_SIX_HUNDRED_SECONDS), DEFAULT_NIGHTTIME_RETRY_SECONDS),
+            "seconds_between_frames" : Attr(int, range(*ONE_SECOND_EIGHTY_SIX_THOUSAND_SECONDS), DEFAULT_SECONDS_BETWEEN_FRAMES),
+            "night_time_retry_seconds" : Attr(int, range(*ONE_SECOND_EIGHTY_SIX_THOUSAND_SECONDS), DEFAULT_NIGHTTIME_RETRY_SECONDS),
             "video_fps" : Attr(int, range(*ONE_AND_SIXTY), DEFAULT_VIDEO_FPS),
             "video_width" : Attr(int, range(640, 1921 * 4), VIDEO_WIDTH_360p),
             "video_height" : Attr(int, range(360, 1081 * 4), VIDEO_HEIGHT_360p),
@@ -188,6 +233,8 @@ class TimeLapseCreator:
             raise TypeError(f"{attr_name} must be of type {attrs[attr_name].type}")
         
         if attr_value not in attrs[attr_name].range:
+            attrs[attr_name] = attrs[attr_name]._replace(default = attrs[attr_name].range.start if attr_value < attrs[attr_name].range.start else attrs[attr_name].range.stop)
+            
             self.logger.warning(f"{attr_name} must be in {attrs[attr_name].range}! Setting to default: {attrs[attr_name].default}")
             attr_value = attrs[attr_name].default
         
@@ -294,11 +341,7 @@ class TimeLapseCreator:
                     and any(not source.daily_video_created for source in self.sources)
                 ):
                     for source in self.sources:
-                        video_path = str(
-                            Path(
-                                f"{self.base_path}/{source.location_name}/{self.folder_name}"
-                            )
-                        )
+                        video_path = self._resolve_video_path(source)
                         if (
                             self.location.time_now > self.location.end_of_daylight
                             and source.images_collected
@@ -306,16 +349,11 @@ class TimeLapseCreator:
                             and not source.daily_video_created
                         ):
                             if self.create_video(source, self.delete_collected_daily_images):
-                                source.set_daily_video_created()
-                                if self.video_queue is not None:
-                                    self.video_queue.put(
-                                        self.create_response_with_metadata(
-                                            video_path,
-                                            VideoType.DAILY.value,
-                                            source
-                                        )
-                                    )
-                                self.cache_self()
+                                self._post_video_creation(
+                                    video_path=video_path,
+                                    video_type=VideoType.DAILY.value,
+                                    source=source
+                                )
                         elif (
                             self.location.time_now > self.location.end_of_daylight
                             and source.images_partially_collected
@@ -323,14 +361,11 @@ class TimeLapseCreator:
                             and not source.daily_video_created
                         ):
                             if self.create_video(source, delete_source_images=False):
-                                source.set_daily_video_created()
-                                if self.video_queue is not None:
-                                    self.video_queue.put(
-                                        self.create_response_with_metadata(
-                                            video_path, VideoType.DAILY.value, source
-                                        )
-                                    )
-                                self.cache_self()
+                                self._post_video_creation(
+                                    video_path=video_path,
+                                    video_type=VideoType.DAILY.value,
+                                    source=source
+                                )
                 else:
                     if self._monthly_summary:
                         if self.is_next_month():
@@ -341,85 +376,128 @@ class TimeLapseCreator:
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
 
-    def execute_with_custom_end(
+    def execute_with_custom_time_span(
         self,
-        end_time: dt,
+        time_span: CustomTimeSpan = 
+            CustomTimeSpan(start_hour=0, start_minutes=0, end_hour=23, end_minutes=50),
         video_queue: Queue[Any] | None = None,
         log_queue: Queue[Any] | None = None,
-    ) -> None:
+    ):
         """
         Executes the main time-lapse creation process for the configured sources until the end_time is reached.
-        
         """
-
         self.video_queue = video_queue
+
         if log_queue:
             self.log_queue = log_queue
-            _, tail = os.path.split(self.base_path)
-            self.logger = configure_root_logger(log_queue, tail)
+        
         try:
             self.logger.info("Program starts!")
-            self = self.get_cached_self()
+            self = self.get_cached_self() # is this needed here?
             self.verify_sources_not_empty()
 
-            # self._test_counter > 0 for testing purposes only, see Note in TimeLapseCreator docstring
-            while self._test_counter > 0:
-                self.reset_test_counter()
-                collected = self.collect_with_custom_end(end_time)
-                if collected or (
-                    not collected
-                    and any(
-                        source.images_partially_collected for source in self.sources
-                    )
-                    and any(not source.daily_video_created for source in self.sources)
-                ):
+            while True:
+                if self.collect_with_custom_time_span(time_span):
                     for source in self.sources:
-                        video_path = str(
-                            Path(
-                                f"{self.base_path}/{source.location_name}/{self.folder_name}"
-                            )
-                        )
-                        if (
-                            self.location.time_now > end_time
-                            and source.images_collected
-                            and not source.images_partially_collected
-                            and not source.daily_video_created
-                        ):
-                            if self.create_video(source, self.delete_collected_daily_images):
-                                source.set_daily_video_created()
-                                if self.video_queue is not None:
-                                    self.video_queue.put(
-                                        self.create_response_with_metadata(
-                                            video_path,
-                                            VideoType.DAILY.value,
-                                            source
-                                        )
-                                    )
-                                self.cache_self()
-                        elif (
-                            self.location.time_now > end_time
-                            and source.images_partially_collected
-                            and not source.images_collected
-                            and not source.daily_video_created
-                        ):
-                            if self.create_video(source, delete_source_images=False):
-                                source.set_daily_video_created()
-                                if self.video_queue is not None:
-                                    self.video_queue.put(
-                                        self.create_response_with_metadata(
-                                            video_path, VideoType.DAILY.value, source
-                                        )
-                                    )
-                                self.cache_self()
+                        _ = self.create_video(source, delete_source_images=False)
                 else:
-                    if self._monthly_summary:
-                        if self.is_next_month():
-                            self.process_monthly_summary()
-                    sleep(self.nighttime_wait_before_next_retry)
+                    if self.is_it_next_week():
+                        if self._weekly_summary:
 
-                self._decrease_test_counter()
+                            self.logger.info("Starting weekly video summary process!")
+                            self.process_weekly_summary()
+                        
+                        self.set_weekly_folder_name(f"{self.location.calendar.year}/{self.location.calendar.week}/{self.location.calendar.weekday}")
+                        
+                    sleep(self.wait_before_next_frame)          
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
+
+    def process_weekly_summary(self):
+        """Create and optionally send the weekly summary video to the queue."""
+        _current_calendar = self.get_current_calendar(self.weekly_folder_name)
+
+        for source in self.sources:
+            weekly_path = os.path.join(self.base_path, source.location_name)
+
+            if not source.weekly_video_created:
+                new_video, video_files_count = self.create_weekly_or_monthly_video(
+                    weekly_path, 
+                    str(_current_calendar.year),
+                    str(_current_calendar.week),
+                    weekly = True
+                    )
+
+                if new_video and video_files_count:
+                    source.set_videos_count(video_files_count)
+                    self.logger.info(
+                        f"Weekly summary created for {source.location_name}, {_current_calendar.year}-W{_current_calendar.week}"
+                    )
+
+                    self._post_video_creation(
+                            video_path=new_video,
+                            video_type=VideoType.WEEKLY.value,
+                            source=source
+                        )
+
+    @staticmethod
+    def get_current_calendar(y_w_d_str: str):
+        """
+        Get the _IsoCalendarDate from the TimeLapseCretor.weekly_folder_name
+        """
+        return dt.fromisocalendar(*map(int, y_w_d_str.split("/"))).isocalendar()
+    
+    def collect_with_custom_time_span(self, time_span: CustomTimeSpan) -> bool:
+        """Collects images from the sources until the end_time is reached.
+        If is_daylight() returns False, the wait_before_next_frame should be increased (multiplied by 5 or more)
+        so that the night time in the videos will be shorter and not boring to the viewer.
+        """
+        def _start(): return self.location.time_now.replace(hour=time_span.start_hour, minute=time_span.start_minutes)
+        def _end(): return self.location.time_now.replace(hour=time_span.end_hour, minute=time_span.end_minutes)
+        
+        if _start() < self.location.time_now < _end():
+            # Reset the counters only in the begining of a new day
+            if self._fresh:
+                self.reset_all_sources_counters_to_default_values()
+            self.logger.info(f"Collecting images between {_start()} and {_end()}")
+            
+            while _start() < self.location.time_now < _end():
+                self._adjust_wait_before_next_frame()
+                for source in self.sources:
+                    try:
+                        img = source.get_frame_bytes()
+
+                        if img:
+                            full_path, dt_text = self._pre_collect_actions(source)
+
+                            vm.save_image_with_weather_overlay(
+                                image_bytes=img,
+                                save_path=str(full_path),
+                                width=self.video_width,
+                                height=self.video_height,
+                                date_time_text=dt_text,
+                                weather_data_text=str(source.weather_data_provider)
+                                if source.weather_data_provider
+                                else None,
+                                text_box_position=self.text_box_position,
+                                text_box_transparency=self.text_box_transparency
+                            )
+                            self._post_collect_actions(source)
+
+                    except Exception:
+                        continue
+                sleep(self.wait_before_next_frame)
+
+            self.set_sources_all_images_collected()
+            self.logger.info(f"Finished collecting for {self.folder_name}")
+            self.cache_self()
+        
+            return True
+        else:
+            if not self.quiet_mode:
+                self.logger.info(f"Sleeping @{self.location.city.name} between {_end()} and {_start()}")
+            self.is_it_next_day()
+            return False
 
     def _adjust_wait_before_next_frame(self) -> None:
         """Adjusts the wait_before_next_frame based on the time of day.
@@ -447,7 +525,7 @@ class TimeLapseCreator:
             source.weather_data_provider.get_data()
 
         file_name = self.location.time_now.strftime(HHMMSS_UNDERSCORE_FORMAT)
-        current_path = f"{self.base_path}/{source.location_name}/{self.folder_name}"
+        current_path = self._resolve_video_path(source)
         dt_text = f"{self.folder_name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}"
 
         Path(current_path).mkdir(parents=True, exist_ok=True)
@@ -460,47 +538,34 @@ class TimeLapseCreator:
         self.cache_self()
         self._fresh = False
 
-    def collect_with_custom_end(self, end_time: dt) -> bool:
-        """Collects images from the sources until the end_time is reached.
-        If is_daylight() returns False, the wait_before_next_frame should be increased (multiplied by 5 or more)
-        so that the night time in the videos will be shorter and not boring to the viewer.
+    def _post_video_creation(self, video_path: str, video_type: str, source: Source):
         """
-        if self.location.time_now < end_time:
+        Set the daily video created for the source.\n
+        Put the VideoResponse to the video queue if it is not None.\n
+        Cache the creator state.
 
-            while self.location.time_now < end_time:
-                self._adjust_wait_before_next_frame()
-                for source in self.sources:
-                    try:
-                        img = source.get_frame_bytes()
+        Args:
+            video_path (str)
+            video_type (str)
+            source (Source)
+        """
+        func_map = {
+            "daily": source.set_daily_video_created,
+            "weekly": source.set_weekly_video_created,
+            "monthly": source.set_monthly_video_created
+        }
 
-                        if img:
-                            full_path, dt_text = self._pre_collect_actions(source)
+        func_map[video_type]()
 
-                            vm.save_image_with_weather_overlay(
-                                image_bytes=img,
-                                save_path=str(full_path),
-                                width=self.video_width,
-                                height=self.video_height,
-                                date_time_text=dt_text,
-                                weather_data_text=str(source.weather_data_provider)
-                                if source.weather_data_provider
-                                else None,
-                                text_box_position=self.text_box_position,
-                                text_box_transparency=self.text_box_transparency
-                            )
-                            self._post_collect_actions(source)
-
-                    except Exception:
-                        continue
-                    sleep(self.wait_before_next_frame)
-
-            self.set_sources_all_images_collected()
-            self.logger.info(f"Finished collecting for {self.folder_name}")
-            self.cache_self()
-
-            return True
+        if self.video_queue is not None:
+            self.video_queue.put(
+                self.create_response_with_metadata(
+                    video_path, video_type, source
+                )
+            )
         else:
-            return False
+            self.logger.info("No video queue provided and response is not sent.")
+        self.cache_self()
 
     def collect_images_from_webcams(self) -> bool:
         """While self.location.is_daylight() returns True, the images for every source
@@ -565,13 +630,21 @@ class TimeLapseCreator:
             or new_date.month > old_date.month
             or new_date.day > old_date.day
         ):
-            self.folder_name = new_date.strftime(YYMMDD_FORMAT)
+            self.set_folder_name(new_date.strftime(YYMMDD_FORMAT))
             self._fresh = True
             self.logger.info(
                 f"New day starts! Images will be collected between:\n"
                 f"{LOG_START_INT * ' '}Start time: {self.location.start_of_daylight.strftime(HHMMSS_COLON_FORMAT)}  -->"
                 f"  End time: {self.location.end_of_daylight.strftime(HHMMSS_COLON_FORMAT)}"
             )
+
+    def is_it_next_week(self) -> bool:
+        """Checks if the next week have started and changes the self.weekly_folder_name accordingly"""
+        old_calendar = self.get_current_calendar(self.weekly_folder_name)
+
+        if old_calendar.week != self.location.calendar.week:
+            return True
+        return False
 
     def create_video(self, source: Source, delete_source_images: bool = True) -> bool:
         """
@@ -584,10 +657,8 @@ class TimeLapseCreator:
 
             delete_source_images: bool - if the source images should be deleted as well
         """
-        input_folder = str(
-            Path(f"{self.base_path}/{source.location_name}/{self.folder_name}")
-        )
-        output_video = str(Path(f"{input_folder}/{self.folder_name}{MP4_FILE}"))
+        input_folder = self._resolve_video_path(source)
+        output_video = str(Path(f"{input_folder}/{self.folder_name.replace("/", "-")}{MP4_FILE}"))
 
         created = False
         if not vm.video_exists(output_video):
@@ -621,14 +692,18 @@ class TimeLapseCreator:
         [source.reset_images_partially_collected() for source in self.sources]
 
     def reset_all_sources_counters_to_default_values(self) -> None:
-        """Resets the images_count = 0, resets video_created = False, resets
-        images_collected = False and resets reset_images_pertially_collected = False
-        for all self.sources
+        """For all self.sources\n
+        resets the images_count = 0,\n
+        resets video_created = False,\n
+        resets images_collected = False\n
+        resets reset_images_pertially_collected = False\n
+        resets daily, weekly, monthly video_created = False 
         """
         for source in self.sources:
             source.reset_images_counter()
             source.reset_daily_videos_counter()
             source.reset_daily_video_created()
+            source.reset_weekly_video_created()
             source.reset_monthly_video_created()
             source.reset_all_images_collected()
             source.reset_images_partially_collected()
@@ -734,6 +809,7 @@ class TimeLapseCreator:
 
         return cls.validate_collection(sources)
 
+    # can be static
     @classmethod
     def validate_collection(cls, sources: Iterable[Source]) -> set[Source]:
         """Checks if a valid collection is passed.
@@ -796,6 +872,7 @@ class TimeLapseCreator:
 
         return True
 
+    # utility static func
     def get_video_files_paths(self, base_folder: str, year: str, month: str):
         """
         Retrieves video file paths for a specific year and month from a base folder.
@@ -827,11 +904,13 @@ class TimeLapseCreator:
 
         return video_files_paths
 
-    def create_monthly_video(
+    # can be a static function
+    def create_weekly_or_monthly_video(
         self,
         base_path: str,
         year: str,
-        month: str,
+        week_or_month: str,
+        weekly: bool = False,
         extension: str = MP4_FILE,
     ) -> tuple[str, int] | tuple[None, None]:
         """
@@ -853,14 +932,22 @@ class TimeLapseCreator:
             str | None - Returns the path to the folder containing the created monthly summary video if
                 successful, otherwise None.
         """
-        yy_mm_format = dash_sep_strings(year, month)
 
-        video_files = self.get_video_files_paths(
-            base_folder=base_path, year=year, month=month
-        )
-        video_folder_name = os.path.join(base_path, yy_mm_format)
+        if not weekly:
+            video_files = self.get_video_files_paths(
+                base_folder=base_path, year=year, month=week_or_month
+            )
+            sep = "-"
+        else:
+            video_files = get_weekly_video_files_paths(Path(f"{base_path}/{year}/{week_or_month}"))
+            sep = "/"
+
+        video_folder_name = dash_sep_strings(year, week_or_month, sep=sep)
+        video_name = dash_sep_strings(year, week_or_month if not weekly else f"W{week_or_month}")
+
+        full_video_folder_name = os.path.join(base_path, video_folder_name)
         output_video_name = os.path.join(
-            video_folder_name, f"{yy_mm_format}{extension}"
+            full_video_folder_name, f"{video_name}{extension}"
         )
         none_return = (None, None)
         if len(video_files) == 0:
@@ -873,7 +960,7 @@ class TimeLapseCreator:
             logger=self.logger,
             video_paths=video_files,
             output_video_path=output_video_name,
-            fps=DEFAULT_VIDEO_FPS,
+            fps=self.video_fps,
         ):
             self.logger.info(f"Video created: {shorten(output_video_name)}")
 
@@ -887,7 +974,7 @@ class TimeLapseCreator:
                         delete_folder=True,
                     )
 
-            return (video_folder_name, len(video_files))
+            return (full_video_folder_name, len(video_files))
         
         return none_return
 
@@ -915,22 +1002,17 @@ class TimeLapseCreator:
             base_path = os.path.join(self.base_path, source.location_name)
 
             if not source.monthly_video_created:
-                new_video, video_files_count = self.create_monthly_video(base_path, year, month)
+                new_video, video_files_count = self.create_weekly_or_monthly_video(base_path, year, month)
 
                 if new_video and video_files_count:
                     source.set_videos_count(video_files_count)
-                    source.set_monthly_video_created()
                     self.logger.info(
                         f"Monthly summary created for {source.location_name}, {year}-{month}"
                     )
-
-                    if self.video_queue:
-                        self.video_queue.put(
-                            self.create_response_with_metadata(
-                                video_path=new_video,
-                                video_type=VideoType.MONTHLY.value,
-                                source=source
-                            )
+                    self._post_video_creation(
+                            video_path=new_video,
+                            video_type=VideoType.MONTHLY.value,
+                            source=source
                         )
 
     def get_previous_year_and_month(self):
@@ -956,12 +1038,6 @@ class TimeLapseCreator:
         Create a response to be put in the video queue. Response contains metadata about the source's, creator's and location's state
         """
         match video_type:
-            case VideoType.MONTHLY.value:
-                response = MonthlyVideoResponse(
-                    video_path=video_path,
-                    video_files_count=source.daily_videos_count,
-                    video_created=source.monthly_video_created
-                )
             case VideoType.DAILY.value:
                 response = DailyVideoResponse(
                     video_path=video_path,
@@ -969,6 +1045,20 @@ class TimeLapseCreator:
                     video_created=source.daily_video_created,
                     all_images_collected=source.images_collected,
                     images_partially_collected=source.images_partially_collected
+                )
+            case VideoType.WEEKLY.value:
+                response = WeeklyVideoResponse(
+                    video_path=video_path,
+                    images_count=source.images_count,
+                    video_created=source.daily_video_created,
+                    all_images_collected=source.images_collected,
+                    images_partially_collected=source.images_partially_collected
+                )
+            case VideoType.MONTHLY.value:
+                response = MonthlyVideoResponse(
+                    video_path=video_path,
+                    video_files_count=source.daily_videos_count,
+                    video_created=source.monthly_video_created
                 )
             case _:
                 self.logger.warning("Unknown video_type received for creating a VideoResponse with metadata!")
@@ -980,6 +1070,7 @@ class TimeLapseCreator:
     
     def add_metadata(self, response: VideoResponse):
         """Add metadata about the state of the TimaLapseCreator at the time of the video creation"""
+        response.video_type = response.video_type
         response.wait_before_next_frame = self.wait_before_next_frame
         response.nighttime_wait_before_next_retry = self.nighttime_wait_before_next_retry
         response.video_fps = self.video_fps

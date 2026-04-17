@@ -4,7 +4,8 @@ from src.automatic_time_lapse_creator.common.utils import (
     dash_sep_strings,
     create_description_for_monthly_video,
     DailyVideoResponse,
-    MonthlyVideoResponse
+    MonthlyVideoResponse,
+    WeeklyVideoResponse
 )
 from src.automatic_time_lapse_creator.common.constants import (
     DEFAULT_VIDEO_DESCRIPTION,
@@ -46,6 +47,41 @@ def test_daily_video_response_returns_correct_json():
     assert expected_result["source_location_name"] is None
     assert expected_result["wait_before_next_frame"] is None
     assert expected_result["video_type"] == VideoType.DAILY.value
+    assert expected_result["delete_collected_daily_images"] is None
+    assert expected_result["location_sunset_offset_minutes"] is None
+    assert expected_result["location_sunrise_offset_minutes"] is None
+    assert expected_result["nighttime_wait_before_next_retry"] is None
+    assert expected_result["delete_daily_videos_after_monthly_summary_is_created"] is None
+
+def test_weekly_video_response_returns_correct_json():
+    # Arrange
+    instance = WeeklyVideoResponse(
+        video_path=sample_folder_path,
+        images_count=sample_count,
+        video_created=True,
+        all_images_collected=True,
+        images_partially_collected=False
+    )
+
+    # Act
+    response_json = instance.to_json()
+    expected_result = json.loads(response_json)
+    
+    # Assert
+    assert "video_files_count" not in expected_result
+    assert "images_count" in expected_result
+    assert "all_images_collected" in expected_result
+    assert "images_partially_collected" in expected_result
+    assert expected_result["video_fps"] is None
+    assert expected_result["video_width"] is None
+    assert expected_result["video_height"] is None
+    assert expected_result["video_path"] is not None
+    assert expected_result["location_city_tz"] is None
+    assert expected_result["video_created"] is not None
+    assert expected_result["location_city_name"] is None
+    assert expected_result["source_location_name"] is None
+    assert expected_result["wait_before_next_frame"] is None
+    assert expected_result["video_type"] == VideoType.WEEKLY.value
     assert expected_result["delete_collected_daily_images"] is None
     assert expected_result["location_sunset_offset_minutes"] is None
     assert expected_result["location_sunrise_offset_minutes"] is None
@@ -131,6 +167,21 @@ def test_dash_sep_strings_returns_correctly_formatted_string_if_more_arguments_a
 
     # Act
     actual_result = dash_sep_strings(year, month, day)
+
+    # Assert
+    assert expected_result == actual_result
+
+
+def test_dash_sep_strings_returns_correctly_formatted_string_with_more_arguments_and_different_sep():
+    # Arrange
+    year = "2020"
+    month = "01"
+    day = "15"
+    sep = "/"
+    expected_result = f"{year}{sep}{month}{sep}{day}"
+
+    # Act
+    actual_result = dash_sep_strings(year, month, day, sep=sep)
 
     # Assert
     assert expected_result == actual_result

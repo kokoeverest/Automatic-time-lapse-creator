@@ -58,27 +58,6 @@ class LocationAndTimeManager:
         return sunset(self.city.observer, date=self.time_now.date(), tzinfo=self.city.tzinfo) + self.sunset_offset_minutes # type: ignore
 
     @property
-    def year(self) -> int:
-        """Returns::
-
-        int - current year"""
-        return dt.today().year
-
-    @property
-    def month(self) -> int:
-        """Returns::
-
-        int - current month"""
-        return dt.today().month
-
-    @property
-    def today(self) -> int:
-        """Returns::
-
-        int - current day"""
-        return dt.today().day
-    
-    @property
     def time_now(self):
         """Returns the current date and time taking into account the timezone of the self.city
 
@@ -86,6 +65,13 @@ class LocationAndTimeManager:
             datetime: the datetime object representing the current time
         """
         return dt.now(tz=self.city.tzinfo) # type: ignore
+    
+    @property
+    def calendar(self):
+        """
+        Return the isocalendar object for the location.
+        """
+        return self.time_now.isocalendar()
 
     def is_daylight(self) -> bool:
         """Checks if it's daylight at the specified location according to the start and end of daylight.
