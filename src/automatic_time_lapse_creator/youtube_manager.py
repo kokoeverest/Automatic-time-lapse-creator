@@ -47,6 +47,7 @@ class YouTubeAuth:
         logger: logging.Logger | None - a logger instance, defaults to None
         auth_method: AuthMethod - authentication via browser locally (default) or via email
         redirect_url: str | None - url at which the email authentication will return the credentials
+        email_auth_timeout_seconds: int - timeout to wait for email authentication
 
     Returns:
 

@@ -106,7 +106,5 @@ mock_daily_video_for_json_response = DailyVideoResponse(
 mock_weekly_video_for_json_response = WeeklyVideoResponse(
     video_path=sample_folder_path,
     video_created=True,
-    images_count=300,
-    images_partially_collected=False,
-    all_images_collected=True
+    video_files_count=7,
 )

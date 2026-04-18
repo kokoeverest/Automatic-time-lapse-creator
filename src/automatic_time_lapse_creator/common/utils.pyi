@@ -23,7 +23,6 @@ class VideoResponse(ABC):
     def __init__(self, video_path: str, video_created: bool) -> None: ...
     def to_json(self) -> str: ...
     
-
 class DailyVideoResponse(VideoResponse):
     images_count: int
     all_images_collected: bool
@@ -36,8 +35,6 @@ class DailyVideoResponse(VideoResponse):
             all_images_collected: bool,
             images_partially_collected: bool
     ) -> None: ...
-class WeeklyVideoResponse(DailyVideoResponse):
-    ...
 
 class MonthlyVideoResponse(VideoResponse):
     video_files_count: int
@@ -47,6 +44,9 @@ class MonthlyVideoResponse(VideoResponse):
             video_created: bool,
             video_files_count: int
     ) -> None: ...
+
+class WeeklyVideoResponse(MonthlyVideoResponse):
+    ...
 
 def create_log_message(location: str, url: str, method: str) -> str: ...
 

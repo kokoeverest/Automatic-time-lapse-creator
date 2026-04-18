@@ -407,8 +407,7 @@ class TimeLapseCreator:
                             self.logger.info("Starting weekly video summary process!")
                             self.process_weekly_summary()
                         
-                        self.set_weekly_folder_name(f"{self.location.calendar.year}/{self.location.calendar.week}/{self.location.calendar.weekday}")
-                        
+                    self.set_weekly_folder_name(f"{self.location.calendar.year}/{self.location.calendar.week}/{self.location.calendar.weekday}")    
                     sleep(self.wait_before_next_frame)          
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
@@ -1049,10 +1048,8 @@ class TimeLapseCreator:
             case VideoType.WEEKLY.value:
                 response = WeeklyVideoResponse(
                     video_path=video_path,
-                    images_count=source.images_count,
-                    video_created=source.daily_video_created,
-                    all_images_collected=source.images_collected,
-                    images_partially_collected=source.images_partially_collected
+                    video_files_count=source.daily_videos_count,
+                    video_created=source.monthly_video_created
                 )
             case VideoType.MONTHLY.value:
                 response = MonthlyVideoResponse(

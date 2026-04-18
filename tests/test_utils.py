@@ -57,10 +57,8 @@ def test_weekly_video_response_returns_correct_json():
     # Arrange
     instance = WeeklyVideoResponse(
         video_path=sample_folder_path,
-        images_count=sample_count,
+        video_files_count=sample_count,
         video_created=True,
-        all_images_collected=True,
-        images_partially_collected=False
     )
 
     # Act
@@ -68,10 +66,10 @@ def test_weekly_video_response_returns_correct_json():
     expected_result = json.loads(response_json)
     
     # Assert
-    assert "video_files_count" not in expected_result
-    assert "images_count" in expected_result
-    assert "all_images_collected" in expected_result
-    assert "images_partially_collected" in expected_result
+    assert "video_files_count" in expected_result
+    assert "images_count" not in expected_result
+    assert "all_images_collected" not in expected_result
+    assert "images_partially_collected" not in expected_result
     assert expected_result["video_fps"] is None
     assert expected_result["video_width"] is None
     assert expected_result["video_height"] is None

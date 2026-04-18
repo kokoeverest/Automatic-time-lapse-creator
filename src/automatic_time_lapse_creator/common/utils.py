@@ -51,9 +51,6 @@ class DailyVideoResponse(VideoResponse):
         self.all_images_collected = all_images_collected
         self.images_partially_collected = images_partially_collected
 
-class WeeklyVideoResponse(DailyVideoResponse):
-    video_type = VideoType.WEEKLY.value
-
 class MonthlyVideoResponse(VideoResponse):
     video_type = VideoType.MONTHLY.value
     def __init__(
@@ -64,6 +61,9 @@ class MonthlyVideoResponse(VideoResponse):
     ) -> None:
         super().__init__(video_path, video_created)
         self.video_files_count= video_files_count
+
+class WeeklyVideoResponse(MonthlyVideoResponse):
+    video_type = VideoType.WEEKLY.value
 
 
 def create_log_message(location: str, url: str, method: str) -> str:
