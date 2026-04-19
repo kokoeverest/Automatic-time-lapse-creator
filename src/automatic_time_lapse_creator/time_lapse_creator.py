@@ -6,6 +6,7 @@ from pathlib import Path
 from queue import Queue
 from typing import Any, Iterable, NamedTuple
 from glob import glob
+from logging import Logger
 from .cache_manager import CacheManager
 from .source import Source
 from .video_manager import (
@@ -131,24 +132,25 @@ class TimeLapseCreator:
         )
         self.location = LocationAndTimeManager(
             city_name=city,
-            sunrise_offset=self._validate("sunrise_offset_minutes", sunrise_offset_minutes),
-            sunset_offset=self._validate("sunset_offset_minutes", sunset_offset_minutes),
+            sunrise_offset=self._validate("sunrise_offset_minutes", sunrise_offset_minutes, self.logger),
+            sunset_offset=self._validate("sunset_offset_minutes", sunset_offset_minutes, self.logger),
             logger=self.logger,
         )
         
         self._folder_name = self.location.time_now.strftime(YYMMDD_FORMAT)
-        self._weekly_folder_name = f"{self.location.calendar.year}/{self.location.calendar.week}/{self.location.calendar.weekday}"
+        self._weekly_folder_name = self.__weekly_folder_str_value
 
         self.sources: set[Source] = self.validate_collection(sources)
-        self.wait_before_next_frame = self._validate("seconds_between_frames", seconds_between_frames)
-        self.nighttime_wait_before_next_retry = self._validate("night_time_retry_seconds", night_time_retry_seconds)
+        self.wait_before_next_frame = self._validate("seconds_between_frames", seconds_between_frames, self.logger)
+        self.nighttime_wait_before_next_retry = self._validate("night_time_retry_seconds", night_time_retry_seconds, self.logger)
         self.wait_between_frames_nighttime_multiplier = self._validate(
             "wait_between_frames_nighttime_multiplier", 
-            wait_between_frames_nighttime_multiplier
+            wait_between_frames_nighttime_multiplier,
+            self.logger
             )
-        self.video_fps = self._validate("video_fps", video_fps)
-        self.video_width = self._validate("video_width", video_width)
-        self.video_height = self._validate("video_height", video_height)
+        self.video_fps = self._validate("video_fps", video_fps, self.logger)
+        self.video_width = self._validate("video_width", video_width, self.logger)
+        self.video_height = self._validate("video_height", video_height, self.logger)
         self.text_box_position = text_box_position
         self.text_box_transparency = text_box_transparency
         self.quiet_mode = quiet_mode
@@ -163,12 +165,19 @@ class TimeLapseCreator:
         self._initial_wait_before_next_frame = seconds_between_frames
         self._fresh = True
 
-    def _resolve_video_path(self, source: Source):
+    def __resolve_video_path(self, source: Source):
         if self._weekly_summary:
             return str(Path(f"{self.base_path}/{source.location_name}/{self.weekly_folder_name}"))
         else: 
             return str(Path(f"{self.base_path}/{source.location_name}/{self.folder_name}")) 
 
+    @property
+    def __weekly_folder_str_value(self) -> str:
+        """
+        f"{self.location.calendar.year}/{self.location.calendar.week}/{self.location.calendar.weekday}"
+        """
+        return f"{self.location.calendar.year}/{self.location.calendar.week}/{self.location.calendar.weekday}"
+    
     @property
     def folder_name(self):
         return self._folder_name
@@ -193,12 +202,12 @@ class TimeLapseCreator:
         Args: 
             value (str)
         """
-        _prev_week_number = self.get_current_calendar(self.weekly_folder_name).week
+        self.logger.info(f"Weekly folder name ->\n"
+                         f"{LOG_START_INT * ' '}{self._weekly_folder_name} --> {value}\n")
         self._weekly_folder_name = value
-        self.logger.info(f"\nNew week started - {_prev_week_number} -> {self.location.calendar.week}\n")
 
-    # utility function
-    def _validate(self, attr_name: str, attr_value: int):
+    @staticmethod
+    def _validate(attr_name: str, attr_value: int, logger: Logger):
         """
         Validates the attribute value based on predefined rules.
 
@@ -235,7 +244,7 @@ class TimeLapseCreator:
         if attr_value not in attrs[attr_name].range:
             attrs[attr_name] = attrs[attr_name]._replace(default = attrs[attr_name].range.start if attr_value < attrs[attr_name].range.start else attrs[attr_name].range.stop)
             
-            self.logger.warning(f"{attr_name} must be in {attrs[attr_name].range}! Setting to default: {attrs[attr_name].default}")
+            logger.warning(f"{attr_name} must be in {attrs[attr_name].range}! Setting to default: {attrs[attr_name].default}")
             attr_value = attrs[attr_name].default
         
         return attr_value
@@ -341,7 +350,7 @@ class TimeLapseCreator:
                     and any(not source.daily_video_created for source in self.sources)
                 ):
                     for source in self.sources:
-                        video_path = self._resolve_video_path(source)
+                        video_path = self.__resolve_video_path(source)
                         if (
                             self.location.time_now > self.location.end_of_daylight
                             and source.images_collected
@@ -349,7 +358,7 @@ class TimeLapseCreator:
                             and not source.daily_video_created
                         ):
                             if self.create_video(source, self.delete_collected_daily_images):
-                                self._post_video_creation(
+                                self.__post_video_creation(
                                     video_path=video_path,
                                     video_type=VideoType.DAILY.value,
                                     source=source
@@ -361,7 +370,7 @@ class TimeLapseCreator:
                             and not source.daily_video_created
                         ):
                             if self.create_video(source, delete_source_images=False):
-                                self._post_video_creation(
+                                self.__post_video_creation(
                                     video_path=video_path,
                                     video_type=VideoType.DAILY.value,
                                     source=source
@@ -372,7 +381,7 @@ class TimeLapseCreator:
                             self.process_monthly_summary()
                     sleep(self.nighttime_wait_before_next_retry)
 
-                self._decrease_test_counter()
+                self.__decrease_test_counter()
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
 
@@ -407,7 +416,7 @@ class TimeLapseCreator:
                             self.logger.info("Starting weekly video summary process!")
                             self.process_weekly_summary()
                         
-                    self.set_weekly_folder_name(f"{self.location.calendar.year}/{self.location.calendar.week}/{self.location.calendar.weekday}")    
+                    self.set_weekly_folder_name(self.__weekly_folder_str_value)    
                     sleep(self.wait_before_next_frame)          
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
@@ -433,7 +442,7 @@ class TimeLapseCreator:
                         f"Weekly summary created for {source.location_name}, {_current_calendar.year}-W{_current_calendar.week}"
                     )
 
-                    self._post_video_creation(
+                    self.__post_video_creation(
                             video_path=new_video,
                             video_type=VideoType.WEEKLY.value,
                             source=source
@@ -456,18 +465,19 @@ class TimeLapseCreator:
         
         if _start() < self.location.time_now < _end():
             # Reset the counters only in the begining of a new day
+            self.is_it_next_day()
             if self._fresh:
                 self.reset_all_sources_counters_to_default_values()
             self.logger.info(f"Collecting images between {_start()} and {_end()}")
             
             while _start() < self.location.time_now < _end():
-                self._adjust_wait_before_next_frame()
+                self.__adjust_wait_before_next_frame()
                 for source in self.sources:
                     try:
                         img = source.get_frame_bytes()
 
                         if img:
-                            full_path, dt_text = self._pre_collect_actions(source)
+                            full_path, dt_text = self.__pre_collect_actions(source)
 
                             vm.save_image_with_weather_overlay(
                                 image_bytes=img,
@@ -481,7 +491,7 @@ class TimeLapseCreator:
                                 text_box_position=self.text_box_position,
                                 text_box_transparency=self.text_box_transparency
                             )
-                            self._post_collect_actions(source)
+                            self.__post_collect_actions(source)
 
                     except Exception:
                         continue
@@ -495,10 +505,9 @@ class TimeLapseCreator:
         else:
             if not self.quiet_mode:
                 self.logger.info(f"Sleeping @{self.location.city.name} between {_end()} and {_start()}")
-            self.is_it_next_day()
             return False
 
-    def _adjust_wait_before_next_frame(self) -> None:
+    def __adjust_wait_before_next_frame(self) -> None:
         """Adjusts the wait_before_next_frame based on the time of day.
         The wait_before_next_frame is multiplied by the wait_between_frames_nighttime_multiplier during nighttime.\n
         This is done in order to make the night time in the videos shorter (time in videos goes faster) and not boring to the viewer.
@@ -515,7 +524,7 @@ class TimeLapseCreator:
             if not self.quiet_mode:
                 self.logger.info(f"Daytime detected! Decreasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
 
-    def _pre_collect_actions(self, source: Source) -> tuple[Path, str]:
+    def __pre_collect_actions(self, source: Source) -> tuple[Path, str]:
         """Performs the actions before the image is collected.
         Gets the weather data for the source if it's available.
         Prepare the folder and file name for the image.
@@ -524,20 +533,20 @@ class TimeLapseCreator:
             source.weather_data_provider.get_data()
 
         file_name = self.location.time_now.strftime(HHMMSS_UNDERSCORE_FORMAT)
-        current_path = self._resolve_video_path(source)
+        current_path = self.__resolve_video_path(source)
         dt_text = f"{self.folder_name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}"
 
         Path(current_path).mkdir(parents=True, exist_ok=True)
         return Path(f"{current_path}/{file_name}{JPG_FILE}"), dt_text
 
-    def _post_collect_actions(self, source: Source) -> None:
+    def __post_collect_actions(self, source: Source) -> None:
         """Performs the actions after the image is collected."""
         source.increase_images()
         source.set_images_partially_collected()
         self.cache_self()
         self._fresh = False
 
-    def _post_video_creation(self, video_path: str, video_type: str, source: Source):
+    def __post_video_creation(self, video_path: str, video_type: str, source: Source):
         """
         Set the daily video created for the source.\n
         Put the VideoResponse to the video queue if it is not None.\n
@@ -589,7 +598,7 @@ class TimeLapseCreator:
                         img = source.get_frame_bytes()
 
                         if img:
-                            full_path, dt_text = self._pre_collect_actions(source)
+                            full_path, dt_text = self.__pre_collect_actions(source)
 
                             vm.save_image_with_weather_overlay(
                                 image_bytes=img,
@@ -603,7 +612,7 @@ class TimeLapseCreator:
                                 text_box_position=self.text_box_position,
                                 text_box_transparency=self.text_box_transparency
                             )
-                            self._post_collect_actions(source)
+                            self.__post_collect_actions(source)
 
                     except Exception:
                         continue
@@ -630,6 +639,7 @@ class TimeLapseCreator:
             or new_date.day > old_date.day
         ):
             self.set_folder_name(new_date.strftime(YYMMDD_FORMAT))
+            self.set_weekly_folder_name(self.__weekly_folder_str_value)
             self._fresh = True
             self.logger.info(
                 f"New day starts! Images will be collected between:\n"
@@ -656,7 +666,7 @@ class TimeLapseCreator:
 
             delete_source_images: bool - if the source images should be deleted as well
         """
-        input_folder = self._resolve_video_path(source)
+        input_folder = self.__resolve_video_path(source)
         output_video = str(Path(f"{input_folder}/{self.folder_name.replace("/", "-")}{MP4_FILE}"))
 
         created = False
@@ -788,8 +798,8 @@ class TimeLapseCreator:
         except Exception as exc:
             self.logger.exception(exc)
 
-    @classmethod
-    def check_sources(cls, sources: Source | Iterable[Source]) -> Source | set[Source]:
+    @staticmethod
+    def check_sources(sources: Source | Iterable[Source]) -> Source | set[Source]:
         """Checks if a single source or a collection of sources is passed.
         Parameters::
 
@@ -806,11 +816,10 @@ class TimeLapseCreator:
         if isinstance(sources, Source):
             return sources
 
-        return cls.validate_collection(sources)
+        return TimeLapseCreator.validate_collection(sources)
 
-    # can be static
-    @classmethod
-    def validate_collection(cls, sources: Iterable[Source]) -> set[Source]:
+    @staticmethod
+    def validate_collection(sources: Iterable[Source]) -> set[Source]:
         """Checks if a valid collection is passed.
         Parameters::
 
@@ -832,7 +841,7 @@ class TimeLapseCreator:
                 "Only list, tuple or set collections are allowed!"
             )
 
-    def _decrease_test_counter(self) -> None:
+    def __decrease_test_counter(self) -> None:
         """Decreases the test counter by 1."""
         self._test_counter -= 1
 
@@ -871,8 +880,8 @@ class TimeLapseCreator:
 
         return True
 
-    # utility static func
-    def get_video_files_paths(self, base_folder: str, year: str, month: str):
+    @staticmethod
+    def get_video_files_paths(base_folder: str, year: str, month: str):
         """
         Retrieves video file paths for a specific year and month from a base folder.
 
@@ -890,7 +899,7 @@ class TimeLapseCreator:
         folders = os.listdir(base_folder)
         video_files_paths: list[str] = []
         for folder in folders:
-            if self.valid_folder(base_folder, folder, year, month):
+            if TimeLapseCreator.valid_folder(base_folder, folder, year, month):
                 video_file = glob(
                     os.path.join(
                         base_folder,
@@ -903,7 +912,6 @@ class TimeLapseCreator:
 
         return video_files_paths
 
-    # can be a static function
     def create_weekly_or_monthly_video(
         self,
         base_path: str,
@@ -995,7 +1003,7 @@ class TimeLapseCreator:
 
     def process_monthly_summary(self):
         """Create and optionally send the monthly summary video to the queue."""
-        year, month = self.get_previous_year_and_month()
+        year, month = self.get_previous_year_and_month(self.folder_name)
 
         for source in self.sources:
             base_path = os.path.join(self.base_path, source.location_name)
@@ -1008,13 +1016,14 @@ class TimeLapseCreator:
                     self.logger.info(
                         f"Monthly summary created for {source.location_name}, {year}-{month}"
                     )
-                    self._post_video_creation(
+                    self.__post_video_creation(
                             video_path=new_video,
                             video_type=VideoType.MONTHLY.value,
                             source=source
                         )
 
-    def get_previous_year_and_month(self):
+    @staticmethod
+    def get_previous_year_and_month(folder_name: str):
         """
         Gets the previous year and month at the time of calling
 
@@ -1022,7 +1031,7 @@ class TimeLapseCreator:
 
                 tuple[str] - containing the year and month
         """
-        datetime_object = dt.strptime(self.folder_name, YYMMDD_FORMAT)
+        datetime_object = dt.strptime(folder_name, YYMMDD_FORMAT)
         days_offset = td(days=DEFAULT_DAY_FOR_MONTHLY_VIDEO + 1)
         prev_date = datetime_object - days_offset
         if prev_date.month < 10:

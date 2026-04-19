@@ -108,15 +108,16 @@ def test_validate_raises_TypeError_for_invalid_type(sample_empty_time_lapse_crea
 
     # Act & Assert
     with pytest.raises(TypeError):
-        sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", invalid_value) # type: ignore
+        sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", invalid_value, sample_empty_time_lapse_creator.logger) # type: ignore
 
 
 def test_validate_returns_value_within_range(sample_empty_time_lapse_creator: TimeLapseCreator):
     # Arrange
     valid_value = 150  # Within range for sunrise_offset_minutes
+    logger = sample_empty_time_lapse_creator.logger
 
     # Act
-    result = sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", valid_value) # type: ignore
+    result = sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", valid_value, logger)
 
     # Assert
     assert result == valid_value
@@ -125,10 +126,11 @@ def test_validate_returns_value_within_range(sample_empty_time_lapse_creator: Ti
 def test_validate_logs_warning_for_out_of_range_value(sample_empty_time_lapse_creator: TimeLapseCreator):
     # Arrange
     out_of_range_value = 500  # High out of range value for sunrise_offset_minutes
+    logger = sample_empty_time_lapse_creator.logger
 
     # Act & Assert
     with patch.object(sample_empty_time_lapse_creator.logger, "warning", return_value=None) as mock_warning:
-        result = sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", out_of_range_value) # type: ignore
+        result = sample_empty_time_lapse_creator._validate("sunrise_offset_minutes", out_of_range_value, logger)
         mock_warning.assert_called_once_with(
             f"sunrise_offset_minutes must be in range(1, 301)! Setting to default: {MAX_SUNRISE_OFFSET_MINUTES}"
         )
@@ -138,10 +140,11 @@ def test_validate_logs_warning_for_out_of_range_value(sample_empty_time_lapse_cr
 def test_validate_raises_KeyError_for_invalid_attr_name(sample_empty_time_lapse_creator: TimeLapseCreator):
     # Arrange
     invalid_attr_name = "invalid_attr"
+    logger = sample_empty_time_lapse_creator.logger
 
     # Act & Assert
     with pytest.raises(KeyError):
-        sample_empty_time_lapse_creator._validate(invalid_attr_name, 100) # type: ignore
+        sample_empty_time_lapse_creator._validate(invalid_attr_name, 100, logger)
 
 
 def test_validate_handles_all_valid_attributes(sample_empty_time_lapse_creator: TimeLapseCreator):
@@ -155,10 +158,11 @@ def test_validate_handles_all_valid_attributes(sample_empty_time_lapse_creator: 
         "video_width": 1280,
         "video_height": 720,
     }
+    logger = sample_empty_time_lapse_creator.logger
 
     # Act & Assert
     for attr_name, attr_value in valid_attributes.items():
-        result = sample_empty_time_lapse_creator._validate(attr_name, attr_value) # type: ignore
+        result = sample_empty_time_lapse_creator._validate(attr_name, attr_value, logger)
         assert result == attr_value
 
 def test_sources_not_empty_returns_false_with_no_sources(
@@ -890,9 +894,10 @@ def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeMange
     # Arrange
     old_date = tm.MockDatetime.fake_today
     old_folder_name = sample_non_empty_time_lapse_creator.folder_name
+    old_weekly_folder_name = sample_non_empty_time_lapse_creator.weekly_folder_name
     old_location = sample_non_empty_time_lapse_creator.location
-
-    # Act & Assert
+    
+    # Act 
     for fake_date in [
         tm.MockDatetime.fake_next_year,
         tm.MockDatetime.fake_next_month,
@@ -902,20 +907,32 @@ def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeMange
             patch(
                 "src.automatic_time_lapse_creator.time_lapse_creator.dt"
             ) as mock_today,
+            patch(
+                "src.automatic_time_lapse_creator.time_lapse_creator.dt.now.isocalendar", return_value=None
+            ) as mock_calendar,
             patch.object(
                 sample_non_empty_time_lapse_creator.logger, "info", return_value=None
             ) as mock_logger_info,
         ):
             mock_today.strptime.return_value = tm.MockDatetime.fake_today
             mock_today.today.return_value = fake_date
-            sample_non_empty_time_lapse_creator.is_it_next_day()
 
+            mock_calendar.weekday.return_value = tm.MockDatetime.fake_today.day
+            mock_calendar.year.return_value = tm.MockDatetime.fake_today.year
+
+            sample_non_empty_time_lapse_creator.is_it_next_day()
+            
+            
+            # Assert
             assert old_date < fake_date
             assert (
                 old_folder_name is not sample_non_empty_time_lapse_creator.folder_name
             )
+            assert (
+                old_weekly_folder_name is not sample_non_empty_time_lapse_creator.weekly_folder_name
+            )
             assert old_location is sample_non_empty_time_lapse_creator.location
-            assert mock_logger_info.call_count == 1
+            assert mock_logger_info.call_count == 2
 
 
 def test_is_it_next_day_does_not_change_anything_if_it_is_the_same_day(
@@ -1047,9 +1064,8 @@ def test_get_video_files_paths_returns_correct_paths(
             "src.automatic_time_lapse_creator.time_lapse_creator.os.listdir",
             return_value=folders,
         ) as mock_listdir,
-        patch.object(
-            sample_non_empty_time_lapse_creator,
-            "valid_folder",
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.TimeLapseCreator.valid_folder",
             return_value=True,
         ) as mock_valid_folder,
         patch(
@@ -1083,9 +1099,8 @@ def test_get_video_files_paths_skips_invalid_folders(
             "src.automatic_time_lapse_creator.time_lapse_creator.os.listdir",
             return_value=folders,
         ) as mock_listdir,
-        patch.object(
-            sample_non_empty_time_lapse_creator,
-            "valid_folder",
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.TimeLapseCreator.valid_folder",
             side_effect=lambda base, folder, y, m: folder == td.sample_folder_name_01, # type: ignore
         ) as mock_valid_folder,
         patch(
@@ -1117,8 +1132,9 @@ def test_get_video_files_paths_returns_empty_if_no_valid_folders(
             "src.automatic_time_lapse_creator.time_lapse_creator.os.listdir",
             return_value=folders,
         ) as mock_listdir,
-        patch.object(
-            sample_non_empty_time_lapse_creator, "valid_folder", return_value=False
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.TimeLapseCreator.valid_folder",
+            return_value=False
         ) as mock_valid_folder,
         patch(
             "src.automatic_time_lapse_creator.time_lapse_creator.glob", return_value=[]
@@ -1149,8 +1165,9 @@ def test_get_video_files_paths_ignores_empty_video_files(
             "src.automatic_time_lapse_creator.time_lapse_creator.os.listdir",
             return_value=folders,
         ) as mock_listdir,
-        patch.object(
-            sample_non_empty_time_lapse_creator, "valid_folder", return_value=True
+        patch(
+            "src.automatic_time_lapse_creator.time_lapse_creator.TimeLapseCreator.valid_folder",
+            return_value=True
         ) as mock_valid_folder,
         patch(
             "src.automatic_time_lapse_creator.time_lapse_creator.glob",
@@ -1664,7 +1681,7 @@ def test_get_previous_year_and_month_returns_tuple_with_correct_values(
     # Act & Assert
     for idx, inp in enumerate(inputs):
         sample_empty_time_lapse_creator.set_folder_name(inp)
-        result = sample_empty_time_lapse_creator.get_previous_year_and_month()
+        result = sample_empty_time_lapse_creator.get_previous_year_and_month(sample_empty_time_lapse_creator.folder_name)
         assert result == expected[idx]
 
 def test_create_response_with_metadata_returns_None_with_invalid_video_type(
