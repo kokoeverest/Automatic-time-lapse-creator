@@ -42,6 +42,10 @@ MAX_SUNSET_OFFSET_MINUTES = 121 # two hours
 DEFAULT_PATH_STRING: str = ""
 DEFAULT_CITY_NAME: str = "Sofia"
 DEFAULT_SECONDS_BETWEEN_FRAMES: int = 60
+
+MAX_SECONDS_BETWEEN_FRAMES: int = 86400 
+"""24 hours"""
+
 DEFAULT_NIGHTTIME_RETRY_SECONDS: int = 60
 DEFAULT_VIDEO_FPS: int = 30
 VIDEO_WIDTH_360p: int = 640
@@ -55,8 +59,10 @@ VIDEO_HEIGHT_1080p: int = VIDEO_HEIGHT_360p * 3
 DEFAULT_DAY_FOR_MONTHLY_VIDEO: int = 3
 SUNRISE_OFFSET_VALIDATION_RANGE = (1, MAX_SUNRISE_OFFSET_MINUTES)
 SUNSET_OFFSET_VALIDATION_RANGE = (1, MAX_SUNSET_OFFSET_MINUTES)
-ONE_SECOND_SIX_HUNDRED_SECONDS = (1, 601)
+ONE_SECOND_EIGHTY_SIX_THOUSAND_SECONDS = (1, MAX_SECONDS_BETWEEN_FRAMES)
 ONE_AND_SIXTY = (1, 61)
+DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER_VALIDATION_RANGE = (1, 10)
+DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER = 5
 
 # youtube_manager defaults
 YOUTUBE_URL_PREFIX = "https://www.youtube.com/watch?v="
@@ -84,16 +90,19 @@ class AuthMethod(Enum):
 # Video defaults
 DEFAULT_VIDEO_CODEC = "mp4v"
 DEFAULT_VIDEO_DESCRIPTION = (
-    "Video created with Automatic Time Lapse Creator by Kaloyan Peychev"
+    "Video created with Automatic Time Lapse Creator"
 )
-MONTHLY_SUMMARY_VIDEO_DESCRIPTION = "A summary of all daily videos for "
+MONTHLY_SUMMARY_VIDEO_DESCRIPTION = "Monthly summary of all daily videos for "
+WEEKLY_SUMMARY_VIDEO_DESCRIPTION = "Weekly summary of all daily videos for "
 BLACK_BACKGROUND = (0, 0, 0)
 WHITE_TEXT = (255, 255, 255)
 FILLED_RECTANGLE_VALUE = -1
 
 class VideoType(Enum):
     DAILY = "daily"
+    WEEKLY = "weekly"
     MONTHLY = "monthly"
+    ANNUALLY = "annually"
 
 # WeatherStationInfo defaults
 OLD_TIMESTAMP_HOURS = 5

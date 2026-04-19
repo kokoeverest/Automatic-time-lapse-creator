@@ -5,16 +5,19 @@ from .constants import (
     DEFAULT_VIDEO_DESCRIPTION,
     MONTHLY_SUMMARY_VIDEO_DESCRIPTION,
     MONTH_NAMES,
-    VideoType
+    VideoType,
+    MP4_FILE
 )
+from pathlib import Path
 from datetime import datetime
 
 
 class VideoResponse(ABC):
+    video_type: str
     def __init__(self, video_path: str, video_created: bool) -> None:
         self.video_path = video_path
         self.video_created = video_created
-        self.video_type: str
+        self.video_type: str = self.video_type
         self.video_fps: int | None = None
         self.video_width: int | None = None
         self.video_height: int | None = None
@@ -34,6 +37,7 @@ class VideoResponse(ABC):
         return json.dumps(self.__dict__, default=str)
 
 class DailyVideoResponse(VideoResponse):
+    video_type = VideoType.DAILY.value
     def __init__(
             self, 
             video_path: str,
@@ -43,12 +47,12 @@ class DailyVideoResponse(VideoResponse):
             images_partially_collected: bool
     ) -> None:
         super().__init__(video_path = video_path, video_created=video_created)
-        self.video_type = VideoType.DAILY.value
         self.images_count = images_count
         self.all_images_collected = all_images_collected
         self.images_partially_collected = images_partially_collected
 
 class MonthlyVideoResponse(VideoResponse):
+    video_type = VideoType.MONTHLY.value
     def __init__(
             self, 
             video_path: str, 
@@ -56,8 +60,10 @@ class MonthlyVideoResponse(VideoResponse):
             video_files_count: int
     ) -> None:
         super().__init__(video_path, video_created)
-        self.video_type = VideoType.MONTHLY.value
         self.video_files_count= video_files_count
+
+class WeeklyVideoResponse(MonthlyVideoResponse):
+    video_type = VideoType.WEEKLY.value
 
 
 def create_log_message(location: str, url: str, method: str) -> str:
@@ -92,11 +98,11 @@ def shorten(path: str) -> str:
     return f"{head}{sep}{tail}"
 
 
-def dash_sep_strings(*args: str):
+def dash_sep_strings(*args: str, sep: str = "-"):
     """Create a dash separated string from many strings in the format:
     "str1-str2-str3" etc.
     """
-    return "-".join(args)
+    return sep.join(args)
 
 
 def create_description_for_monthly_video(monthly_video: str):
@@ -116,3 +122,9 @@ def create_description_for_monthly_video(monthly_video: str):
 
     result = f"{MONTHLY_SUMMARY_VIDEO_DESCRIPTION}{suffix}\n{DEFAULT_VIDEO_DESCRIPTION}"
     return result
+
+def get_weekly_video_files_paths(folder_path: Path) -> list[str]:
+    """
+    Recursively traverse the folder_path and return a sorted list with the MP4 videos
+    """
+    return sorted(map(str, folder_path.rglob(f"*{MP4_FILE}")))

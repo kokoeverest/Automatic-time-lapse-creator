@@ -75,6 +75,7 @@ class Source(ABC):
                 self.logger.info(f"Weather provider set for {self.location_name}")
         self.owner = owner
         self._daily_video_created: bool = False
+        self._weekly_video_created: bool = False
         self._monthly_video_created: bool = False
         self._images_count: int = 0
         self._daily_videos_count: int = 0
@@ -155,6 +156,16 @@ class Source(ABC):
         return self._daily_video_created
 
     @property
+    def weekly_video_created(self) -> bool:
+        """
+        Indicates whether a weekly summary video has been successfully created from the existing daily videos.
+
+        Returns:
+            bool: True if a video has been created, otherwise False.
+        """
+        return self._weekly_video_created
+
+    @property
     def monthly_video_created(self) -> bool:
         """
         Indicates whether a monthly summary video has been successfully created from the existing daily videos.
@@ -171,6 +182,14 @@ class Source(ABC):
     def reset_daily_video_created(self) -> None:
         """Reset the daily_video_created to False"""
         self._daily_video_created = False
+
+    def set_weekly_video_created(self) -> None:
+        """Set the weekly_video_created to True"""
+        self._weekly_video_created = True
+
+    def reset_weekly_video_created(self) -> None:
+        """Reset the weekly_video_created to False"""
+        self._weekly_video_created = False
 
     def set_monthly_video_created(self) -> None:
         """Set the monthly_video_created to True"""

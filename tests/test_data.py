@@ -8,6 +8,7 @@ from src.automatic_time_lapse_creator.common.constants import (
 from src.automatic_time_lapse_creator.common.utils import (
     DailyVideoResponse,
     MonthlyVideoResponse,
+    WeeklyVideoResponse,
     )
 
 invalid_city_name = "Logator"
@@ -41,6 +42,7 @@ sample_folder_name_02 = "2020-01-02"
 sample_year = "2020"
 sample_month_january = "01"
 sample_month_february = "02"
+sample_week_number = "16"
 
 sample_video_file1 = os.path.join(sample_base_path, sample_folder_name_01, f"{sample_folder_name_01}{MP4_FILE}")
 sample_video_file2 = os.path.join(sample_base_path, sample_folder_name_02, f"{sample_folder_name_02}{MP4_FILE}")
@@ -49,6 +51,7 @@ valid_json_content = '{"key": "value"}'
 invalid_json_content = '{"key": "value"'
 
 mock_secrets_file = "mock_secrets.json"
+mock_token_file_name = "youtube_token.json"
 sample_folder_path = os.path.join("path", "to", sample_folder_name_01)
 
 sample_date_time_text = "2025-01-01 12:00:00"
@@ -99,4 +102,9 @@ mock_daily_video_for_json_response = DailyVideoResponse(
     images_count=30,
     images_partially_collected=False,
     all_images_collected=True
+)
+mock_weekly_video_for_json_response = WeeklyVideoResponse(
+    video_path=sample_folder_path,
+    video_created=True,
+    video_files_count=7,
 )

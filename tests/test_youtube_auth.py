@@ -49,6 +49,7 @@ def _make_youtube_auth(
     ):
         return YouTubeAuth(
             td.mock_secrets_file,
+            td.mock_token_file_name,
             auth_method=auth_method,
             redirect_url=redirect_url,
             email_auth_timeout_seconds=email_auth_timeout_seconds,
@@ -124,7 +125,7 @@ def test_authenticate_youtube_with_valid_token(mock_logger: MagicMock):
             return_value="YouTubeService",
         ),
     ):
-        youtube_instance = YouTubeAuth(td.mock_secrets_file)
+        youtube_instance = YouTubeAuth(td.mock_secrets_file, td.mock_token_file_name)
 
         # Act
         result = youtube_instance.authenticate_youtube(td.mock_secrets_file)
@@ -150,7 +151,7 @@ def test_authenticate_youtube_with_new_auth(mock_logger: MagicMock):
             return_value="YouTubeService",
         ),
     ):
-        youtube_instance = YouTubeAuth(td.mock_secrets_file)
+        youtube_instance = YouTubeAuth(td.mock_secrets_file, td.mock_token_file_name)
 
         # Act
         result = youtube_instance.authenticate_youtube(td.mock_secrets_file)
@@ -178,7 +179,7 @@ def test_authenticate_youtube_refreshes_expired_token():
             return_value="YouTubeService",
         ),
     ):
-        youtube_instance = YouTubeAuth(td.mock_secrets_file)
+        youtube_instance = YouTubeAuth(td.mock_secrets_file, td.mock_token_file_name)
 
         # Act
         result = youtube_instance.authenticate_youtube(td.mock_secrets_file)
@@ -212,7 +213,7 @@ def test_authenticate_youtube_re_authenticates_when_refresh_fails():
             return_value="YouTubeService",
         ),
     ):
-        youtube_instance = YouTubeAuth(td.mock_secrets_file)
+        youtube_instance = YouTubeAuth(td.mock_secrets_file, td.mock_token_file_name)
 
         # Act
         youtube_instance.authenticate_youtube(td.mock_secrets_file)
@@ -243,7 +244,7 @@ def test_authenticate_youtube_with_corrupted_token_falls_back_to_reauthenticatio
             return_value="YouTubeService",
         ),
     ):
-        youtube_instance = YouTubeAuth(td.mock_secrets_file)
+        youtube_instance = YouTubeAuth(td.mock_secrets_file, td.mock_token_file_name)
 
         # Act
         result = youtube_instance.authenticate_youtube(td.mock_secrets_file)
@@ -264,7 +265,7 @@ def test_init_raises_value_error_when_email_method_without_redirect_url():
         patch("builtins.open", mock_open(read_data=td.valid_json_content)),
         pytest.raises(ValueError, match="redirect_url required for EMAIL auth."),
     ):
-        YouTubeAuth(td.mock_secrets_file, auth_method=AuthMethod.EMAIL, redirect_url=None)
+        YouTubeAuth(td.mock_secrets_file, td.mock_token_file_name, auth_method=AuthMethod.EMAIL, redirect_url=None)
 
 
 def test_init_sets_redirect_url_for_email_method():

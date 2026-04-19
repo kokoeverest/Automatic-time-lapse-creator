@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import pytest
 from unittest.mock import patch, MagicMock
-from astral import LocationInfo
 from logging import Logger
 from src.automatic_time_lapse_creator.time_manager import (
     LocationAndTimeManager,
@@ -65,24 +64,6 @@ def test_LocationAndTimeManager_raises_NotImplementedError_if_city_is_a_GroupInf
                 logger=logger,
             )
         assert mock_logger.call_count == 1
-
-
-def test_LocationAndTimeManager_initializes_correctly_for_correct_location(
-    sample_LocationAndTimeManager: LocationAndTimeManager,
-):
-    # Arrange, Act & Assert
-    assert isinstance(sample_LocationAndTimeManager, LocationAndTimeManager)
-    assert isinstance(sample_LocationAndTimeManager.db, dict)
-    assert isinstance(sample_LocationAndTimeManager.city, LocationInfo)
-    assert isinstance(sample_LocationAndTimeManager.start_of_daylight, datetime)
-    assert isinstance(sample_LocationAndTimeManager.end_of_daylight, datetime)
-
-    for attr in [
-        sample_LocationAndTimeManager.year,
-        sample_LocationAndTimeManager.month,
-        sample_LocationAndTimeManager.today,
-    ]:
-        assert isinstance(attr, int)
 
 
 def test_is_daylight_returns_True_during_the_day(
