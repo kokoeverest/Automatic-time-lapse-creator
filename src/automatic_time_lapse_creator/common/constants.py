@@ -90,9 +90,10 @@ class AuthMethod(Enum):
 # Video defaults
 DEFAULT_VIDEO_CODEC = "mp4v"
 DEFAULT_VIDEO_DESCRIPTION = (
-    "Video created with Automatic Time Lapse Creator by Kaloyan Peychev"
+    "Video created with Automatic Time Lapse Creator"
 )
-MONTHLY_SUMMARY_VIDEO_DESCRIPTION = "A summary of all daily videos for "
+MONTHLY_SUMMARY_VIDEO_DESCRIPTION = "Monthly summary of all daily videos for "
+WEEKLY_SUMMARY_VIDEO_DESCRIPTION = "Weekly summary of all daily videos for "
 BLACK_BACKGROUND = (0, 0, 0)
 WHITE_TEXT = (255, 255, 255)
 FILLED_RECTANGLE_VALUE = -1
