@@ -667,7 +667,7 @@ class TimeLapseCreator:
             delete_source_images: bool - if the source images should be deleted as well
         """
         input_folder = self.__resolve_video_path(source)
-        output_video = str(Path(f"{input_folder}/{self.folder_name.replace("/", "-")}{MP4_FILE}"))
+        output_video = str(Path(f"{input_folder}/{self.folder_name.replace('/', '-')}{MP4_FILE}"))
 
         created = False
         if not vm.video_exists(output_video):
