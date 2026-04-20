@@ -402,21 +402,20 @@ class TimeLapseCreator:
         
         try:
             self.logger.info("Program starts!")
-            self = self.get_cached_self() # is this needed here?
+            self = self.get_cached_self()
             self.verify_sources_not_empty()
 
             while True:
                 if self.collect_with_custom_time_span(time_span):
                     for source in self.sources:
-                        _ = self.create_video(source, delete_source_images=False)
+                        _ = self.create_video(source, delete_source_images=self.delete_collected_daily_images)
                 else:
                     if self.is_it_next_week():
-                        if self._weekly_summary:
+                        if self._weekly_summary:# and weekday == 7 and source.video_created and not source.weekly_video_created
 
                             self.logger.info("Starting weekly video summary process!")
                             self.process_weekly_summary()
                         
-                    self.set_weekly_folder_name(self.__weekly_folder_str_value)    
                     sleep(self.wait_before_next_frame)          
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
