@@ -406,17 +406,16 @@ class TimeLapseCreator:
             self.verify_sources_not_empty()
 
             while True:
-                if self.collect_with_custom_time_span(time_span):
-                    for source in self.sources:
-                        _ = self.create_video(source, delete_source_images=self.delete_collected_daily_images)
-                else:
-                    if self.is_it_next_week():
-                        if self._weekly_summary:# and weekday == 7 and source.video_created and not source.weekly_video_created
+                _ = self.collect_with_custom_time_span(time_span)
 
-                            self.logger.info("Starting weekly video summary process!")
-                            self.process_weekly_summary()
-                        
-                    sleep(self.wait_before_next_frame)          
+                for source in self.sources:
+                    _ = self.create_video(source, delete_source_images=self.delete_collected_daily_images)
+            
+                if self._weekly_summary and self.location.calendar.weekday == 7:
+                    self.logger.info("Starting weekly video summary process!")
+                    self.process_weekly_summary()
+                    
+                sleep(self.wait_before_next_frame)          
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
 
@@ -462,9 +461,10 @@ class TimeLapseCreator:
         def _start(): return self.location.time_now.replace(hour=time_span.start_hour, minute=time_span.start_minutes)
         def _end(): return self.location.time_now.replace(hour=time_span.end_hour, minute=time_span.end_minutes)
         
+        self.is_it_next_day()
+
         if _start() < self.location.time_now < _end():
             # Reset the counters only in the begining of a new day
-            self.is_it_next_day()
             if self._fresh:
                 self.reset_all_sources_counters_to_default_values()
             self.logger.info(f"Collecting images between {_start()} and {_end()}")
@@ -645,14 +645,6 @@ class TimeLapseCreator:
                 f"{LOG_START_INT * ' '}Start time: {self.location.start_of_daylight.strftime(HHMMSS_COLON_FORMAT)}  -->"
                 f"  End time: {self.location.end_of_daylight.strftime(HHMMSS_COLON_FORMAT)}"
             )
-
-    def is_it_next_week(self) -> bool:
-        """Checks if the next week have started and changes the self.weekly_folder_name accordingly"""
-        old_calendar = self.get_current_calendar(self.weekly_folder_name)
-
-        if old_calendar.week != self.location.calendar.week:
-            return True
-        return False
 
     def create_video(self, source: Source, delete_source_images: bool = True) -> bool:
         """
