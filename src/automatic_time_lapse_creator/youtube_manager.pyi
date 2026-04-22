@@ -12,6 +12,7 @@ class YouTubeAuth:
     redirect_url: str | None
     auth_method: AuthMethod
     email_auth_timeout_seconds: int
+    youtube_channel_name: str
     token_file_name: str
     def __init__(
         self, 
@@ -20,6 +21,7 @@ class YouTubeAuth:
         logger: Logger | None = ...,
         auth_method: AuthMethod = ...,
         redirect_url: str | None = ...,
+        youtube_channel_name: str = "",
         email_auth_timeout_seconds: int = ...
         ) -> None: ...
     @staticmethod
@@ -33,6 +35,7 @@ class YouTubeAuth:
         redirect_url: str,
         queue: Queue[Any],
         logger: Logger,
+        channel_name: str,
         cls: type[YouTubeAuth],
         ) -> None: ...
     def authenticate_youtube(
@@ -40,7 +43,7 @@ class YouTubeAuth:
     ) -> Any: ...
     def open_browser_to_authenticate(self, secrets_file: str) -> Credentials | Creds: ...
     @staticmethod
-    def notify_by_email(logger: Logger, message: str | None = ..., auth_url: str | None = ...) -> None: ...
+    def notify_by_email(logger: Logger, message: str | None = ..., auth_url: str | None = ..., channel_name: str = ...) -> None: ...
     
 class YouTubeUpload:
     logger: Logger

@@ -47,6 +47,7 @@ class YouTubeAuth:
         logger: logging.Logger | None - a logger instance, defaults to None
         auth_method: AuthMethod - authentication via browser locally (default) or via email
         redirect_url: str | None - url at which the email authentication will return the credentials
+        youtube_channel_name: str - the YouTube channel for which the auth is intended
         email_auth_timeout_seconds: int - timeout to wait for email authentication
 
     Returns:
@@ -60,6 +61,7 @@ class YouTubeAuth:
             logger: logging.Logger | None = None, 
             auth_method: AuthMethod = AuthMethod.MANUAL,
             redirect_url: str | None = None,
+            youtube_channel_name: str = "",
             email_auth_timeout_seconds: int = DEFAULT_EMAIL_AUTH_TIMEOUT_SECONDS
         ) -> None:
         self.redirect_url = None
@@ -78,6 +80,7 @@ class YouTubeAuth:
         self.token_file_name = token_file_name
         self.auth_method = auth_method
         self.email_auth_timeout_seconds = email_auth_timeout_seconds
+        self.youtube_channel_name = youtube_channel_name
         
         self.service = self.authenticate_youtube(youtube_client_secrets_file)
 
@@ -140,8 +143,9 @@ class YouTubeAuth:
         host: str, 
         port: int, 
         redirect_url: str, 
-        queue: Queue[Any], 
-        logger: logging.Logger, 
+        queue: Queue[Any],
+        logger: logging.Logger,
+        channel_name: str,  
         cls: type[YouTubeAuth]
         ):
         try:
@@ -154,7 +158,7 @@ class YouTubeAuth:
             
             # 3. Send the email
             try:
-                cls.notify_by_email(logger=logger, auth_url=auth_url)
+                cls.notify_by_email(logger=logger, auth_url=auth_url, channel_name=channel_name)
                 # Check if the email actually worked (or just log it properly)
                 logger.info(f"Worker initiated auth sequence. State: {state}")
             except Exception as e:
@@ -210,7 +214,8 @@ class YouTubeAuth:
                         port, 
                         self.redirect_url, 
                         queue, 
-                        self.logger, 
+                        self.logger,
+                        self.youtube_channel_name,
                         self.__class__
                     )
                 )
@@ -244,14 +249,14 @@ class YouTubeAuth:
             self.logger.error(msg, exc_info=True)
             # Notify user of failure if email was the intended method
             if self.auth_method == AuthMethod.EMAIL:
-                self.notify_by_email(logger=self.logger, message=msg)
+                self.notify_by_email(logger=self.logger, message=msg, channel_name=self.youtube_channel_name)
             # Avoid double-wrapping intentional RuntimeErrors (e.g. timeout)
             if isinstance(e, RuntimeError):
                 raise
             raise RuntimeError(msg) from e
 
     @staticmethod
-    def notify_by_email(logger: logging.Logger, message: str | None = None, auth_url: str | None = None):
+    def notify_by_email(logger: logging.Logger, message: str | None = None, auth_url: str | None = None, channel_name: str = ""):
         """
         Sends an authentication email containing the YouTube authorization URL.
 
@@ -277,7 +282,7 @@ class YouTubeAuth:
             logger.error("Email configuration is incomplete. Check your environment variables.")
             return
 
-        subject = "YouTube Authentication Required"
+        subject = f"{channel_name} YouTube Authentication Required"
         body = f"Authorize here: {auth_url}" if not message else message
         msg = MIMEText(body)
         msg["Subject"] = subject
@@ -477,7 +482,10 @@ class YouTubeUpload:
                     f"Failed to upload video {shorten(video_file)} to YouTube: {e}"
                 )
                 if "quotaExceeded" in str(e):
-                    self.logger.warning("Quota exceeded! Breaking")
+                    self.logger.error("Quota exceeded! Breaking")
+                elif "invalid_grant" in str(e) or "token" in str(e).lower():
+                    self.logger.error(" Token has been expired or revoked! Auth should be retried")
+                
                     raise e
 
         return next(iter(uploaded_videos), emtpty_dict)
