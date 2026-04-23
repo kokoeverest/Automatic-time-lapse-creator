@@ -668,6 +668,7 @@ def test_auth_worker_puts_credentials_in_queue():
             "http://localhost:8080/",
             q,
             mock_logger,
+            "",
             YouTubeAuth,
         )
 
@@ -700,6 +701,7 @@ def test_auth_worker_puts_exception_in_queue_on_failure():
             "http://localhost:8080/",
             q,
             mock_logger,
+            "",
             YouTubeAuth,
         )
 
