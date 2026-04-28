@@ -396,6 +396,7 @@ class TimeLapseCreator:
         Executes the main time-lapse creation process for the configured sources until the end_time is reached.
         """
         self.video_queue = video_queue
+        def _end(): return self.location.time_now.replace(hour=time_span.end_hour, minute=time_span.end_minutes)
 
         if log_queue:
             self.log_queue = log_queue
@@ -411,8 +412,8 @@ class TimeLapseCreator:
                 for source in self.sources:
                     _ = self.create_video(source, delete_source_images=self.delete_collected_daily_images)
             
-                if self._weekly_summary and self.location.calendar.weekday == 7:
-                    self.logger.info("Starting weekly video summary process!")
+                if self._weekly_summary and self.location.calendar.weekday == 7 and self.location.time_now >= _end():
+                    self.logger.info(f"Starting weekly video summary process -> time now {self.location.time_now}, end time {_end()}")
                     self.process_weekly_summary()
                     
                 sleep(self.wait_before_next_frame)          
