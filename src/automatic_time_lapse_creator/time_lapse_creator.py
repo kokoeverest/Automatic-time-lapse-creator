@@ -124,6 +124,7 @@ class TimeLapseCreator:
         delete_daily_videos_after_summary_is_created: bool = True,
         quiet_mode: bool = True,
         log_queue: Queue[Any] | None = None,
+        video_queue: Queue[Any] | None = None,
     ) -> None:
         self.base_path = os.path.join(os.getcwd(), path)
 
@@ -154,7 +155,7 @@ class TimeLapseCreator:
         self.text_box_position = text_box_position
         self.text_box_transparency = text_box_transparency
         self.quiet_mode = quiet_mode
-        self.video_queue = None
+        self.video_queue = video_queue
         self.log_queue = log_queue
         self.delete_daily_videos = delete_daily_videos_after_summary_is_created
         self.delete_collected_daily_images = delete_collected_daily_images
@@ -293,8 +294,6 @@ class TimeLapseCreator:
 
     def execute(
         self,
-        video_queue: Queue[Any] | None = None,
-        log_queue: Queue[Any] | None = None,
     ) -> None:
         """
         Executes the main time-lapse creation process for the configured sources.
@@ -327,12 +326,9 @@ class TimeLapseCreator:
         Returns:
             None
         """
-
-        self.video_queue = video_queue
-        if log_queue:
-            self.log_queue = log_queue
+        if self.log_queue:
             _, tail = os.path.split(self.base_path)
-            self.logger = configure_root_logger(log_queue, tail)
+            self.logger = configure_root_logger(self.log_queue, tail)
         try:
             self.logger.info("Program starts!")
             self = self.get_cached_self()
@@ -349,32 +345,7 @@ class TimeLapseCreator:
                     )
                     and any(not source.daily_video_created for source in self.sources)
                 ):
-                    for source in self.sources:
-                        video_path = self.__resolve_video_path(source)
-                        if (
-                            self.location.time_now > self.location.end_of_daylight
-                            and source.images_collected
-                            and not source.images_partially_collected
-                            and not source.daily_video_created
-                        ):
-                            if self.create_video(source, self.delete_collected_daily_images):
-                                self.__post_video_creation(
-                                    video_path=video_path,
-                                    video_type=VideoType.DAILY.value,
-                                    source=source
-                                )
-                        elif (
-                            self.location.time_now > self.location.end_of_daylight
-                            and source.images_partially_collected
-                            and not source.images_collected
-                            and not source.daily_video_created
-                        ):
-                            if self.create_video(source, delete_source_images=False):
-                                self.__post_video_creation(
-                                    video_path=video_path,
-                                    video_type=VideoType.DAILY.value,
-                                    source=source
-                                )
+                    self.process_daily_videos()
                 else:
                     if self._monthly_summary:
                         if self.is_next_month():
@@ -389,17 +360,15 @@ class TimeLapseCreator:
         self,
         time_span: CustomTimeSpan = 
             CustomTimeSpan(start_hour=0, start_minutes=0, end_hour=23, end_minutes=50),
-        video_queue: Queue[Any] | None = None,
-        log_queue: Queue[Any] | None = None,
-    ):
+        ):
         """
         Executes the main time-lapse creation process for the configured sources until the end_time is reached.
         """
-        self.video_queue = video_queue
         def _end(): return self.location.time_now.replace(hour=time_span.end_hour, minute=time_span.end_minutes)
 
-        if log_queue:
-            self.log_queue = log_queue
+        if self.log_queue:
+            _, tail = os.path.split(self.base_path)
+            self.logger = configure_root_logger(self.log_queue, tail)
         
         try:
             self.logger.info("Program starts!")
@@ -407,18 +376,46 @@ class TimeLapseCreator:
             self.verify_sources_not_empty()
 
             while True:
-                _ = self.collect_with_custom_time_span(time_span)
-
-                for source in self.sources:
-                    _ = self.create_video(source, delete_source_images=self.delete_collected_daily_images)
-            
-                if self._weekly_summary and self.location.calendar.weekday == 7 and self.location.time_now >= _end():
-                    self.logger.info(f"Starting weekly video summary process -> time now {self.location.time_now}, end time {_end()}")
-                    self.process_weekly_summary()
-                    
-                sleep(self.wait_before_next_frame)          
+                collected = self.collect_with_custom_time_span(time_span)
+                if collected:
+                    for source in self.sources:
+                        _ = self.create_video(source, delete_source_images=self.delete_collected_daily_images)
+                
+                    if self._weekly_summary and self.location.calendar.weekday == 7 and self.location.time_now >= _end():
+                        self.logger.info(f"Starting weekly video summary process -> time now {self.location.time_now}, end time {_end()}")
+                        self.process_weekly_summary()
+                else:    
+                    sleep(self.wait_before_next_frame)          
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
+
+    def process_daily_videos(self):
+        for source in self.sources:
+            video_path = self.__resolve_video_path(source)
+            if (
+                self.location.time_now > self.location.end_of_daylight
+                and source.images_collected
+                and not source.images_partially_collected
+                and not source.daily_video_created
+            ):
+                if self.create_video(source, self.delete_collected_daily_images):
+                    self.__post_video_creation(
+                        video_path=video_path,
+                        video_type=VideoType.DAILY.value,
+                        source=source
+                    )
+            elif (
+                self.location.time_now > self.location.end_of_daylight
+                and source.images_partially_collected
+                and not source.images_collected
+                and not source.daily_video_created
+            ):
+                if self.create_video(source, delete_source_images=False):
+                    self.__post_video_creation(
+                        video_path=video_path,
+                        video_type=VideoType.DAILY.value,
+                        source=source
+                    )
 
     def process_weekly_summary(self):
         """Create and optionally send the weekly summary video to the queue."""
@@ -1050,7 +1047,7 @@ class TimeLapseCreator:
                 response = WeeklyVideoResponse(
                     video_path=video_path,
                     video_files_count=source.daily_videos_count,
-                    video_created=source.monthly_video_created
+                    video_created=source.weekly_video_created
                 )
             case VideoType.MONTHLY.value:
                 response = MonthlyVideoResponse(

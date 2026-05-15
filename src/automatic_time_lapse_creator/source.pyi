@@ -3,6 +3,7 @@ from .weather_station_info import WeatherStationInfo
 from abc import ABC, abstractmethod
 from playwright.sync_api import Browser, ElementHandle, Page, Playwright
 from typing import Any
+from requests import Session
 
 class Source(ABC):
     logger: Logger
@@ -120,3 +121,23 @@ class BrowserSource(Source):
     def get_frame_bytes(self) -> bytes | None: ...
     def __getstate__(self) -> dict[str, Any]: ...
     def __setstate__(self, state: dict[str, Any]) -> None: ...
+
+class ApiSource(Source):
+    headers: dict[str, str] = ...
+    params: dict[str, str] = ...
+    session: Session
+    def __init__(
+        self,
+        location_name: str,
+        url: str,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+        weather_data_on_images: bool = False,
+        weather_data_provider: WeatherStationInfo | None = None,
+        owner: str | None = None,
+        logger: Logger | None = None,
+    ) -> None: ...
+
+    def validate_url(self, url: str) -> bool: ...
+    def get_frame_bytes(self) -> bytes | None: ...
+    def _prepare_request(self) -> None: ...
