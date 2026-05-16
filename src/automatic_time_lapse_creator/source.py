@@ -839,6 +839,10 @@ class ApiSource(Source):
         owner: str | None = None,
         logger: Logger | None = None,
     ) -> None:
+        self.headers = headers or {}
+        self.params = params or {}
+        self.session = requests.Session()
+        
         super().__init__(
             location_name,
             url,
@@ -847,9 +851,6 @@ class ApiSource(Source):
             weather_data_provider,
             owner,
         )
-        self.headers = headers or {}
-        self.params = params or {}
-        self.session = requests.Session()
 
     def validate_url(self, url: str) -> bool:
         """Validates the API endpoint by performing a test request."""
