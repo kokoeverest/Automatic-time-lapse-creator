@@ -385,7 +385,7 @@ class TimeLapseCreator:
                         self.logger.info(f"Starting weekly video summary process -> time now {self.location.time_now}, end time {_end()}")
                         self.process_weekly_summary()
                 else:    
-                    sleep(self.wait_before_next_frame)          
+                    sleep(self.nighttime_wait_before_next_retry)          
         except KeyboardInterrupt:
             self.logger.info("Program execution cancelled...")
 
@@ -910,22 +910,22 @@ class TimeLapseCreator:
         extension: str = MP4_FILE,
     ) -> tuple[str, int] | tuple[None, None]:
         """
-        Creates a monthly summary video by combining video files from a specific year and month.
+        Creates a weekly or monthly summary video by combining video files from a specific year and month/week.
 
-        This method identifies all video files for the given year and month in the specified base path,
+        This method identifies all video files for the given year and month/week in the specified base path,
         combines them into a single output video, and optionally deletes the source video files after
         successful creation.
 
         Args:
             base_path: str - The base directory containing the subfolders with video files.
             year: str - The year to filter subfolders and video files.
-            month: str - The month to filter subfolders and video files.
+            week_or_month: str - The week/month to filter subfolders and video files.
             delete_source_files: bool - If True, deletes the source video files and their parent
                 folders after the summary video is created. Defaults to False.
             extension: str - The file extension of the video files to process. Defaults to MP4_FILE.
 
         Returns:
-            str | None - Returns the path to the folder containing the created monthly summary video if
+            str | None - Returns the path to the folder containing the created summary video if
                 successful, otherwise None.
         """
 
@@ -948,11 +948,11 @@ class TimeLapseCreator:
         none_return = (None, None)
         if len(video_files) == 0:
             self.logger.warning(
-                f"No folders found for a monthly summary video - {shorten(output_video_name)}!"
+                f"No folders found for a {"weekly" if weekly else "monthly"} summary video - {shorten(output_video_name)}!"
             )
             return none_return
 
-        if vm.create_monthly_summary_video(
+        if vm.create_summary_video(
             logger=self.logger,
             video_paths=video_files,
             output_video_path=output_video_name,

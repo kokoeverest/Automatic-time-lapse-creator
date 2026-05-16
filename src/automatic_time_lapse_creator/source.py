@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import concurrent.futures
 import cv2
+import numpy as np
 import subprocess
 import requests
 from logging import Logger
@@ -866,17 +867,27 @@ class ApiSource(Source):
             return False
 
     def get_frame_bytes(self) -> bytes | None:
-        """
-        Fetches the image bytes from the API. 
-        Calls _prepare_request() before the execution to handle auth/token logic.
-        """
+        """Fetches the image bytes from the API endpoint and standardizes to JPEG."""
         try:
             self._prepare_request()
             response = self.session.get(
-                self.url, headers=self.headers, params=self.params, timeout=20
+                self.url, headers=self.headers, params=self.params, timeout=30
             )
             
             if response.status_code == OK_STATUS_CODE:
+                # If server sent PNG, convert to JPEG in-memory to fix quadrant lines
+                if self.params.get("format") == "image/png":
+                    # Convert raw bytes into a numpy array buffer
+                    frame_array = np.frombuffer(response.content, dtype=np.uint8)
+                    # Decode into an standard BGR image array
+                    img = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
+                    
+                    if img is not None:
+                        # Compress image matrix into JPEG bytes (Quality 95 to avoid artifacts)
+                        success, encoded_buffer = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+                        if success:
+                            return encoded_buffer.tobytes()
+                
                 return response.content
             
             self.logger.error(
