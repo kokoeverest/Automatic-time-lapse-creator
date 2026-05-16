@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import concurrent.futures
 import cv2
+import numpy as np
 import subprocess
 import requests
 from logging import Logger
@@ -680,7 +681,7 @@ class BrowserSource(Source):
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore the instance from a pickle snapshot."""
-        self.__dict__.update(state)
+        self.__dict__.update(state) # type: ignore 
 
     def _find_element(self, page: Page) -> ElementHandle | None:
         """
@@ -821,3 +822,85 @@ class BrowserSource(Source):
         except Exception as e:
             self.logger.error(f"{self.location_name}: {e}")
             raise e
+
+class ApiSource(Source):
+    """
+    Generic class for retrieving images from Web APIs (REST, WMS, etc.).
+    Supports persistent sessions, custom headers, and query parameters.
+    """
+    def __init__(
+        self,
+        location_name: str,
+        url: str,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+        weather_data_on_images: bool = False,
+        weather_data_provider: WeatherStationInfo | None = None,
+        owner: str | None = None,
+        logger: Logger | None = None,
+    ) -> None:
+        super().__init__(
+            location_name,
+            url,
+            logger,
+            weather_data_on_images,
+            weather_data_provider,
+            owner,
+        )
+        self.headers = headers or {}
+        self.params = params or {}
+        self.session = requests.Session()
+
+    def validate_url(self, url: str) -> bool:
+        """Validates the API endpoint by performing a test request."""
+        try:
+            self._prepare_request()
+            response = self.session.get(
+                url, headers=self.headers, params=self.params, timeout=10
+            )
+            if response.status_code == OK_STATUS_CODE:
+                self.logger.info(f"API source for {self.location_name} is valid.")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Validation failed for API {self.location_name}: {e}")
+            return False
+
+    def get_frame_bytes(self) -> bytes | None:
+        """Fetches the image bytes from the API endpoint and standardizes to JPEG."""
+        try:
+            self._prepare_request()
+            response = self.session.get(
+                self.url, headers=self.headers, params=self.params, timeout=30
+            )
+            
+            if response.status_code == OK_STATUS_CODE:
+                # If server sent PNG, convert to JPEG in-memory to fix quadrant lines
+                if self.params.get("format") == "image/png":
+                    # Convert raw bytes into a numpy array buffer
+                    frame_array = np.frombuffer(response.content, dtype=np.uint8)
+                    # Decode into an standard BGR image array
+                    img = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
+                    
+                    if img is not None:
+                        # Compress image matrix into JPEG bytes (Quality 95 to avoid artifacts)
+                        success, encoded_buffer = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+                        if success:
+                            return encoded_buffer.tobytes()
+                
+                return response.content
+            
+            self.logger.error(
+                f"API Request failed ({response.status_code}): {response.text}"
+            )
+            return None
+        except Exception as e:
+            self.logger.error(f"Error fetching from API {self.location_name}: {e}")
+            raise e
+
+    def _prepare_request(self) -> None:
+        """
+        Hook for subclasses to inject authentication tokens, 
+        refresh sessions, or update dynamic query parameters.
+        """
+        pass

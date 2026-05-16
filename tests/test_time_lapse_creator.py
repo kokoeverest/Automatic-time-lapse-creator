@@ -1202,7 +1202,7 @@ def test_create_weekly_or_monthly_video_creates_monthly_video_and_keeps_existing
             return_value=video_files,
         ) as mock_get_video_files_paths,
         patch(
-            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_monthly_summary_video",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_summary_video",
             return_value=True,
         ) as mock_create_monthly_summary_video,
         patch(
@@ -1272,7 +1272,7 @@ def test_create_weekly_or_monthly_video_creates_weekly_video_and_keeps_existing_
             return_value=video_files,
         ) as mock_get_video_files_paths,
         patch(
-            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_monthly_summary_video",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_summary_video",
             return_value=True,
         ) as mock_create_monthly_summary_video,
         patch(
@@ -1390,7 +1390,7 @@ def test_create_weekly_or_monthly_video_deletes_source_files_for_monthly_summary
             return_value=video_files,
         ) as mock_get_video_files_paths,
         patch(
-            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_monthly_summary_video",
+            "src.automatic_time_lapse_creator.time_lapse_creator.vm.create_summary_video",
             return_value=True,
         ) as mock_create_monthly_summary_video,
         patch(

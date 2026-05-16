@@ -22,7 +22,7 @@ class VideoManager:
         delete_folder: bool = ...,
     ) -> bool: ...
     @classmethod
-    def create_monthly_summary_video(
+    def create_summary_video(
         cls,
         logger: Logger,
         video_paths: list[str],

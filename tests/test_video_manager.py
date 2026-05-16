@@ -400,7 +400,7 @@ def test_create_monthly_summary_video_skips_if_output_exists2(
         "src.automatic_time_lapse_creator.video_manager.VideoManager.video_exists",
         return_value=True,
     ) as mock_exists:
-        result = vm.create_monthly_summary_video(
+        result = vm.create_summary_video(
             mock_logger, mock_video_paths, tm.mock_output_video_name, DEFAULT_VIDEO_FPS
         )
 
@@ -439,7 +439,7 @@ def test_create_monthly_summary_video_creates_video_successfully(
         mock_video_writer_instance = MagicMock()
         mock_writer.return_value = mock_video_writer_instance
 
-        result = vm.create_monthly_summary_video(
+        result = vm.create_summary_video(
             mock_logger, mock_video_paths, tm.mock_output_video_name, DEFAULT_VIDEO_FPS
         )
 
@@ -479,7 +479,7 @@ def test_create_monthly_summary_video_skips_invalid_videos2(
         mock_video_writer_instance = MagicMock()
         mock_writer.return_value = mock_video_writer_instance
 
-        result = vm.create_monthly_summary_video(
+        result = vm.create_summary_video(
             mock_logger, mock_video_paths, tm.mock_output_video_name, DEFAULT_VIDEO_FPS
         )
 
@@ -505,7 +505,7 @@ def test_create_monthly_summary_video_returns_false_if_no_valid_videos(
         mock_capture.return_value = mock_cap_instance
         mock_cap_instance.isOpened.return_value = False  # No video opens successfully
 
-        result = vm.create_monthly_summary_video(
+        result = vm.create_summary_video(
             mock_logger, ["video1.mp4", "video2.mp4"], tm.mock_output_video_name, DEFAULT_VIDEO_FPS
         )
 
@@ -526,7 +526,7 @@ def test_create_monthly_summary_video_handles_exceptions(
         patch("src.automatic_time_lapse_creator.video_manager.os.mkdir"),
         patch("cv2.VideoCapture", side_effect=Exception("Unexpected error")),
     ):
-        result = vm.create_monthly_summary_video(
+        result = vm.create_summary_video(
             mock_logger, mock_video_paths, tm.mock_output_video_name, DEFAULT_VIDEO_FPS
         )
 
@@ -536,4 +536,4 @@ def test_create_monthly_summary_video_handles_exceptions(
 def test_create_monthly_summary_video_skips_if_output_exists(mock_logger: MagicMock, mock_video_paths: list[str]):
     # Act & Assert
     with patch("src.automatic_time_lapse_creator.video_manager.os.path.exists", return_value=True):
-        assert not vm.create_monthly_summary_video(mock_logger, mock_video_paths, "output.mp4", mock_logger)
+        assert not vm.create_summary_video(mock_logger, mock_video_paths, "output.mp4", mock_logger)

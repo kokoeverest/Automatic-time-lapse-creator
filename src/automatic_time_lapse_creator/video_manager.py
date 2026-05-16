@@ -153,7 +153,7 @@ class VideoManager:
             return False
 
     @classmethod
-    def create_monthly_summary_video(
+    def create_summary_video(
         cls,
         logger: Logger,
         video_paths: list[str],
@@ -161,11 +161,14 @@ class VideoManager:
         fps: int,
     ) -> bool:
         """
-        Creates a monthly summary video by concatenating a list of input videos.
+        Creates a summary video by concatenating a list of input videos.
 
         This method processes a list of video files and outputs a single video file
         to the specified location. The resulting video is created in the specified
         resolution and frame rate.
+        Sizes of the provided videos should be consistent!
+        Width and height of the output video in pixels are obtained from the first video size.
+        if the next videos have different sizes the videos will be ignored!
 
         Args:
             logger (Logger): The logger instance for logging warnings, errors, and information.
@@ -173,8 +176,6 @@ class VideoManager:
             output_video_path (str): The path where the output video will be saved. If the video already
                 exists, the method skips the operation.
             fps (int): Frames per second for the output video.
-            width (int): Width of the output video in pixels.
-            height (int): Height of the output video in pixels.
 
         Returns:
             bool: Returns True if the video is successfully created, otherwise False.
