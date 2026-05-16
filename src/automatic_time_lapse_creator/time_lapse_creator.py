@@ -948,7 +948,7 @@ class TimeLapseCreator:
         none_return = (None, None)
         if len(video_files) == 0:
             self.logger.warning(
-                f"No folders found for a {"weekly" if weekly else "monthly"} summary video - {shorten(output_video_name)}!"
+                f"No folders found for a {'weekly' if weekly else 'monthly'} summary video - {shorten(output_video_name)}!"
             )
             return none_return
 
