@@ -319,10 +319,6 @@ class TimeLapseCreator:
         The method logs key events and maintains a cache of the current state to ensure continuity in case of
         interruptions.
 
-        Parameters:
-            video_queue: Queue[Any] | None - A queue to send video information for further processing or uploading.
-            log_queue: Queue[Any] | None - A queue for centralized logging across processes.
-
         Returns:
             None
         """
@@ -469,6 +465,10 @@ class TimeLapseCreator:
             
             while _start() < self.location.time_now < _end():
                 self.__adjust_wait_before_next_frame()
+                if self.location.time_now + td(seconds=self.wait_before_next_frame) > _end():
+                    self.logger.debug("Location.time.now() + wait_before_next_frame > _end(): breaking loop...")
+                    break
+
                 for source in self.sources:
                     try:
                         img = source.get_frame_bytes()
@@ -490,10 +490,16 @@ class TimeLapseCreator:
                             )
                             self.__post_collect_actions(source)
 
-                    except Exception:
+                    except Exception as e:
+                        self.logger.error(f"Error during custom time span collection: {e}")
                         continue
+                
                 sleep(self.wait_before_next_frame)
 
+            if all(s.images_collected for s in self.sources):
+                self.logger.debug("Setting all images collected for all sources.")
+                return False
+            
             self.set_sources_all_images_collected()
             self.logger.info(f"Finished collecting for {self.folder_name}")
             self.cache_self()
@@ -501,7 +507,7 @@ class TimeLapseCreator:
             return True
         else:
             if not self.quiet_mode:
-                self.logger.info(f"Sleeping @{self.location.city.name} between {_end()} and {_start()}")
+                self.logger.info(f"{self.location.time_now}: Sleeping @{self.location.city.name} between {_end()} and {_start()}")
             return False
 
     def __adjust_wait_before_next_frame(self) -> None:
@@ -671,7 +677,7 @@ class TimeLapseCreator:
             created = True
 
         if created and delete_source_images:
-            _ = vm.delete_source_media_files(self.logger, input_folder)
+            source.set_images_count(vm.delete_source_media_files(self.logger, input_folder))
 
         return created
 

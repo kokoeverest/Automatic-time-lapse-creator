@@ -20,7 +20,7 @@ class VideoManager:
         path: str | Path,
         extension: str = ...,
         delete_folder: bool = ...,
-    ) -> bool: ...
+    ) -> int: ...
     @classmethod
     def create_summary_video(
         cls,

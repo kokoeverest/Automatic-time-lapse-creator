@@ -204,6 +204,10 @@ class Source(ABC):
         """Increases the count of the images by 1"""
         self._images_count += 1
 
+    def set_images_count(self, count: int) -> None:
+        """Set the count of the daily videos to the specified count"""
+        self._images_count = count
+
     def reset_images_counter(self) -> None:
         """Resets the images count to 0"""
         self._images_count = 0
