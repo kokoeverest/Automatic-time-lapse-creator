@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright, Browser, ElementHandle, Page, P
 from typing import Any
 from time import monotonic, sleep
 from .common.logger import configure_child_logger
-from .common.constants import OK_STATUS_CODE
+from .common.constants import OK_STATUS_CODE, DEFAULT_LOG_LEVEL
 from .common.exceptions import InvalidStatusCodeException
 from .weather_station_info import WeatherStationInfo
 
@@ -54,13 +54,14 @@ class Source(ABC):
         weather_data_provider: WeatherStationInfo | None = None,
         owner: str | None = None,
         skip_validation: bool = False,
+        log_level: int = DEFAULT_LOG_LEVEL
     ) -> None:
         self.location_name = location_name
         self.url = url
         if logger is not None:
             self.logger = logger
         else:
-            self.logger = configure_child_logger(logger_name=self.location_name, logger=logger)
+            self.logger = configure_child_logger(logger_name=self.location_name, logger=logger, log_level=log_level)
 
         self._is_valid_url = self.validate_url(url) if not skip_validation else True
 
@@ -662,7 +663,7 @@ class BrowserSource(Source):
         reload timer. Called both by the periodic scheduler and by the
         blank-frame recovery path.
         """
-        self.logger.info(f"{self.location_name}: reloading page.")
+        self.logger.debug(f"{self.location_name}: reloading page.")
         page.reload(timeout=self.PAGE_LOAD_TIMEOUT_MS, wait_until="load")
         self._dismiss_popups(page)
         self._last_reload = monotonic()

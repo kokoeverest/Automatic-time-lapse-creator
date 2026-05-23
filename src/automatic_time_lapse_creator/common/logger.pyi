@@ -6,6 +6,11 @@ def configure_root_logger(
     log_queue: Queue[str | LogRecord] | None = ...,
     logger_base_path: str | None = ...,
     logger_name: str = ...,
+    log_level: int = ...,
 ) -> Logger: ...
 
-def configure_child_logger(logger_name: str, logger: Logger | None) -> Logger: ...
+def configure_child_logger(
+    logger_name: str, 
+    logger: Logger | None, 
+    log_level: int
+) -> Logger: ...

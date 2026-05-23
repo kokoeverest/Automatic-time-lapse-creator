@@ -22,6 +22,7 @@ from google.auth.external_account_authorized_user import Credentials as Creds
 from .common.utils import shorten
 from .common.logger import configure_child_logger
 from .common.constants import (
+    DEFAULT_LOG_LEVEL,
     AuthMethod,
     VideoPrivacyStatus,
     YOUTUBE_URL_PREFIX,
@@ -62,7 +63,8 @@ class YouTubeAuth:
             auth_method: AuthMethod = AuthMethod.MANUAL,
             redirect_url: str | None = None,
             youtube_channel_name: str = "",
-            email_auth_timeout_seconds: int = DEFAULT_EMAIL_AUTH_TIMEOUT_SECONDS
+            email_auth_timeout_seconds: int = DEFAULT_EMAIL_AUTH_TIMEOUT_SECONDS,
+            log_level: int = DEFAULT_LOG_LEVEL
         ) -> None:
         self.redirect_url = None
         
@@ -72,7 +74,7 @@ class YouTubeAuth:
             else:
                 self.redirect_url = redirect_url
 
-        self.logger = configure_child_logger(logger_name="Authenticator", logger=logger)  
+        self.logger = configure_child_logger(logger_name="Authenticator", logger=logger, log_level=log_level)  
         self.validate_secrets_file(self.logger, youtube_client_secrets_file)
         
         if len(token_file_name) == 0:
@@ -340,8 +342,9 @@ class YouTubeUpload:
         youtube_category_id: str = YOUTUBE_MUSIC_CATEGORY,
         youtube_keywords: Iterable[str] = YOUTUBE_KEYWORDS,
         privacy_status: str = VideoPrivacyStatus.PUBLIC.value,
+        log_level: int = DEFAULT_LOG_LEVEL
     ) -> None:
-        self.logger = configure_child_logger(logger_name="YouTubeUploader", logger=logger)
+        self.logger = configure_child_logger(logger_name="YouTubeUploader", logger=logger, log_level=log_level)
 
         self.youtube = youtube_client
 
@@ -507,8 +510,9 @@ class YouTubeChannelManager:
         self,
         youtube_client: YouTubeAuth,
         logger: logging.Logger | None = None,
+        log_level: int = DEFAULT_LOG_LEVEL
     ) -> None:
-        self.logger = configure_child_logger(logger_name="YouTubeChannelManager", logger=logger)
+        self.logger = configure_child_logger(logger_name="YouTubeChannelManager", logger=logger, log_level=log_level)
         self.youtube = youtube_client
 
     def list_channel(self):

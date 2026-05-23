@@ -569,7 +569,7 @@ def test_collect_images_from_webcams_returns_False_if_not_daylight(
 
     # Act & Assert
     with patch.object(
-        sample_non_empty_time_lapse_creator.logger, "info", return_value=None
+        sample_non_empty_time_lapse_creator.logger, "debug", return_value=None
     ) as mock_logger:
         assert not sample_non_empty_time_lapse_creator.collect_images_from_webcams()
         assert mock_logger.call_count == 1
@@ -710,6 +710,10 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
             return_value=None,
         ) as mock_logger_info,
         patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.logger.warning",
+            return_value=None,
+        ) as mock_logger_warning,
+        patch(
             "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
             return_value=fake_non_empty_time_lapse_creator,
         ),
@@ -741,7 +745,8 @@ def test_execute_creates_video_for_every_source_when_all_images_are_collected():
         fake_non_empty_time_lapse_creator.set_sources_all_images_collected()
 
         fake_non_empty_time_lapse_creator.execute()
-        assert mock_logger_info.call_count == 2
+        assert mock_logger_info.call_count == 1
+        assert mock_logger_warning.call_count == 1
         assert mock_cache.call_count == 1
         assert mock_sleep.call_count == 0
         assert mock_create_video.call_count == len(
@@ -762,6 +767,10 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
             "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.logger.info",
             return_value=None,
         ) as mock_logger_info,
+        patch(
+            "tests.test_time_lapse_creator.fake_non_empty_time_lapse_creator.logger.warning",
+            return_value=None,
+        ) as mock_logger_warning,
         patch(
             "src.automatic_time_lapse_creator.cache_manager.CacheManager.get",
             return_value=fake_non_empty_time_lapse_creator,
@@ -799,7 +808,8 @@ def test_execute_creates_video_for_every_source_when_images_partially_collected(
             # images - partially collected or collected fully
         fake_non_empty_time_lapse_creator.delete_collected_daily_images = False
         fake_non_empty_time_lapse_creator.execute()
-        assert mock_logger_info.call_count == 2
+        assert mock_logger_info.call_count == 1
+        assert mock_logger_warning.call_count == 1
         assert mock_cache.call_count == 1
         assert mock_collect.called
         assert mock_sleep.call_count == 0
@@ -913,6 +923,9 @@ def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeMange
             patch.object(
                 sample_non_empty_time_lapse_creator.logger, "info", return_value=None
             ) as mock_logger_info,
+            patch.object(
+                sample_non_empty_time_lapse_creator.logger, "debug", return_value=None
+            ) as mock_logger_debug,
         ):
             mock_today.strptime.return_value = tm.MockDatetime.fake_today
             mock_today.today.return_value = fake_date
@@ -932,7 +945,8 @@ def test_is_it_next_day_changes_folder_name_and_creates_new_LocationAndTimeMange
                 old_weekly_folder_name is not sample_non_empty_time_lapse_creator.weekly_folder_name
             )
             assert old_location is sample_non_empty_time_lapse_creator.location
-            assert mock_logger_info.call_count == 2
+            assert mock_logger_info.call_count == 1
+            assert mock_logger_debug.call_count == 1
 
 
 def test_is_it_next_day_does_not_change_anything_if_it_is_the_same_day(
@@ -1496,8 +1510,8 @@ def test_is_next_month_logs_info(
             "src.automatic_time_lapse_creator.time_lapse_creator.dt",
         ) as mock_dt,
         patch.object(
-            sample_non_empty_time_lapse_creator.logger, "info"
-        ) as mock_logger_info,
+            sample_non_empty_time_lapse_creator.logger, "debug"
+        ) as mock_logger_debug,
     ):
         mock_dt.today.return_value = tm.MockDatetime.fake_day_for_a_monthly_video
         mock_dt.now.return_value = tm.MockDatetime.fake_now_wrong_hour
@@ -1506,7 +1520,7 @@ def test_is_next_month_logs_info(
 
         # Assert
         assert result is False
-        mock_logger_info.assert_called_once_with("Not next month")
+        mock_logger_debug.assert_called_once_with("Not next month")
 
 
 def test_process_monthly_summary_not_executed_when_videos_are_created(
@@ -1656,7 +1670,7 @@ def test_process_monthly_summary_no_video_queue(
             )
         assert mock_logger_info.call_count == len(
             sample_non_empty_time_lapse_creator.sources
-        ) * 2
+        )
 
         # Tear down
         [
