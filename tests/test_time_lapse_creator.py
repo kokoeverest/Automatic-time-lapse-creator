@@ -1650,6 +1650,9 @@ def test_process_monthly_summary_no_video_queue(
             sample_non_empty_time_lapse_creator.logger, "info"
         ) as mock_logger_info,
         patch.object(
+            sample_non_empty_time_lapse_creator.logger, "warning"
+        ) as mock_logger_warning,
+        patch.object(
             sample_non_empty_time_lapse_creator, "cache_self",
             return_value=None,
         ),
@@ -1669,6 +1672,9 @@ def test_process_monthly_summary_no_video_queue(
                 td.sample_month_january,
             )
         assert mock_logger_info.call_count == len(
+            sample_non_empty_time_lapse_creator.sources
+        )
+        assert mock_logger_warning.call_count == len(
             sample_non_empty_time_lapse_creator.sources
         )
 
