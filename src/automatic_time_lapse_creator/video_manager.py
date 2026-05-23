@@ -106,7 +106,7 @@ class VideoManager:
         path: str | Path,
         extension: str = JPG_FILE,
         delete_folder: bool = False,
-    ) -> bool:
+    ) -> int:
         """Deletes the image or video files from the specified folder.
 
         Args::
@@ -119,17 +119,16 @@ class VideoManager:
 
         Returns::
 
-            True - if the files were deleted successfully;
-            False - in case of Exception during files deletion
+            int - the deleted files count 
         """
         path = Path(path)
+        files_count = 0
         try:
             media_files: list[str] | Generator[Path] | None = path.glob(f"*{extension}")
             
             if not media_files:
                 media_files = []
 
-            files_count = 0
             for file in media_files:
                 os.remove(file)
                 files_count += 1
@@ -144,13 +143,13 @@ class VideoManager:
                     except PermissionError as exc:
                         logger.error(exc)
                     finally:
-                        return True
+                        return files_count
                 else:
                     logger.warning(f"Folder {shorten(str(path))} is not empty!")
-            return True
+            return files_count
         except Exception as exc:
             logger.error(exc, exc_info=True)
-            return False
+            return files_count
 
     @classmethod
     def create_summary_video(

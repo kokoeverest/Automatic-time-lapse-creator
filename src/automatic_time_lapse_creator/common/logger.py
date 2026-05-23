@@ -23,9 +23,10 @@ def configure_root_logger(
     log_queue: Queue[Any] | None = None,
     logger_name: str = "__root__",
     logger_base_path: str | None = None,
+    log_level: int = DEFAULT_LOG_LEVEL,
 ) -> Logger:
     """Configure the root logger, optionally using a QueueHandler."""
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=log_level)
     logger: Logger = logging.getLogger(logger_name)
 
     for handler in logger.handlers:
@@ -38,7 +39,7 @@ def configure_root_logger(
 
     formatter = logging.Formatter(fmt=LOGGING_FORMAT, datefmt=date_fmt)
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(log_level)
     console_handler.setFormatter(formatter)
 
     if log_queue:
@@ -53,7 +54,7 @@ def configure_root_logger(
         handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
-    handler.setLevel(logging.DEBUG)
+    handler.setLevel(log_level)
     logger.addHandler(handler)
 
     # Suppress DEBUG logs from urllib3
@@ -63,11 +64,9 @@ def configure_root_logger(
     return logger
 
 
-def configure_child_logger(logger_name: str, logger: Logger | None):
-
+def configure_child_logger(logger_name: str, logger: Logger | None, log_level: int):
     if logger is None:
         logger = logging.getLogger(logger_name)
-        logger.setLevel(DEFAULT_LOG_LEVEL)
     
     if not logger.hasHandlers():
         _log_handler = logging.StreamHandler()
@@ -79,4 +78,5 @@ def configure_child_logger(logger_name: str, logger: Logger | None):
     urllib3_logger = logging.getLogger("urllib3")
     urllib3_logger.setLevel(logging.INFO)
     
+    logger.setLevel(log_level)
     return logger

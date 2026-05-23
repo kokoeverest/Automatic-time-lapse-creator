@@ -38,6 +38,7 @@ from .common.constants import (
     DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER_VALIDATION_RANGE,
     DEFAULT_WAIT_BETWEEN_FRAMES_NIGHTTIME_MULTIPLIER,
     LOG_START_INT,
+    DEFAULT_LOG_LEVEL,
     VideoType,
 )
 from .common.exceptions import (
@@ -125,11 +126,12 @@ class TimeLapseCreator:
         quiet_mode: bool = True,
         log_queue: Queue[Any] | None = None,
         video_queue: Queue[Any] | None = None,
+        log_level: int = DEFAULT_LOG_LEVEL,
     ) -> None:
         self.base_path = os.path.join(os.getcwd(), path)
 
         self.logger = configure_root_logger(
-            log_queue=log_queue, logger_base_path=self.base_path
+            log_queue=log_queue, logger_base_path=self.base_path, log_level=log_level
         )
         self.location = LocationAndTimeManager(
             city_name=city,
@@ -157,6 +159,7 @@ class TimeLapseCreator:
         self.quiet_mode = quiet_mode
         self.video_queue = video_queue
         self.log_queue = log_queue
+        self.log_level = log_level
         self.delete_daily_videos = delete_daily_videos_after_summary_is_created
         self.delete_collected_daily_images = delete_collected_daily_images
         self._weekly_summary = create_weekly_summary_video
@@ -203,8 +206,7 @@ class TimeLapseCreator:
         Args: 
             value (str)
         """
-        self.logger.info(f"Weekly folder name ->\n"
-                         f"{LOG_START_INT * ' '}{self._weekly_folder_name} --> {value}\n")
+        self.logger.debug(f"\nWeekly folder name -> {self._weekly_folder_name} --> {value}\n")
         self._weekly_folder_name = value
 
     @staticmethod
@@ -319,16 +321,12 @@ class TimeLapseCreator:
         The method logs key events and maintains a cache of the current state to ensure continuity in case of
         interruptions.
 
-        Parameters:
-            video_queue: Queue[Any] | None - A queue to send video information for further processing or uploading.
-            log_queue: Queue[Any] | None - A queue for centralized logging across processes.
-
         Returns:
             None
         """
         if self.log_queue:
             _, tail = os.path.split(self.base_path)
-            self.logger = configure_root_logger(self.log_queue, tail)
+            self.logger = configure_root_logger(self.log_queue, tail, log_level=self.log_level)
         try:
             self.logger.info("Program starts!")
             self = self.get_cached_self()
@@ -368,7 +366,7 @@ class TimeLapseCreator:
 
         if self.log_queue:
             _, tail = os.path.split(self.base_path)
-            self.logger = configure_root_logger(self.log_queue, tail)
+            self.logger = configure_root_logger(self.log_queue, tail, log_level=self.log_level)
         
         try:
             self.logger.info("Program starts!")
@@ -379,10 +377,11 @@ class TimeLapseCreator:
                 collected = self.collect_with_custom_time_span(time_span)
                 if collected:
                     for source in self.sources:
+                        self.logger.debug(f"Creating video for source {source.location_name}")
                         _ = self.create_video(source, delete_source_images=self.delete_collected_daily_images)
                 
                     if self._weekly_summary and self.location.calendar.weekday == 7 and self.location.time_now >= _end():
-                        self.logger.info(f"Starting weekly video summary process -> time now {self.location.time_now}, end time {_end()}")
+                        self.logger.debug(f"Starting weekly video summary process -> time now {self.location.time_now}, end time {_end()}")
                         self.process_weekly_summary()
                 else:    
                     sleep(self.nighttime_wait_before_next_retry)          
@@ -469,6 +468,10 @@ class TimeLapseCreator:
             
             while _start() < self.location.time_now < _end():
                 self.__adjust_wait_before_next_frame()
+                if self.location.time_now + td(seconds=self.wait_before_next_frame) > _end():
+                    self.logger.debug("Location.time.now() + wait_before_next_frame > _end(): breaking loop...")
+                    break
+
                 for source in self.sources:
                     try:
                         img = source.get_frame_bytes()
@@ -490,10 +493,16 @@ class TimeLapseCreator:
                             )
                             self.__post_collect_actions(source)
 
-                    except Exception:
+                    except Exception as e:
+                        self.logger.error(f"Error during custom time span collection: {e}")
                         continue
+                
                 sleep(self.wait_before_next_frame)
 
+            if all(s.images_collected for s in self.sources):
+                self.logger.debug("Setting all images collected for all sources.")
+                return False
+            
             self.set_sources_all_images_collected()
             self.logger.info(f"Finished collecting for {self.folder_name}")
             self.cache_self()
@@ -501,7 +510,7 @@ class TimeLapseCreator:
             return True
         else:
             if not self.quiet_mode:
-                self.logger.info(f"Sleeping @{self.location.city.name} between {_end()} and {_start()}")
+                self.logger.debug(f"{self.location.time_now}: Sleeping @{self.location.city.name} between {_end()} and {_start()}")
             return False
 
     def __adjust_wait_before_next_frame(self) -> None:
@@ -515,11 +524,11 @@ class TimeLapseCreator:
         if not self.location.is_daylight():
             self.wait_before_next_frame = final_value
             if not self.quiet_mode:
-                self.logger.info(f"Night time detected! Increasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
+                self.logger.debug(f"Night time detected! Increasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
         else:
             self.wait_before_next_frame = self._initial_wait_before_next_frame
             if not self.quiet_mode:
-                self.logger.info(f"Daytime detected! Decreasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
+                self.logger.debug(f"Daytime detected! Decreasing wait_before_next_frame to {self.wait_before_next_frame} seconds")
 
     def __pre_collect_actions(self, source: Source) -> tuple[Path, str]:
         """Performs the actions before the image is collected.
@@ -569,7 +578,7 @@ class TimeLapseCreator:
                 )
             )
         else:
-            self.logger.info("No video queue provided and response is not sent.")
+            self.logger.warning("No video queue provided and response is not sent.")
         self.cache_self()
 
     def collect_images_from_webcams(self) -> bool:
@@ -621,7 +630,7 @@ class TimeLapseCreator:
             return True
         else:
             if not self.quiet_mode:
-                self.logger.info(f"Not daylight yet @{self.location.city.name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}")
+                self.logger.debug(f"Not daylight yet @{self.location.city.name} {self.location.time_now.strftime(HHMMSS_COLON_FORMAT)}")
             self.is_it_next_day()
             return False
 
@@ -671,7 +680,7 @@ class TimeLapseCreator:
             created = True
 
         if created and delete_source_images:
-            _ = vm.delete_source_media_files(self.logger, input_folder)
+            source.set_images_count(vm.delete_source_media_files(self.logger, input_folder))
 
         return created
 
@@ -987,7 +996,7 @@ class TimeLapseCreator:
         if dt.today().day == self._day_for_monthly_summary and 2 < dt.now().hour < 6:
             return True
         if not self.quiet_mode:
-            self.logger.info("Not next month")
+            self.logger.debug("Not next month")
         return False
 
     def process_monthly_summary(self):

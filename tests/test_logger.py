@@ -9,7 +9,7 @@ from src.automatic_time_lapse_creator.common.logger import configure_root_logger
 
 @pytest.fixture
 def mock_logger():
-    mock_logger = MagicMock(spec=logging.Logger)
+    mock_logger = MagicMock(spec=logging.Logger, level=None)
     mock_logger.handlers = []
     yield mock_logger
     mock_logger.reset_mock()
@@ -37,7 +37,7 @@ def test_configure_root_logger_creates_logger_with_default_settings():
         if isinstance(handler, TimedRotatingFileHandler):
             assert handler.level == logging.DEBUG
         elif isinstance(handler, logging.StreamHandler):
-            assert handler.level == logging.INFO
+            assert handler.level == logging.DEBUG
 
 
 def test_configure_root_logger_with_custom_logger_name():
@@ -103,14 +103,14 @@ def test_configure_root_logger_suppresses_urllib3_debug_logs():
 
 
 def test_configure_child_logger_returns_the_same_logger_if_not_None_and_has_handler(
-        mock_logger: logging.Logger
+    mock_logger: logging.Logger
 ):
     # Arrange
     mock_handler = MagicMock(spec=logging.StreamHandler)
     mock_logger.addHandler(mock_handler)
 
     # Act
-    actual_result = configure_child_logger("", mock_logger)
+    actual_result = configure_child_logger("", mock_logger, log_level=logging.INFO)
 
     # Assert
     assert actual_result is mock_logger
@@ -119,35 +119,36 @@ def test_configure_child_logger_returns_the_same_logger_if_not_None_and_has_hand
 
 def test_configure_child_logger_returns_the_same_logger_with_new_handler():
     logger = logging.getLogger("fake logger")
-    # Arrang 
+    # Arrange
     with (
         patch.object(logger, "hasHandlers", return_value= False),
         patch("logging.StreamHandler.__init__", return_value=None),
     ):
         # Act
-        actual_result = configure_child_logger("", logger)
+        actual_result = configure_child_logger("", logger, log_level=logging.INFO)
 
     # Assert
     assert actual_result is logger
     assert actual_result.hasHandlers()
+    assert actual_result.level == logging.INFO
     for handler in actual_result.handlers:
         assert isinstance(handler, logging.StreamHandler)
 
 
-def test_configure_child_logger_returns_new_logger_with_new_handler(mock_logger: logging.Logger):
+def test_configure_child_logger_returns_new_logger_with_new_handler():
     # Arrange
     logger = None
     logger_name = "new logger"
     
     with (
-        patch("logging.getLogger", return_value= mock_logger),
         patch("logging.StreamHandler.__init__", return_value=None),
     ):
         # Act
-        actual_result = configure_child_logger(logger_name, logger)
+        actual_result = configure_child_logger(logger_name, logger, log_level=logging.INFO)
 
     # Assert
     assert actual_result is not None
     assert actual_result.hasHandlers()
+    assert actual_result.level == logging.INFO
     for handler in actual_result.handlers:
         assert isinstance(handler, logging.StreamHandler)

@@ -165,7 +165,8 @@ def test_delete_source_media_files_returns_True_on_success(mock_logger: MagicMoc
         )
 
         # Assert
-        assert result
+        assert isinstance(result, int)
+        assert result > 0
         assert mock_remove.call_count == 10
         mock_glob.assert_called_once_with(os.path.join(f"*{JPG_FILE}"))
         mock_logger.info.assert_called_once()
@@ -192,7 +193,8 @@ def test_delete_source_media_files_returns_True_and_warns_if_folder_is_not_empty
         )
 
         # Assert
-        assert result
+        assert isinstance(result, int)
+        assert result > 0
         assert mock_remove.call_count == 10
         mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
         mock_glob.assert_called_once_with(
@@ -229,7 +231,8 @@ def test_delete_source_media_files_returns_True_if_folder_is_removed(
         )
 
         # Assert
-        assert result
+        assert isinstance(result, int)
+        assert result > 0
         assert mock_remove.call_count == 10
         mock_rmdir.assert_called_once()
         mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
@@ -266,7 +269,8 @@ def test_delete_source_media_files_returns_True_in_case_of_PermissionError(
         )
 
         # Assert
-        assert result
+        assert isinstance(result, int)
+        assert result > 0
         assert mock_remove.call_count == 10
         mock_rmdir.assert_called_once()
         mock_listdir.assert_called_once_with(Path(tm.mock_path_to_images_folder))
@@ -293,6 +297,7 @@ def test_delete_source_media_files_returns_False_on_Exception(mock_logger: Magic
 
     # Assert
     assert not result
+    assert result == 0
     assert mock_remove.call_count == 0
     mock_glob.assert_called_once_with(f"*{JPG_FILE}")
     mock_logger.error.assert_called_once()
